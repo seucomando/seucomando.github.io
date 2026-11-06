@@ -311,3 +311,4 @@ body.doc-aberto { overflow: hidden; }
 .file-btn { position: relative; cursor: pointer; }
 .file-btn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
 .rs-etapa { min-width: 230px; }
+.paper .t td.num { white-space: nowrap; }

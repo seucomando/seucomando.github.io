@@ -28,7 +28,7 @@
     return [
       { eq: eq[0], data: '2026-11-05', hora: h1, t: 3.6, por: 'e2' },
       { eq: eq[1], data: '2026-11-05', hora: h1, t: -19.5, por: 'e2' },
-      { eq: eq[3], data: '2026-11-05', hora: h1, t: 6.8, por: 'e2', acao: 'Porta da vitrine mal fechada. Fechada e conferida de novo; produtos dentro do prazo.' },
+      { eq: eq[3], data: '2026-11-05', hora: h1, t: 6.8, por: 'e2', acao: 'Porta mal fechada. Fechada e conferida de novo em 15 minutos; produtos dentro do prazo.' },
       { eq: eq[3], data: '2026-11-05', hora: h2, t: 4.1, por: 'e2' },
       { eq: eq[2], data: '2026-11-05', hora: h2, t: eq[4], por: 'e4' },
       { eq: eq[0], data: '2026-11-04', hora: h1, t: 3.9, por: 'e1' },
