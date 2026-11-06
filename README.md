@@ -36,6 +36,13 @@ No GitHub Pages, basta publicar a branch `main` na raiz.
 | Etiquetas e estoque | Estoque e etiquetas | Mínimo, validade e etiquetas com código de barras Code 39 real, prontas para imprimir |
 | Lista de compras | Lista de compras (e botão no Estoque) | Sugere o que está abaixo do mínimo com a quantidade até o estoque ideal, recebe pedidos da equipe, agrupa por fornecedor, envia o pedido pelo WhatsApp, imprime e, no recebimento, soma ao estoque |
 | Vales descontados em folha | Vales | Assinatura do funcionário obrigatória, alerta em 60% e trava em 70% do salário |
+| Pré-entrevista robusta | Página do candidato (`triagem.html`) | Contato, disponibilidade, transporte, pretensão, experiência, se já trabalhou na empresa, escolaridade, requisitos legais conforme o cargo (eliminatórios ou não) e uma situação do dia a dia do setor. O empregador vê todas as respostas em "Ver respostas" |
+| Contratos robustos e cláusulas do empregador | Contratos | Motor de cláusulas por cargo e setor (jornada, adicionais, descontos, SST por NR, LGPD, monitoramento, sigilo e rescisão), cláusulas opcionais prontas (imagem, biometria, não aliciamento, não concorrência com indenização, comodato, celular, cursos, troca de turno, reembolso de km) e cláusula própria com verificação automática de nulidade |
+| Prévia dos documentos e PDF | Todos os botões de imprimir | Folha A4 na tela, "Baixar PDF" (html2pdf, local) com rodapé e marca d'água no plano de avaliação, e "Imprimir" |
+| Boas práticas de alimentos (adicional) | Boas práticas | Registro de temperaturas com ação corretiva obrigatória fora da faixa, planilha em PDF, prazos da vigilância sanitária (manual, POPs, caixa-d'água, pragas, ASO, alvará) e validade dos produtos (RDC Anvisa 216/2004) |
+| Mini cursos para a equipe | Mini cursos | 7 cursos curtos (higiene, contaminação cruzada, temperaturas, recebimento e etiquetas, limpeza, alergênicos, segurança na cozinha) com teste e certificado em PDF, que comprova a capacitação exigida pela RDC 216 (item 4.6.7) |
+| Exemplo coerente com o ramo | "Abra seu painel" na landing | 13 ramos (padaria, hamburgueria, restaurante, mercado, loja, oficina, metalúrgica, confecção, construtora, salão, clínica, escritório e agência de R&S), cada um com equipe, cargos, produtos, checklists, vagas e horários próprios |
+| Recrutamento e seleção | Processos seletivos e Empresas clientes (ramo "agência") e `recrutamento.html` | Processo por cliente e função, triagem pelo link, entrevista com nota e parecer, lista curta só com quem autorizou compartilhar (LGPD, art. 7º, § 5º) e envio ao cliente: integrado (cai em Vagas do cliente para aprovar ou recusar, e a decisão volta) ou pasta .zip com dossiê PDF, CSV e arquivo de dados que outra empresa com o Centralizar importa |
 
 ## Estrutura
 
@@ -47,6 +54,15 @@ assets/css/app.css    estilo do painel
 assets/js/site.js     interações da landing
 assets/js/app.js      telas, regras e ações do painel
 assets/js/data.js     dados de exemplo e base de contratos
+assets/js/perfis.js   exemplos de alimentação e boas práticas
+assets/js/perfis2.js  demais ramos e a agência de recrutamento
+assets/js/cargos.js   221 cargos com CBO e pontos trabalhistas (gerado)
+assets/js/clausulas.js motor de cláusulas do contrato
+assets/js/perguntas.js perguntas da pré-entrevista por cargo
+assets/js/cursos.js   mini cursos de boas práticas
+assets/js/vendor/     html2pdf.js 0.10.2 (MIT), usado para gerar os PDFs no navegador
+recrutamento.html     página para agências de recrutamento e seleção
+triagem.html          pré-entrevista que o candidato responde
 assets/js/code39.js   gerador de código de barras
 assets/img/           logo e favicon
 SECURITY.md           análise de segurança e requisitos para a versão real

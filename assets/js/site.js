@@ -288,4 +288,17 @@
     });
   }, { rootMargin: '0px 0px -8% 0px' });
   rises.forEach(function (el) { seen.observe(el); });
+
+  // Tipo de negócio sugerido pelo nome digitado (o usuário pode trocar)
+  (function () {
+    var nome = document.getElementById('empresa'), tipo = document.getElementById('tipo'), mexeu = false;
+    if (!nome || !tipo) return;
+    tipo.addEventListener('change', function () { mexeu = true; });
+    nome.addEventListener('input', function () {
+      if (mexeu) return;
+      var t = nome.value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      var R = [['recrutamento', /recrut|selecao|talent|headhunt|agencia de emprego/], ['hamburgueria', /burg|lanch|smash|sanduich|dog/], ['restaurante', /restaur|bistro|cantina|churrasc|grill|marmit|buffet|pizz/], ['padaria', /padar|panific|confeit|doce|bolo/], ['mercado', /mercad|supermerc|atacad|hortifrut|acougue/], ['metalurgica', /metal|usinag|caldeir|serralh|solda|industria/], ['confeccao', /confec|costur|malharia|textil|uniforme/], ['construtora', /constru|engenharia|obra|incorpor|empreit/], ['salao', /salao|beleza|barbear|estetica|studio|cabelo|unha/], ['oficina', /oficina|auto ?center|mecanic|funilar|autopec|borrach/], ['clinica', /clinic|odonto|dent|consultorio|sorriso/], ['escritorio', /contab|escritorio|assessoria|consultoria/], ['loja', /loja|moda|roupa|calcad|boutique/]];
+      for (var i = 0; i < R.length; i++) if (R[i][1].test(t)) { tipo.value = R[i][0]; break; }
+    });
+  })();
 })();

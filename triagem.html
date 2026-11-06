@@ -14,6 +14,10 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=Inter:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="assets/css/app.css">
 <script src="assets/js/data.js" defer></script>
+<script src="assets/js/perfis.js" defer></script>
+<script src="assets/js/perfis2.js" defer></script>
+<script src="assets/js/cargos.js" defer></script>
+<script src="assets/js/perguntas.js" defer></script>
 <script src="assets/js/triagem.js" defer></script>
 </head>
 <body class="cand-body">
@@ -26,42 +30,68 @@
     </div>
   </header>
 
-  <form id="triagem" class="card card-pad stack" novalidate>
-    <p>Responda em 2 minutos. <strong>Nenhum documento é pedido agora</strong>: se você for chamado(a) para entrevista, a empresa avisa pelo WhatsApp.</p>
+  <form id="triagem" class="stack" novalidate>
+    <div class="card card-pad stack">
+      <p>Responda em cerca de 5 minutos. <strong>Nenhum documento é pedido agora</strong>: se você for chamado(a) para entrevista, a empresa avisa pelo WhatsApp.</p>
+      <p class="ui-sub" id="t-cargo"></p>
+    </div>
 
-    <div class="field"><label for="t-nome">Seu nome completo</label><input id="t-nome" name="nome" maxlength="80" autocomplete="name" required></div>
-    <div class="field"><label for="t-fone">WhatsApp com DDD</label><input id="t-fone" name="fone" type="tel" inputmode="tel" maxlength="20" placeholder="(48) 9 0000-0000" autocomplete="tel" required></div>
-
-    <fieldset class="field cand-set"><legend>Como você quer trabalhar?</legend>
-      <label class="check"><input type="radio" name="regime" value="clt" required> Com carteira assinada (CLT)</label>
-      <label class="check"><input type="radio" name="regime" value="free"> Como freelancer, por diária</label>
-      <label class="check"><input type="radio" name="regime" value="temp"> Temporário</label>
-      <label class="check"><input type="radio" name="regime" value="tanto"> Tanto faz</label>
+    <fieldset class="card card-pad stack cand-sec"><legend class="sec">Seus dados</legend>
+      <div class="field"><label for="t-nome">Nome completo</label><input id="t-nome" name="nome" maxlength="80" autocomplete="name" required></div>
+      <div class="field"><label for="t-fone">WhatsApp com DDD</label><input id="t-fone" name="fone" type="tel" inputmode="tel" maxlength="20" placeholder="(48) 9 0000-0000" autocomplete="tel" required></div>
+      <div class="field"><label for="t-email">E-mail (opcional)</label><input id="t-email" name="email" type="email" maxlength="80" autocomplete="email"></div>
+      <div class="field"><label for="t-bairro">Bairro e cidade onde mora</label><input id="t-bairro" name="bairro" maxlength="60" placeholder="Ex.: Pinheirinho, Criciúma" required></div>
     </fieldset>
 
-    <fieldset class="field cand-set"><legend>Em quais turnos você pode trabalhar?</legend>
-      <label class="check"><input type="checkbox" name="turnos" value="manha"> Manhã</label>
-      <label class="check"><input type="checkbox" name="turnos" value="tarde"> Tarde</label>
-      <label class="check"><input type="checkbox" name="turnos" value="noite"> Noite</label>
-      <label class="check"><input type="checkbox" name="turnos" value="fds"> Fim de semana</label>
+    <fieldset class="card card-pad stack cand-sec"><legend class="sec">Como você quer trabalhar</legend>
+      <fieldset class="field cand-set"><legend>Tipo de contratação que você procura</legend>
+        <label class="check"><input type="radio" name="regime" value="clt" required> Com carteira assinada (CLT)</label>
+        <label class="check"><input type="radio" name="regime" value="free"> Como freelancer, por diária</label>
+        <label class="check"><input type="radio" name="regime" value="temp"> Temporário</label>
+        <label class="check"><input type="radio" name="regime" value="tanto"> Tanto faz</label>
+      </fieldset>
+      <fieldset class="field cand-set"><legend>Turnos em que você pode trabalhar</legend>
+        <label class="check"><input type="checkbox" name="turnos" value="manha"> Manhã</label>
+        <label class="check"><input type="checkbox" name="turnos" value="tarde"> Tarde</label>
+        <label class="check"><input type="checkbox" name="turnos" value="noite"> Noite</label>
+        <label class="check"><input type="checkbox" name="turnos" value="fds"> Fim de semana</label>
+      </fieldset>
+      <div class="field"><label for="t-fer">Trabalha em feriados e domingos, conforme escala?</label><select id="t-fer" name="fds" required><option value="">Escolha</option><option value="sim">Sim</option><option value="asvezes">Às vezes</option><option value="nao">Não</option></select></div>
+      <div class="field"><label for="t-inicio">Quando pode começar?</label><select id="t-inicio" name="inicio" required><option value="">Escolha</option><option value="imediato">Imediatamente</option><option value="d15">Em até 15 dias</option><option value="d30">Em até 30 dias</option></select></div>
+      <div class="field"><label for="t-km">Distância da sua casa até o local de trabalho</label><select id="t-km" name="km" required><option value="">Escolha</option><option value="2">Até 2 km</option><option value="5">Até 5 km</option><option value="10">Até 10 km</option><option value="15">Até 15 km</option><option value="20">Mais de 15 km</option></select></div>
+      <div class="field"><label for="t-transp">Como você chegaria ao trabalho?</label><select id="t-transp" name="transporte" required><option value="">Escolha</option><option value="pe">A pé ou de bicicleta</option><option value="onibus">De ônibus (com vale-transporte)</option><option value="moto">Moto própria</option><option value="carro">Carro próprio</option></select></div>
+      <div class="field"><label for="t-pret">Pretensão salarial mensal</label><select id="t-pret" name="pretensao" required><option value="">Escolha</option><option value="a1800">Até R$ 1.800</option><option value="a2200">R$ 1.800 a R$ 2.200</option><option value="a2800">R$ 2.200 a R$ 2.800</option><option value="m2800">Acima de R$ 2.800</option><option value="combinar">A combinar</option></select></div>
     </fieldset>
 
-    <div class="field"><label for="t-km">Distância da sua casa até a loja</label>
-      <select id="t-km" name="km" required><option value="">Escolha</option><option value="2">Até 2 km</option><option value="5">Até 5 km</option><option value="10">Até 10 km</option><option value="15">Até 15 km</option><option value="20">Mais de 15 km</option></select></div>
+    <fieldset class="card card-pad stack cand-sec"><legend class="sec">Sua experiência</legend>
+      <div class="field"><label for="t-exp">Tempo de experiência nesta função</label><select id="t-exp" name="exp" required><option value="">Escolha</option><option value="0">Nenhuma ainda</option><option value="1">Cerca de 1 ano</option><option value="2">Cerca de 2 anos</option><option value="3">3 anos ou mais</option></select></div>
+      <div class="field"><label for="t-ult">Última experiência: empresa, função e quanto tempo (opcional)</label><input id="t-ult" name="ultima" maxlength="120" placeholder="Ex.: Lanchonete X, atendente, 1 ano e 3 meses"></div>
+      <div class="field"><label for="t-ja">Você já trabalhou nesta empresa?</label><select id="t-ja" name="jaTrabalhou" required><option value="">Escolha</option><option value="nao">Não</option><option value="mesma">Sim, nesta mesma função</option><option value="outra">Sim, em outra função</option></select></div>
+      <div class="field"><label for="t-esc">Escolaridade</label><select id="t-esc" name="escolaridade" required><option value="">Escolha</option><option value="fi">Fundamental incompleto</option><option value="fc">Fundamental completo</option><option value="mi">Médio incompleto</option><option value="mc">Médio completo</option><option value="si">Superior incompleto</option><option value="sc">Superior completo</option></select></div>
+    </fieldset>
 
-    <div class="field"><label for="t-exp">Experiência na função</label>
-      <select id="t-exp" name="exp" required><option value="">Escolha</option><option value="0">Nenhuma ainda</option><option value="1">Cerca de 1 ano</option><option value="2">Cerca de 2 anos</option><option value="3">3 anos ou mais</option></select></div>
+    <fieldset class="card card-pad stack cand-sec" id="t-reqs-box" hidden><legend class="sec">Requisitos desta função</legend>
+      <div id="t-reqs" class="stack"></div>
+    </fieldset>
 
-    <label class="check"><input type="checkbox" name="contato" value="sim" checked> Aceito receber mensagens desta empresa pelo WhatsApp sobre esta vaga</label>
+    <fieldset class="card card-pad stack cand-sec"><legend class="sec">Situações do dia a dia</legend>
+      <div class="field"><label for="t-sit" id="t-sit-l">Conte uma situação</label><textarea id="t-sit" name="sit1" maxlength="400" required></textarea></div>
+      <div class="field"><label for="t-porque">Por que você quer trabalhar aqui? (opcional)</label><textarea id="t-porque" name="sit2" maxlength="300"></textarea></div>
+    </fieldset>
 
-    <p class="ui-sub">Seus dados servem só para esta seleção (LGPD, art. 7º, V) e são apagados em até 6 meses se você não for contratado(a). Esta pré-entrevista não pergunta idade, estado civil, filhos, gravidez, cor, origem nem deficiência (Lei 9.029/95).</p>
-    <p class="notice bad" id="t-erro" hidden></p>
-    <button class="btn btn-primary cand-send" type="submit">Enviar respostas</button>
+    <fieldset class="card card-pad stack cand-sec"><legend class="sec">Contato e privacidade</legend>
+      <label class="check"><input type="checkbox" name="contato" value="sim" checked> Aceito receber mensagens desta empresa pelo WhatsApp sobre esta vaga</label>
+      <label class="check"><input type="checkbox" name="verdade" value="sim" required> Declaro que as informações são verdadeiras</label>
+      <div id="t-comp-box" hidden><label class="check"><input type="checkbox" name="compartilhar" value="sim"> <span id="t-comp-l">Autorizo compartilhar minhas respostas com a empresa contratante, só para esta vaga</span></label><p class="ui-sub">Sem essa autorização a agência não pode apresentar você à empresa (LGPD, art. 7º, § 5º). Você pode retirar a autorização quando quiser.</p></div>
+      <p class="ui-sub">Seus dados servem só para esta seleção (LGPD, art. 7º, V) e são apagados em até 6 meses se você não for contratado(a). Você pode pedir a exclusão a qualquer momento pelo WhatsApp da empresa. Esta pré-entrevista não pergunta sexo, estado civil, filhos, gravidez, cor, religião, origem, saúde, deficiência nem antecedentes criminais (Lei 9.029/95); a idade só é perguntada quando a lei exige maioridade para a função.</p>
+      <p class="notice bad" id="t-erro" tabindex="-1" hidden></p>
+      <button class="btn btn-primary cand-send" type="submit">Enviar respostas</button>
+    </fieldset>
   </form>
 
   <section class="card card-pad stack" id="t-ok" hidden>
     <h2 class="sec" id="t-ok-tit">Recebemos suas respostas</h2>
-    <p id="t-ok-txt">Obrigado! Se o seu perfil combinar com a vaga, a empresa chama você para uma entrevista pelo WhatsApp.</p>
+    <p>Obrigado! Se o seu perfil combinar com a vaga, a empresa chama você para uma entrevista pelo WhatsApp.</p>
     <p class="ui-sub">Neste protótipo, a resposta aparece no painel da empresa, em Vagas e seleção, neste mesmo navegador.</p>
     <a class="btn" href="app.html#/vagas">Ver como a empresa recebe</a>
   </section>

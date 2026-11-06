@@ -171,6 +171,23 @@ meter::-webkit-meter-even-less-good-value { background: #B3412A; }
 .file-btn { position: relative; overflow: hidden; }
 .file-btn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 
+/* Prévia do documento (A4) */
+.docview { position: fixed; inset: 0; z-index: 80; background: #DDE3DE; display: grid; grid-template-rows: auto minmax(0, 1fr); }
+.docbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 20px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.docbar strong { display: block; }
+.docscroll { overflow: auto; padding: 24px 12px 48px; }
+.sheet-a4 { width: 210mm; max-width: 100%; min-height: 297mm; margin: 0 auto; background: #fff; padding: 16mm 15mm; box-shadow: 0 10px 30px -12px rgba(0, 0, 0, .3); color: #17211C; }
+.sheet-a4 .paper { border: 0; padding: 0; max-width: none; font-size: 13px; line-height: 1.55; }
+.sheet-a4 .sugestao { display: none; }
+body.doc-aberto { overflow: hidden; }
+.paper .cl h4 { font-size: 12.5px; letter-spacing: .02em; margin: 14px 0 6px; color: var(--accent-ink); }
+.paper .cl p { margin: 0 0 6px; text-align: justify; }
+.paper .sig span { line-height: 1.35; }
+.cand-resp li { align-items: flex-start; }
+.cand-sec { border: 1px solid var(--border); }
+.cand-sec legend.sec { padding: 0 4px; }
+@media (max-width: 860px) { .sheet-a4 { padding: 18px 14px; min-height: 0; } }
+
 /* Página do candidato (pré-entrevista) */
 .cand-body { background: var(--ground); }
 .cand-page { max-width: 560px; margin: 0 auto; padding: 24px 16px 48px; display: grid; gap: 16px; }
@@ -258,3 +275,39 @@ meter::-webkit-meter-even-less-good-value { background: #B3412A; }
   .t.stack-sm td { border: 0; padding: 0; }
   .t.stack-sm td.hide-sm { display: none; }
 }
+
+/* Vagas: coluna do candidato não espreme */
+.table-box .t td:first-child { min-width: 190px; }
+.table-box .t td:first-child .link-btn { white-space: nowrap; }
+
+/* Contratos: cláusulas adicionais */
+.opc-list { display: grid; gap: 10px; }
+.check.opc { align-items: flex-start; }
+.check.opc .sub { display: block; font-size: 12.5px; color: var(--muted); font-weight: 400; margin-top: 2px; }
+.opc-par { margin: -2px 0 4px 28px; }
+.extra-list li { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.extra-list .sub { display: block; font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.extra-form { border-top: 1px solid var(--rule); padding-top: 14px; }
+
+/* Cópia usada para gerar o PDF: sem moldura de tela */
+.sheet-a4.pdf-gen { width: auto; max-width: none; min-height: 0; padding: 0; margin: 0; box-shadow: none; }
+
+/* Mini cursos e certificado */
+.curso-wrap { max-width: 720px; }
+.curso-txt { font-size: 17px; line-height: 1.6; }
+.curso-wrap .actions, .list .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; justify-content: flex-end; }
+.cursos-t td, .cursos-t th { white-space: nowrap; }
+.cursos-t td:first-child { white-space: normal; }
+.paper.cert { text-align: left; }
+.paper.cert .cert-k { text-align: center; text-transform: uppercase; letter-spacing: .14em; font-size: 12px; font-weight: 700; color: #1F7A4D; margin-top: 24px; }
+.paper.cert h3 { font-size: 26px; margin: 6px 0 14px; }
+.paper .t { width: 100%; border-collapse: collapse; margin: 10px 0 14px; font-size: 12px; }
+.paper .t th, .paper .t td { border-bottom: 1px solid #DCE5DF; padding: 5px 6px; text-align: left; }
+.paper .t .num { text-align: right; }
+
+/* Recrutamento e seleção */
+.stars { color: #C98A12; letter-spacing: 1px; white-space: nowrap; }
+.stars .faint { color: #CFD8D2; }
+.file-btn { position: relative; cursor: pointer; }
+.file-btn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+.rs-etapa { min-width: 230px; }

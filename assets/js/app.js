@@ -1,16 +1,21 @@
 /* Centralizar — painel (protótipo navegável). Sem servidor: os dados de exemplo ficam só neste navegador. */
 (function () {
   'use strict';
-  var KEY = 'centralizar-prototipo-v5';
+  var KEYBASE = 'centralizar-prototipo-v8', KEYTIPO = 'centralizar-tipo-atual';
+  var KEYINT = 'centralizar-integracao-v1'; // envios entre recrutadora e empresas (compartilhado entre os exemplos)
+  function tipoGuardado() { try { return localStorage.getItem(KEYTIPO) || 'padaria'; } catch (e) { return 'padaria'; } }
+  var KEY = KEYBASE + ':' + tipoGuardado();
   var SEED = window.BROTA_SEED, TPL = window.BROTA_CONTRATOS;
   var doc = document, view = doc.getElementById('view');
   var ME = 'e1'; // a funcionária usada na visão "Funcionário"
-  var DEMO_AGORA = '10:40'; // horário fixo para a situação do ponto no exemplo
   var S = load();
 
   /* ---------- utilidades ---------- */
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
-  function load() { try { var r = localStorage.getItem(KEY); if (r) return JSON.parse(r); } catch (e) { /* sem armazenamento: usa o exemplo */ } var s = clone(SEED); s.role = 'empresa'; s.ui = {}; s.nsr = 4812; return s; }
+  function load() { try { var r = localStorage.getItem(KEY); if (r) return JSON.parse(r); } catch (e) { /* sem armazenamento: usa o exemplo */ } return novoExemplo(KEY.split(':')[1] || 'padaria'); }
+  function trocarTipo(tp) { try { localStorage.setItem(KEYTIPO, tp); } catch (e) { /* ignora */ } KEY = KEYBASE + ':' + tp; S = load(); }
+  function novoExemplo(tipo) { var s = window.CENTRALIZAR_SEED ? window.CENTRALIZAR_SEED(tipo) : clone(SEED); s.role = 'empresa'; s.ui = {}; s.nsr = 4812; return s; }
+  function demoAgora() { return S.agoraDemo || '10:40'; } // horário fixo da situação do ponto no exemplo
   function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* ignora */ } }
   function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function brl(v) { return Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
@@ -34,7 +39,12 @@
   (function () {
     try {
       var q = new URLSearchParams(location.search), n = (q.get('empresa') || '').trim().slice(0, 60);
-      if (n) { S.empresa.nome = n; save(); history.replaceState(null, '', location.pathname + location.hash); }
+      var tp = q.get('tipo') || '', TP = window.CENTRALIZAR_TIPOS || {};
+      if (!TP[tp]) tp = (window.CENTRALIZAR_TIPO_DO_NOME && window.CENTRALIZAR_TIPO_DO_NOME(n)) || '';
+      if (tp && TP[tp] && tp !== S.tipo) trocarTipo(tp);
+      if (n) S.empresa.nome = n;
+      semearInteg();
+      if (n || tp) { if (n) S.empresa.razao = n + (/ltda|me$|eireli|s\.?a\.?$/i.test(n) ? '' : ' Ltda'); save(); history.replaceState(null, '', location.pathname + location.hash); }
     } catch (e) { /* ignora */ }
   })();
 
@@ -68,7 +78,7 @@
     var m = S.ponto[p.id] || ['', '', '', ''];
     var at = S.atestados.filter(function (a) { return a.pessoa === p.id && diffDays(a.inicio, S.hoje) >= 0 && diffDays(a.inicio, S.hoje) < a.dias; })[0];
     if (at) return ['mute', 'Atestado até ' + dmy(addDays(at.inicio, at.dias - 1))];
-    if (!m[0]) return min(p.escala) > min(DEMO_AGORA) ? ['mute', 'Entra às ' + p.escala] : ['bad', 'Ausente'];
+    if (!m[0]) return min(p.escala) > min(demoAgora()) ? ['mute', 'Entra às ' + p.escala] : ['bad', 'Ausente'];
     var atraso = min(m[0]) - min(p.escala);
     if (m[3]) return ['mute', 'Jornada encerrada'];
     if (atraso > 10) return ['warn', 'Atraso de ' + atraso + ' min'];
@@ -88,6 +98,10 @@
     vales: { t: 'Vales', r: 'empresa contador funcionario', f: vVales },
     estoque: { t: 'Estoque e etiquetas', r: 'empresa', f: vEstoque },
     compras: { t: 'Lista de compras', r: 'empresa funcionario', f: vCompras },
+    selecao: { t: 'Processos seletivos', r: 'empresa', f: vSelecao },
+    clientes: { t: 'Empresas clientes', r: 'empresa', f: vClientes },
+    boas: { t: 'Boas práticas de alimentos', r: 'empresa funcionario', f: vBoas },
+    cursos: { t: 'Mini cursos', r: 'empresa funcionario', f: vCursos },
     busca: { t: 'Busca', r: 'empresa contador funcionario', f: vBusca }
   };
   function route() { var h = location.hash.replace(/^#\/?/, '').split('?')[0]; return ROUTES[h] ? h : 'inicio'; }
@@ -97,7 +111,7 @@
     view.innerHTML = '<div class="view">' + R.f() + '</div>';
     doc.title = R.t + ' · Centralizar';
     $$('#nav a').forEach(function (a) {
-      var ok = a.dataset.roles.split(' ').indexOf(S.role) > -1;
+      var ok = a.dataset.roles.split(' ').indexOf(S.role) > -1 && !(a.hasAttribute('data-food') && !S.bp) && !(a.hasAttribute('data-rs') && !S.agencia) && !(a.hasAttribute('data-nors') && S.agencia);
       a.hidden = !ok;
       if (a.getAttribute('href') === '#/' + r) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     });
@@ -142,7 +156,7 @@
       '<div class="grid-main"><div class="stack">' +
       '<div class="card kpis">' +
       '<div class="kpi"><div class="lbl">Pessoas ativas</div><div class="val num">' + S.pessoas.length + '</div><div class="cap">' + S.admissoes.length + ' admissões em andamento</div></div>' +
-      '<div class="kpi"><div class="lbl">No trabalho agora</div><div class="val num">' + presentes + '</div><div class="cap">pelo ponto das ' + DEMO_AGORA + '</div></div>' +
+      '<div class="kpi"><div class="lbl">No trabalho agora</div><div class="val num">' + presentes + '</div><div class="cap">pelo ponto das ' + demoAgora() + '</div></div>' +
       '<div class="kpi"><div class="lbl">Holerites de outubro</div><div class="val num">' + aguard + '</div><div class="cap">aguardando aprovação</div></div>' +
       '<div class="kpi"><div class="lbl">Faltas não abonadas</div><div class="val num">' + fa.length + '</div><div class="cap">outubro, antes de fechar a folha</div></div></div>' +
       '<div class="card"><div class="card-head"><h2>Pendências da semana</h2><span class="pill mute">' + pend.length + ' no total</span></div><div class="table-box"><table class="t stack-sm"><thead><tr><th>O que falta</th><th>Situação</th><th class="num">Ação</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>' +
@@ -153,8 +167,10 @@
   /* ---------- Vagas e pré-entrevista ---------- */
   var REG = { clt: 'CLT', free: 'Freelancer', temp: 'Temporário', tanto: 'Tanto faz', qualquer: 'Qualquer' };
   var TUR = { manha: 'Manhã', tarde: 'Tarde', noite: 'Noite', fds: 'Fim de semana' };
-  function vagaAtual() { var id = S.ui.vaga || 'g1'; return S.vagas.filter(function (v) { return v.id === id; })[0]; }
+  function vagaAtual() { var id = S.ui.vaga; return S.vagas.filter(function (v) { return v.id === id; })[0] || S.vagas[0]; }
   function avalia(c, k) {
+    var rq = c.reqs || {}, reqFalta = (window.CENTRALIZAR_REQS || []).filter(function (r) { return r.elim && rq[r.k] === 'nao'; })[0];
+    if (reqFalta) return 'Sem ' + reqFalta.curto;
     if (!(k.regime === 'qualquer' || c.regime === 'tanto' || c.regime === k.regime)) return 'Regime diferente';
     var falta = k.turnos.filter(function (t) { return c.turnos.indexOf(t) < 0; });
     if (falta.length) return 'Não faz ' + TUR[falta[0]].toLowerCase();
@@ -171,13 +187,15 @@
     if (m) return '<span class="ui-sub">Descartado na triagem</span>';
     return '<button type="button" class="btn btn-sm btn-primary" data-act="ent-modal" data-i="' + i + '">Chamar para entrevista</button>';
   }
+  function reqsDaVaga(g) { var cg = cargoPor(g.cargo); return cg && window.CENTRALIZAR_REQS_DO_CARGO ? window.CENTRALIZAR_REQS_DO_CARGO(cg) : []; }
+  function situacaoDoCargo(g) { var cg = cargoPor(g.cargo); return (cg && (window.CENTRALIZAR_SITUACOES || {})[cg.setor]) || window.CENTRALIZAR_SITUACAO_PADRAO || ''; }
   function vVagas() {
     var g = vagaAtual(), k = g.crit;
     var tabs = S.vagas.map(function (v) { return '<button type="button" role="tab" aria-selected="' + (v.id === g.id) + '" data-act="vaga" data-id="' + v.id + '">' + esc(v.titulo) + '</button>'; }).join('');
     var aptos = 0;
     var rows = g.cands.map(function (c, i) {
       var m = avalia(c, k); if (!m) aptos++;
-      return '<tr><td><strong>' + esc(c.n) + '</strong>' + (c.novo ? ' ' + pill('warn', 'Novo') : '') + '<span class="sub">' + esc(c.fone) + (c.contato ? '' : ' · não autorizou WhatsApp') + '</span></td><td>' + esc(REG[c.regime]) + '</td><td class="hide-sm">' + c.turnos.map(function (t) { return esc(TUR[t]); }).join(', ') + '</td><td class="num hide-sm">' + c.km + ' km</td><td class="num hide-sm">' + c.exp + (c.exp === 1 ? ' ano' : ' anos') + '</td><td>' + (m ? pill('mute', m) : pill('ok', 'Passou')) + '</td><td>' + etapaHTML(c, i, m) + '</td></tr>';
+      return '<tr><td><strong>' + esc(c.n) + '</strong>' + (c.novo ? ' ' + pill('warn', 'Novo') : '') + (c.jaTrabalhou === 'mesma' ? ' ' + pill('bad', 'Ex-empregado na função') : '') + '<span class="sub">' + esc(c.fone) + (c.contato ? '' : ' · não autorizou WhatsApp') + ' · <button type="button" class="link-btn" data-act="cand-ver" data-i="' + i + '">Ver respostas</button></span></td><td>' + esc(REG[c.regime]) + '</td><td class="hide-sm">' + c.turnos.map(function (t) { return esc(TUR[t]); }).join(', ') + '</td><td class="num hide-sm">' + c.km + ' km</td><td class="num hide-sm">' + c.exp + (c.exp === 1 ? ' ano' : ' anos') + '</td><td>' + (m ? pill('mute', m) : pill('ok', 'Passou')) + '</td><td>' + etapaHTML(c, i, m) + '</td></tr>';
     }).join('');
     var conta = function (et) { return g.cands.filter(function (c) { return et.indexOf(c.etapa) > -1; }).length; };
     var kpi = function (l, v, cap) { return '<div class="kpi"><div class="lbl">' + l + '</div><div class="val num">' + v + '</div><div class="cap">' + cap + '</div></div>'; };
@@ -185,17 +203,19 @@
     var seg = ['clt', 'free', 'temp', 'qualquer'].map(function (r) { return '<button type="button" data-act="crit-reg" data-v="' + r + '" aria-pressed="' + (k.regime === r) + '">' + REG[r] + '</button>'; }).join('');
     var chips = Object.keys(TUR).map(function (t) { return '<button type="button" class="chip" data-act="crit-tur" data-v="' + t + '" aria-pressed="' + (k.turnos.indexOf(t) > -1) + '">' + TUR[t] + '</button>'; }).join('');
     var exps = [0, 1, 2, 3].map(function (n) { return '<option value="' + n + '"' + (k.exp === n ? ' selected' : '') + '>' + (n ? 'Pelo menos ' + n + (n === 1 ? ' ano' : ' anos') : 'Sem exigência') + '</option>'; }).join('');
-    return titleRow('Vagas e seleção', esc(g.titulo) + ' · ' + esc(g.regimeOferta), '<a class="btn" href="triagem.html?vaga=' + esc(g.id) + '" target="_blank" rel="noopener">Ver como o candidato responde</a><button type="button" class="btn btn-primary" data-act="copiar-link">Copiar link da pré-entrevista</button>') +
+    return titleRow('Vagas e seleção', esc(g.titulo) + ' · ' + esc(g.regimeOferta), '<a class="btn" href="triagem.html?vaga=' + esc(g.id) + '&amp;t=' + esc(S.tipo || '') + '" target="_blank" rel="noopener">Ver como o candidato responde</a><button type="button" class="btn btn-primary" data-act="copiar-link">Copiar link da pré-entrevista</button>') +
       '<div class="tabs" role="tablist">' + tabs + '</div>' +
-      '<div class="grid-main"><div class="stack">' + funil + '<div class="card"><div class="card-head"><h2>Candidatos</h2><span class="ui-sub">Triagem, entrevista e documentos, nessa ordem</span></div><div class="table-box"><table class="t stack-sm"><thead><tr><th>Candidato</th><th>Quer trabalhar como</th><th class="hide-sm">Turnos</th><th class="num hide-sm">Distância</th><th class="num hide-sm">Experiência</th><th>Triagem</th><th>Etapa</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>' +
+      '<div class="grid-main"><div class="stack">' + recebidosHTML() + funil + '<div class="card"><div class="card-head"><h2>Candidatos</h2><span class="ui-sub">Triagem, entrevista e documentos, nessa ordem</span></div><div class="table-box"><table class="t stack-sm"><thead><tr><th>Candidato</th><th>Quer trabalhar como</th><th class="hide-sm">Turnos</th><th class="num hide-sm">Distância</th><th class="num hide-sm">Experiência</th><th>Triagem</th><th>Etapa</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>' +
       '<div class="notice info"><div><strong>Como a seleção anda</strong>A triagem só descarta quem não se encaixa nos seus critérios. Quem passa é chamado para entrevista; só quem você aprova na entrevista recebe o link de documentos. Depois, o contador confere e você dá o ok final em Admissões.</div></div></div>' +
       '<div class="stack"><div class="card card-pad stack"><h2 class="sec">Critérios da triagem</h2>' +
       '<div class="field"><span class="lbl-s">Regime da vaga</span><div class="seg">' + seg + '</div></div>' +
       '<div class="field"><span class="lbl-s">Turnos obrigatórios</span><div class="chips">' + chips + '</div></div>' +
       '<div class="field"><label for="km">Distância máxima: <strong>' + k.km + ' km</strong></label><input id="km" type="range" min="1" max="25" value="' + k.km + '" data-in="crit-km"></div>' +
       '<div class="field"><label for="exp">Experiência no ramo</label><select id="exp" data-in="crit-exp">' + exps + '</select></div></div>' +
-      '<div class="card card-pad stack"><h2 class="sec">Perguntas da triagem</h2><p class="ui-sub">Na triagem são só perguntas: nenhum documento é pedido nessa etapa (LGPD, art. 6º, III, princípio da necessidade).</p><ul class="list"><li>Como você quer trabalhar? CLT, freelancer, temporário ou tanto faz</li><li>Quais turnos você pode fazer?</li><li>Qual a distância da sua casa até a loja?</li><li>Quanto tempo de experiência no ramo?</li><li>Podemos falar com você pelo WhatsApp?</li></ul>' +
-      '<div class="notice info"><div><strong>Perguntas bloqueadas</strong>Sexo, idade, estado civil, filhos, gravidez, raça, cor, origem e deficiência não podem ser critério de seleção (Lei 9.029/95). O Centralizar não oferece essas perguntas.</div></div></div></div></div>';
+      '<div class="card card-pad stack"><h2 class="sec">Perguntas da triagem</h2><p class="ui-sub">Só perguntas, nenhum documento nessa etapa (LGPD, art. 6º, III). São cerca de 5 minutos para o candidato.</p><ul class="list">' +
+      ['Dados de contato e bairro', 'Contratação, turnos, feriados e domingos, início', 'Distância, transporte e pretensão salarial', 'Experiência, última empresa, se já trabalhou aqui, escolaridade', 'Uma situação do dia a dia do setor: ' + esc(situacaoDoCargo(g)), 'Declaração de veracidade e aceite de WhatsApp'].map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ul>' +
+      (reqsDaVaga(g).length ? '<h3 class="lbl-s">Requisitos desta função</h3><ul class="list">' + reqsDaVaga(g).map(function (r) { return '<li>' + esc(r.curto.charAt(0).toUpperCase() + r.curto.slice(1)) + (r.elim ? ' ' + pill('bad', 'Elimina') : '') + '</li>'; }).join('') + '</ul>' : '') +
+      '<div class="notice info"><div><strong>Perguntas bloqueadas</strong>Sexo, estado civil, filhos, gravidez, raça, cor, religião, origem, saúde, deficiência e antecedentes criminais não são perguntados (Lei 9.029/95; Tema 1 do TST). A idade só aparece quando a lei proíbe a função para menores de 18 anos.</div></div></div></div></div>';
   }
 
   /* ---------- Admissões ---------- */
@@ -242,43 +262,30 @@
   var INSAL = { '': 'Não', '10': 'Grau mínimo (10%)', '20': 'Grau médio (20%)', '40': 'Grau máximo (40%)' };
   function ctEstado() {
     var c = S.ui.ct || (S.ui.ct = { modelo: 'experiencia', alvo: 'novo', cargo: 'atendente-de-lanchonete', dias: 45, jornada: '44-sab', turno: 'diurno', insal: '', peric: false, noturno: false, salario: 1980, art481: false, cct: '', inicio: addDays(S.hoje, 3), checks: {} });
-    c.checks = c.checks || {}; return c;
+    c.checks = c.checks || {};
+    var pad = { autoProrrog: true, vt: true, banco: false, comissao: 0, grat: 40, modalidade: 'presencial', opc: {}, extras: [], ncMeses: 6, cursoMeses: 12 };
+    Object.keys(pad).forEach(function (k) { if (c[k] === undefined) c[k] = pad[k]; });
+    if (c.imagem) { c.opc.imagem = true; delete c.imagem; }
+    return c;
   }
   function pessoasContrato() {
     return [{ id: 'novo', nome: '[NOME DO EMPREGADO]', cpf: '[CPF]', salario: null, cargo: null, tipo: 'novo' }]
-      .concat(S.admissoes.map(function (a) { return { id: a.id, nome: a.nome, cpf: a.cpf, salario: a.salario, cargo: a.cargo, inicio: a.inicio, tipo: 'admissao' }; }))
+      .concat(S.admissoes.map(function (a) { return { id: a.id, nome: a.nome, cpf: a.cpf, salario: a.salario, cargo: a.cargo, inicio: a.inicio, funcao: a.funcao, tipo: 'admissao' }; }))
       .concat(S.pessoas.map(function (p) { return { id: p.id, nome: p.nome, cpf: p.cpf, salario: p.salario, cargo: p.cargo, admissao: p.admissao, funcao: p.funcao, tipo: 'empregado' }; }));
   }
   function temFlag(cargo, prefixos) { return cargo.flags.some(function (f) { return prefixos.some(function (p) { return f.indexOf(p) === 0; }); }); }
   // Periculosidade marcada automaticamente só quando a lei já garante; motociclista (PEM) fica como alerta.
-  var PERIC = ['PE', 'PEI', 'PEE', 'PEV', 'PEB'];
+  var PERIC = ['PE', 'PEI', 'PEE', 'PEV', 'PEB', 'PEM'];
   function temPeric(cargo) { return cargo.flags.some(function (f) { return PERIC.indexOf(f) > -1; }); }
   function contratoExperiencia(ct, pessoa, cargo) {
-    var fim = addDays(ct.inicio, ct.dias - 1), resto = 90 - ct.dias, j = JORNADAS[ct.jornada];
-    var noturno = ct.turno !== 'diurno';
-    var adic = [];
-    if (ct.insal) adic.push('adicional de insalubridade de ' + ct.insal + '%, calculado sobre o salário-mínimo, salvo base mais favorável em norma coletiva (CLT, art. 192)');
-    if (ct.peric) adic.push('adicional de periculosidade de 30% sobre o salário-base (CLT, art. 193, § 1º)');
-    if (ct.noturno) adic.push('adicional noturno de 20% sobre a hora diurna nas horas trabalhadas entre 22h e 5h (CLT, art. 73)');
-    var nrs = cargo.flags.filter(function (f) { return /^NR\d+$/.test(f); }).map(function (f) { return 'NR-' + f.slice(2); });
-    var cl = [
-      'A EMPREGADA(O) é admitida(o) para exercer a função de <strong>' + esc(cargo.cargo) + '</strong> (CBO ' + esc(cargo.cbo) + '), com as seguintes atribuições: ' + cargo.atrib.map(function (a) { return esc(a.charAt(0).toLowerCase() + a.slice(1)); }).join('; ') + '; além de outras tarefas compatíveis com a sua condição pessoal (CLT, art. 456, parágrafo único).',
-      'Este é um contrato de experiência de <strong>' + ct.dias + ' dias</strong>, de ' + dmyy(ct.inicio) + ' a ' + dmyy(fim) + (resto > 0 ? ', que poderá ser prorrogado uma única vez por até ' + resto + ' dias, sem ultrapassar 90 dias no total' : ', sem possibilidade de prorrogação por já atingir o limite de 90 dias') + ' (CLT, arts. 443, § 2º, "c", 445, parágrafo único, e 451). Vencido o prazo sem rescisão, o contrato passa a vigorar por prazo indeterminado.',
-      'A jornada é de <strong>' + esc(j[0]) + '</strong>, ' + esc(j[1]) + ', em turno ' + esc(TURNOS[ct.turno]) + (noturno ? ', com hora noturna reduzida de 52 minutos e 30 segundos' : '') + ', com registro de ponto por programa eletrônico (Portaria MTP 671/2021).',
-      'O salário mensal é de <strong>R$ ' + brl(+ct.salario || 0) + '</strong>' + (adic.length ? ', acrescido de ' + adic.join('; ') : '') + ', pago até o 5º dia útil do mês seguinte ao trabalhado (CLT, art. 459, § 1º).',
-      'O trabalho será prestado no estabelecimento da EMPREGADORA em ' + esc(S.empresa.endereco) + ', ' + esc(S.empresa.cidade) + '.',
-      'A EMPREGADA(O) receberá os equipamentos de proteção e os treinamentos exigidos para a função' + (nrs.length ? ' (' + esc(nrs.join(', ')) + ')' : '') + ', obrigando-se a usá-los; a recusa injustificada constitui falta (CLT, art. 158, parágrafo único).',
-      'Só serão descontados do salário os valores previstos em lei ou norma coletiva, os adiantamentos e os vales autorizados por escrito, e os danos causados com dolo ou, se por culpa, nos termos deste ajuste (CLT, art. 462, § 1º; Súmula 342 do TST).',
-      ct.art481 ? 'As partes ajustam o direito recíproco de rescisão antes do termo final; exercido esse direito, aplicam-se os princípios da rescisão do contrato por prazo indeterminado, inclusive o aviso-prévio (CLT, art. 481; Súmula 163 do TST).' : 'A rescisão antecipada sem justa causa obedecerá aos arts. 479 e 480 da CLT.',
-      'Aplicam-se a este contrato as normas coletivas da categoria' + (ct.cct ? ' (' + esc(ct.cct) + ')' : '') + ', no que forem mais favoráveis à EMPREGADA(O).',
-      'Os dados pessoais da EMPREGADA(O) serão tratados para cumprir este contrato e as obrigações legais e regulatórias (LGPD, art. 7º, II e V).'
-    ];
-    return '<h3>Contrato de trabalho por prazo determinado, na modalidade de experiência</h3><p class="center">' + esc(S.empresa.cidade) + '</p>' +
-      '<p><strong>EMPREGADORA:</strong> ' + esc(S.empresa.razao) + ', CNPJ ' + esc(S.empresa.cnpj) + ', ' + esc(S.empresa.endereco) + ', ' + esc(S.empresa.cidade) + '.<br><strong>EMPREGADA(O):</strong> ' + esc(pessoa.nome) + ', CPF ' + esc(pessoa.cpf) + '.</p>' +
-      '<p>As partes celebram este contrato de experiência, assinado antes do início da prestação de serviços, nas condições abaixo.</p>' +
-      '<ol>' + cl.map(function (c) { return '<li contenteditable="true">' + c + '</li>'; }).join('') + '</ol>' +
-      '<p class="center">' + esc(S.empresa.cidade.split('/')[0]) + ', ____ de ______________ de 2026.</p>' +
-      '<div class="sig"><span>' + esc(S.empresa.razao) + '</span><span>' + esc(pessoa.nome) + '</span><span>Testemunha</span><span>Testemunha</span></div>';
+    var exp = ct.modelo === 'experiencia';
+    var corpo = window.CENTRALIZAR_CLAUSULAS ? window.CENTRALIZAR_CLAUSULAS({ esc: esc, brl: brl, dmyy: dmyy, addDays: addDays, JORNADAS: JORNADAS, TURNOS: TURNOS, empresa: S.empresa, ct: ct, pessoa: pessoa, cargo: cargo }) : '';
+    return '<h3>Contrato individual de trabalho ' + (exp ? 'por prazo determinado, na modalidade de experiência' : 'por prazo indeterminado') + '</h3><p class="center">' + esc(S.empresa.cidade) + '</p>' +
+      '<p><strong>EMPREGADORA:</strong> ' + esc(S.empresa.razao) + ', inscrita no CNPJ sob o nº ' + esc(S.empresa.cnpj) + ', com sede em ' + esc(S.empresa.endereco) + ', ' + esc(S.empresa.cidade) + ', neste ato representada na forma do seu contrato social.<br><strong>EMPREGADA(O):</strong> ' + esc(pessoa.nome) + ', inscrita(o) no CPF sob o nº ' + esc(pessoa.cpf) + ', com os demais dados de qualificação constantes do registro de empregado.</p>' +
+      '<p>As partes celebram este contrato' + (exp ? ', assinado antes do início da prestação de serviços,' : '') + ' que se regerá pela CLT, pela legislação aplicável, pelas normas coletivas da categoria e pelas cláusulas a seguir.</p>' +
+      corpo +
+      '<p class="center sig-data">' + esc(S.empresa.cidade.split('/')[0]) + ', ____ de ______________ de 2026.</p>' +
+      '<div class="sig"><span>' + esc(S.empresa.razao) + '<br>EMPREGADORA</span><span>' + esc(pessoa.nome) + '<br>EMPREGADA(O)</span><span>Testemunha<br>Nome e CPF</span><span>Testemunha<br>Nome e CPF</span></div>';
   }
   function contratoModelo(t, pessoa, cargo, ct) {
     var sal = t.id === 'intermitente' ? (+ct.salario || 0) / 220 : +ct.salario || 0;
@@ -287,12 +294,14 @@
     var partes = t.id === 'autonomo' ? ['CONTRATANTE', 'CONTRATADO'] : t.id === 'estagio' ? ['CONCEDENTE', 'ESTAGIÁRIO(A)'] : ['EMPREGADORA', 'EMPREGADO(A)'];
     return '<h3>' + esc(t.titulo) + '</h3><p class="center">' + esc(S.empresa.cidade) + '</p>' +
       '<p><strong>' + partes[0] + ':</strong> ' + esc(S.empresa.razao) + ', CNPJ ' + esc(S.empresa.cnpj) + ', ' + esc(S.empresa.endereco) + ', ' + esc(S.empresa.cidade) + '.<br><strong>' + partes[1] + ':</strong> ' + esc(pessoa.nome) + ', CPF ' + esc(pessoa.cpf) + '.</p>' +
-      '<ol>' + t.clausulas.map(function (c) { return '<li contenteditable="true">' + fill(c) + '</li>'; }).join('') + '</ol>' +
+      '<ol>' + t.clausulas.map(function (c) { return '<li contenteditable="true">' + fill(c) + '</li>'; }).join('') + (ct.extras || []).map(function (e) { return '<li contenteditable="true"><strong>' + esc(e.titulo) + '.</strong> ' + esc(e.texto).replace(/\n/g, '<br>') + '</li>'; }).join('') + '</ol>' +
       '<p class="center">' + esc(S.empresa.cidade.split('/')[0]) + ', ____ de ______________ de 2026.</p><div class="sig"><span>' + esc(S.empresa.razao) + '</span><span>' + esc(pessoa.nome) + '</span></div>';
   }
   function verificacao(ct, pessoa, cargo) {
     var v = [];
     if (ct.modelo === 'experiencia') {
+      var cand = null; S.vagas.forEach(function (vg) { vg.cands.forEach(function (c) { if (c.n === pessoa.nome) cand = c; }); });
+      if (cand && cand.jaTrabalhou === 'mesma') v.push(['bad', esc(pessoa.nome) + ' informou na pré-entrevista que já trabalhou aqui na mesma função. Nova experiência é considerada inválida pelo TST: use contrato por prazo indeterminado.']);
       if (pessoa.tipo === 'empregado') v.push(['bad', esc(pessoa.nome) + ' já é empregada(o) desde ' + dmyy(pessoa.admissao) + '. Nova experiência para quem já trabalhou na empresa, principalmente na mesma função, é considerada inválida pelo TST.']);
       if (diffDays(S.hoje, ct.inicio) < 0) v.push(['bad', 'O início (' + dmyy(ct.inicio) + ') já passou. O contrato precisa ser assinado antes do primeiro dia de trabalho; assinado depois, corre o risco de virar contrato por prazo indeterminado.']);
       else v.push(['ok', 'Prazo de ' + ct.dias + ' dias, dentro do limite de 90, com prorrogação única prevista.']);
@@ -306,6 +315,13 @@
     if (ct.peric && ct.insal) v.push(['warn', 'Insalubridade e periculosidade não se acumulam: o empregado escolhe o adicional mais vantajoso (CLT, art. 193, § 2º).']);
     if (cargo.flags.indexOf('TIP') > -1) v.push(['warn', 'Cargo proibido para menores de 18 anos (Decreto 6.481/2008, Lista TIP). Confirme a idade.']);
     if (cargo.flags.indexOf('REG') > -1) v.push(['warn', 'Profissão regulamentada: confira o registro no conselho antes da admissão.' + (cargo.nota ? ' ' + esc(cargo.nota) : '')]);
+    if (ct.opc && ct.opc.naoconcorrencia) v.push(['warn', 'Não concorrência: a indenização mensal (' + ct.ncMeses + ' meses × último salário) precisa ser paga de fato; sem pagamento, a cláusula cai e a empresa não pode cobrar nada.']);
+    if (ct.opc && ct.opc.curso) v.push(['info', 'Cursos: o reembolso só vale para curso não obrigatório e com termo assinado informando o valor. Na rescisão, o desconto fica limitado a um salário (art. 477, § 5º).']);
+    (ct.extras || []).forEach(function (e) {
+      var rs = window.CENTRALIZAR_RISCOS_CLAUSULA ? window.CENTRALIZAR_RISCOS_CLAUSULA(e.titulo + ' ' + e.texto) : [];
+      if (!rs.length) v.push(['ok', 'Cláusula própria "' + esc(e.titulo) + '": nenhum ponto de nulidade encontrado na leitura automática. Revise com seu advogado.']);
+      rs.forEach(function (r) { v.push([r[0], 'Cláusula própria "' + esc(e.titulo) + '": ' + esc(r[1])]); });
+    });
     return v;
   }
   var CHECKS = [['cct', 'Conferi o piso e as regras da convenção coletiva (CCT)'], ['aso', 'O exame admissional (ASO) será feito antes do início (NR-7)'], ['laudo', 'Conferi os adicionais no laudo (PGR/LTCAT) da empresa']];
@@ -313,7 +329,7 @@
   function contratoAtualHTML() {
     var ct = ctEstado(), ps = pessoasContrato(), pessoa = ps.filter(function (x) { return x.id === ct.alvo; })[0] || ps[0], cargo = cargoPor(ct.cargo);
     var t = TPL.filter(function (x) { return x.id === ct.modelo; })[0];
-    var corpo = ct.modelo === 'experiencia' ? contratoExperiencia(ct, pessoa, cargo) : contratoModelo(t, pessoa, cargo, ct);
+    var corpo = (ct.modelo === 'experiencia' || ct.modelo === 'indeterminado') ? contratoExperiencia(ct, pessoa, cargo) : contratoModelo(t, pessoa, cargo, ct);
     return { pessoa: pessoa, cargo: cargo, ct: ct, corpo: corpo };
   }
   function vContratos() {
@@ -338,7 +354,25 @@
       '<label class="check"><input type="checkbox" data-in="ct" data-k="peric"' + (ct.peric ? ' checked' : '') + '> Periculosidade (30%)</label>' +
       '<label class="check"><input type="checkbox" data-in="ct" data-k="noturno"' + (ct.noturno ? ' checked' : '') + '> Adicional noturno (20%)</label>' +
       (exp ? '<label class="check"><input type="checkbox" data-in="ct" data-k="art481"' + (ct.art481 ? ' checked' : '') + '> Rescisão antecipada recíproca (art. 481)</label>' : '') +
+      (exp ? '<label class="check"><input type="checkbox" data-in="ct" data-k="autoProrrog"' + (ct.autoProrrog !== false ? ' checked' : '') + '> Prorrogação automática prevista no contrato</label>' : '') +
+      '<label class="check"><input type="checkbox" data-in="ct" data-k="banco"' + (ct.banco ? ' checked' : '') + '> Banco de horas por acordo individual (6 meses)</label>' +
+      '<label class="check"><input type="checkbox" data-in="ct" data-k="vt"' + (ct.vt !== false ? ' checked' : '') + '> Vale-transporte</label>' +
+      (cargo.flags.indexOf('COM') > -1 ? '<div class="field"><label for="c-com">Comissão sobre vendas (%)</label><input id="c-com" type="number" min="0" max="30" step="0.5" value="' + esc(ct.comissao || 0) + '" data-in="ct" data-k="comissao"></div>' : '') +
+      (cargo.flags.indexOf('CONF') > -1 ? '<div class="field"><label for="c-grat">Gratificação de função (%, mínimo 40 para cargo de confiança)</label><input id="c-grat" type="number" min="0" max="200" step="1" value="' + esc(ct.grat || 40) + '" data-in="ct" data-k="grat"></div>' : '') +
+      (cargo.flags.indexOf('TELE') > -1 ? '<div class="field"><label for="c-mod">Modalidade</label><select id="c-mod" data-in="ct" data-k="modalidade">' + opt({ presencial: 'Presencial', hibrido: 'Híbrido', tele: 'Teletrabalho' }, ct.modalidade || 'presencial') + '</select></div>' : '') +
       '<div class="field"><label for="c-cct">Convenção coletiva (sindicato)</label><input id="c-cct" maxlength="80" value="' + esc(ct.cct) + '" placeholder="Ex.: CCT 2026 do sindicato da categoria" data-in="ct" data-k="cct"></div></div>';
+    var OPC = window.CENTRALIZAR_OPCIONAIS || [], simples = ct.modelo !== 'experiencia' && ct.modelo !== 'indeterminado';
+    var extras = '<div class="card card-pad stack" id="ct-extras"><h2 class="sec">Cláusulas adicionais</h2><p class="ui-sub">Inclua cláusulas prontas ou escreva as suas. Elas entram numeradas antes das disposições finais e passam pela verificação.</p>' +
+      (simples ? '<p class="ui-sub">As cláusulas prontas são do contrato CLT (experiência ou prazo indeterminado). Neste modelo, só as cláusulas próprias entram.</p>' : '<div class="opc-list">' + OPC.map(function (o) { var on = !!(ct.opc || {})[o.k];
+        return '<label class="check opc"><input type="checkbox" data-in="ct-opc" data-k="' + o.k + '"' + (on ? ' checked' : '') + '> <span><strong>' + esc(o.nome) + '</strong><span class="sub">' + esc(o.base) + '</span></span></label>' +
+          (on && o.k === 'naoconcorrencia' ? '<div class="field opc-par"><label for="c-nc">Prazo da restrição</label><select id="c-nc" data-in="ct" data-k="ncMeses">' + opt({ 6: '6 meses', 12: '12 meses', 24: '24 meses (máximo aceito)' }, ct.ncMeses) + '</select></div>' : '') +
+          (on && o.k === 'curso' ? '<div class="field opc-par"><label for="c-cur">Permanência após o curso</label><select id="c-cur" data-in="ct" data-k="cursoMeses">' + opt({ 6: '6 meses', 12: '12 meses', 18: '18 meses', 24: '24 meses' }, ct.cursoMeses) + '</select></div>' : '');
+      }).join('') + '</div>') +
+      ((ct.extras || []).length ? '<ul class="list extra-list">' + ct.extras.map(function (e, i) { var rs = window.CENTRALIZAR_RISCOS_CLAUSULA ? window.CENTRALIZAR_RISCOS_CLAUSULA(e.titulo + ' ' + e.texto) : [];
+        return '<li><span><strong>' + esc(e.titulo) + '</strong> ' + (rs.some(function (r) { return r[0] === 'bad'; }) ? pill('bad', 'Nula como está') : rs.length ? pill('warn', 'Revisar') : pill('ok', 'Sem alerta')) + '<span class="sub">' + esc(String(e.texto).slice(0, 110)) + (String(e.texto).length > 110 ? '…' : '') + '</span></span><button type="button" class="btn btn-sm" data-act="ct-extra-del" data-i="' + i + '">Remover</button></li>'; }).join('') + '</ul>' : '') +
+      '<form class="stack extra-form" data-form="ct-extra"><h3 class="lbl-s">Escrever cláusula própria</h3><div class="field"><label for="cx-t">Título</label><input id="cx-t" name="t" maxlength="80" placeholder="Ex.: Do uso do estacionamento" required></div>' +
+      '<div class="field"><label for="cx-x">Texto (deixe uma linha em branco para criar parágrafos)</label><textarea id="cx-x" name="x" maxlength="1500" rows="5" placeholder="Ex.: A(O) EMPREGADA(O) poderá utilizar o estacionamento da empresa durante o expediente, sem custo e sem natureza salarial." required></textarea></div>' +
+      '<button type="submit" class="btn">Incluir no contrato</button></form></div>';
     var pontos = '<div class="card card-pad stack"><h2 class="sec">Pontos trabalhistas de ' + esc(cargo.cargo) + '</h2><p class="ui-sub">CBO ' + esc(cargo.cbo) + ' · ' + esc(cargo.cboNome) + ' · ' + esc(cargo.setor) + '</p><ul class="list">' +
       cargo.flags.map(function (f) { return '<li>' + esc(ALERTAS[f] || f) + '</li>'; }).join('') + '<li>Confira piso, benefícios e regras da convenção coletiva (CCT) do sindicato da categoria.</li>' + (cargo.nota ? '<li>' + esc(cargo.nota) + '</li>' : '') + '</ul></div>';
     var verif = '<div class="card card-pad stack"><h2 class="sec">Verificação do contrato</h2>' + ver.map(function (i) { return '<div class="notice ' + (i[0] === 'bad' ? 'bad' : i[0] === 'ok' || i[0] === 'info' ? 'info' : '') + '"><div>' + i[1] + '</div></div>'; }).join('') +
@@ -346,8 +380,252 @@
     var plano = '<div class="seg" role="group" aria-label="Plano"><button type="button" data-act="plano" data-v="avaliacao" aria-pressed="' + (S.plano !== 'assinante') + '">Avaliação gratuita</button><button type="button" data-act="plano" data-v="assinante" aria-pressed="' + (S.plano === 'assinante') + '">Assinante</button></div>';
     var btn = '<button type="button" class="btn btn-primary" data-act="ct-pdf"' + (conferido && !bloqueio ? '' : ' disabled') + '>' + (bloqueio ? 'Corrija os pontos em vermelho' : conferido ? 'Exportar PDF' : 'Marque a verificação para exportar') + '</button>';
     return titleRow('Contratos', 'Escolha o enquadramento, verifique e exporte · ' + (S.plano === 'assinante' ? 'PDF sem marca d\'água' : 'no plano de avaliação o PDF sai com marca d\'água'), plano + btn) +
-      '<div class="doc-wrap ct-wrap"><div class="stack">' + form + verif + pontos + '</div>' +
+      '<div class="doc-wrap ct-wrap"><div class="stack">' + form + extras + verif + pontos + '</div>' +
       '<article class="paper" id="paper">' + marcaDagua() + '<div class="notice sugestao"><div><strong>Sugestão de cláusulas, não é parecer jurídico</strong>Clique em qualquer cláusula para editar antes de exportar. Revise com seu advogado ou contador.</div></div>' + x.corpo + '</article></div>';
+  }
+
+  /* ---------- Recrutamento e seleção (agência) e integração com as empresas clientes ---------- */
+  function integ() { try { var r = JSON.parse(localStorage.getItem(KEYINT) || 'null'); if (r && Array.isArray(r.envios)) return r; } catch (e) { /* sem armazenamento */ } return { envios: [] }; }
+  function salvaInteg(x) { try { localStorage.setItem(KEYINT, JSON.stringify(x)); } catch (e) { /* ignora */ } }
+  function envioPor(id) { return integ().envios.filter(function (e) { return e.id === id; })[0]; }
+  function semearInteg() { if (!S.envSeed) return; var x = integ(); S.envSeed.forEach(function (e) { if (!x.envios.some(function (y) { return y.id === e.id; })) x.envios.push(e); }); salvaInteg(x); delete S.envSeed; save(); }
+  function clientePor(id) { return (S.clientes || []).filter(function (k) { return k.id === id; })[0] || { nome: 'Cliente', integ: 'externo' }; }
+  var CAMPOS_CAND = ['n', 'fone', 'bairro', 'regime', 'turnos', 'km', 'exp', 'ultima', 'escolaridade', 'pretensao', 'inicio', 'fds', 'transporte', 'reqs', 'sit1', 'nota', 'parecer'];
+  function resumoCand(c) { var o = {}; CAMPOS_CAND.forEach(function (k) { if (c[k] !== undefined && c[k] !== '') o[k] = c[k]; }); return o; } // só o necessário para a validação (LGPD, art. 6º, III)
+  function estrelas(n) { n = Math.max(0, Math.min(5, +n || 0)); return '<span class="stars" aria-label="Nota ' + n + ' de 5">' + '★★★★★'.slice(0, n) + '<span class="faint">' + '★★★★★'.slice(0, 5 - n) + '</span></span>'; }
+  function etapaRS(c, i, m) {
+    var e = c.envio ? envioPor(c.envio) : null;
+    if (c.etapa === 'enviado') { var st = e ? e.status : 'enviado'; return st === 'aprovado' ? pill('ok', 'Aprovado pelo cliente') + '<span class="sub">vai para a admissão do cliente</span>' : st === 'recusado' ? pill('bad', 'Recusado pelo cliente') + (e.motivo ? '<span class="sub">' + esc(e.motivo) + '</span>' : '') : pill('warn', 'Aguardando o cliente') + '<span class="sub">enviado em ' + esc(e ? e.em : '') + '</span>'; }
+    if (c.etapa === 'externo') return c.decisao ? pill(c.decisao === 'aprovado' ? 'ok' : 'bad', c.decisao === 'aprovado' ? 'Aprovado pelo cliente' : 'Recusado pelo cliente') : pill('warn', 'Pasta enviada ao cliente') + ' <button type="button" class="btn btn-sm" data-act="rs-dec" data-i="' + i + '" data-v="aprovado">Cliente aprovou</button> <button type="button" class="btn btn-sm" data-act="rs-dec" data-i="' + i + '" data-v="recusado">Recusou</button>';
+    if (c.etapa === 'curta') return pill('ok', 'Lista curta') + (c.compartilhar === false ? ' ' + pill('bad', 'Sem autorização para compartilhar') : '') + ' <button type="button" class="link-btn" data-act="rs-tirar" data-i="' + i + '">Tirar</button>';
+    if (c.etapa === 'entrevistado') return estrelas(c.nota) + ' <button type="button" class="btn btn-sm btn-primary" data-act="rs-curta" data-i="' + i + '">Lista curta</button> <button type="button" class="btn btn-sm" data-act="rs-nao" data-i="' + i + '">Não seguir</button>';
+    if (c.etapa === 'entrevista') return pill('warn', 'Entrevista ' + c.entrevistaEm) + ' <button type="button" class="btn btn-sm btn-primary" data-act="rs-parecer" data-i="' + i + '">Registrar parecer</button>';
+    if (c.etapa === 'naoseguir') return pill('mute', 'Não seguiu') + (c.parecer ? '<span class="sub">' + esc(c.parecer) + '</span>' : '');
+    if (m) return '<span class="ui-sub">Descartado na triagem</span>';
+    return '<button type="button" class="btn btn-sm btn-primary" data-act="ent-modal" data-i="' + i + '">Chamar para entrevista</button>';
+  }
+  function vSelecao() {
+    if (!S.agencia) { location.hash = '#/vagas'; return ''; }
+    var g = vagaAtual() || S.vagas[0], k = g.crit, cl = clientePor(g.cliente), ok = cl.integ === 'centralizar';
+    var tabs = S.vagas.map(function (v) { return '<button type="button" role="tab" aria-selected="' + (v.id === g.id) + '" data-act="vaga" data-id="' + v.id + '">' + esc(v.titulo) + ' · ' + esc(clientePor(v.cliente).nome) + '</button>'; }).join('');
+    var aptos = 0, rows = g.cands.map(function (c, i) {
+      var m = avalia(c, k); if (!m) aptos++;
+      return '<tr><td><strong>' + esc(c.n) + '</strong>' + (c.novo ? ' ' + pill('warn', 'Novo') : '') + '<span class="sub">' + esc(c.fone) + ' · <button type="button" class="link-btn" data-act="cand-ver" data-i="' + i + '">Ver respostas</button></span>' + '<span class="sub">' + esc(REG[c.regime]) + ' · ' + c.turnos.map(function (t) { return esc(TUR[t]); }).join(', ') + ' · ' + c.km + ' km</span>' + (c.parecer && c.etapa !== 'naoseguir' ? '<span class="sub">' + esc(c.parecer) + '</span>' : '') + '</td><td class="num hide-sm">' + c.exp + (c.exp === 1 ? ' ano' : ' anos') + '</td><td>' + (m ? pill('mute', m) : pill('ok', 'Passou')) + '</td><td>' + etapaRS(c, i, m) + '</td></tr>';
+    }).join('');
+    var conta = function (et) { return g.cands.filter(function (c) { return et.indexOf(c.etapa) > -1; }).length; };
+    var curta = g.cands.filter(function (c) { return c.etapa === 'curta'; }), podem = curta.filter(function (c) { return c.compartilhar !== false; });
+    var aprov = g.cands.filter(function (c) { var e = c.envio && envioPor(c.envio); return (e && e.status === 'aprovado') || c.decisao === 'aprovado'; }).length;
+    var kpi = function (l, v, cap) { return '<div class="kpi"><div class="lbl">' + l + '</div><div class="val num">' + v + '</div><div class="cap">' + cap + '</div></div>'; };
+    var funil = '<div class="card kpis kpis-5">' + kpi('Inscritos', g.cands.length, 'pela pré-entrevista') + kpi('Passaram na triagem', aptos, 'pelos critérios do cliente') + kpi('Entrevistados', conta(['entrevistado', 'curta', 'enviado', 'externo', 'naoseguir']), 'com parecer da agência') + kpi('Encaminhados', conta(['enviado', 'externo']), 'para validação do cliente') + kpi('Aprovados', aprov + ' de ' + g.qtd, 'vagas preenchidas') + '</div>';
+    var seg = ['clt', 'free', 'temp', 'qualquer'].map(function (r) { return '<button type="button" data-act="crit-reg" data-v="' + r + '" aria-pressed="' + (k.regime === r) + '">' + REG[r] + '</button>'; }).join('');
+    var chips = Object.keys(TUR).map(function (t) { return '<button type="button" class="chip" data-act="crit-tur" data-v="' + t + '" aria-pressed="' + (k.turnos.indexOf(t) > -1) + '">' + TUR[t] + '</button>'; }).join('');
+    var exps = [0, 1, 2, 3].map(function (n) { return '<option value="' + n + '"' + (k.exp === n ? ' selected' : '') + '>' + (n ? 'Pelo menos ' + n + (n === 1 ? ' ano' : ' anos') : 'Sem exigência') + '</option>'; }).join('');
+    var cliCard = '<div class="card card-pad stack"><h2 class="sec">Cliente</h2><p><strong>' + esc(cl.nome) + '</strong><span class="sub">' + esc(cl.cidade || '') + ' · ' + esc(cl.contato || '') + '</span></p>' +
+      (ok ? '<div class="notice info"><div><strong>Integrado ao Centralizar · ' + esc(cl.codigo) + '</strong>Os candidatos encaminhados caem em Vagas, no painel do cliente, para aprovar ou recusar. A decisão volta para cá.</div></div>' : '<div class="notice"><div><strong>Cliente externo</strong>Sem o sistema: a lista curta sai numa pasta (.zip) com dossiê em PDF, planilha e arquivo de dados que outra empresa com o Centralizar importa.</div></div>') +
+      '<a class="link-btn" href="#/clientes">Ver todos os clientes</a></div>';
+    var crit = '<div class="card card-pad stack"><h2 class="sec">Critérios do cliente para a triagem</h2><div class="field"><span class="lbl-s">Regime da vaga</span><div class="seg">' + seg + '</div></div><div class="field"><span class="lbl-s">Turnos obrigatórios</span><div class="chips">' + chips + '</div></div>' +
+      '<div class="field"><label for="km">Distância máxima: <strong>' + k.km + ' km</strong></label><input id="km" type="range" min="1" max="30" value="' + k.km + '" data-in="crit-km"></div><div class="field"><label for="exp">Experiência na função</label><select id="exp" data-in="crit-exp">' + exps + '</select></div></div>';
+    var acao = '<div class="card card-pad stack"><h2 class="sec">Lista curta · ' + curta.length + '</h2>' + (curta.length ? '<ul class="list">' + curta.map(function (c) { return '<li><span>' + esc(c.n) + '<span class="sub">' + (c.compartilhar === false ? 'não autorizou compartilhar: não segue para o cliente' : 'nota ' + (c.nota || '–') + ' de 5') + '</span></span>' + estrelas(c.nota) + '</li>'; }).join('') + '</ul>' : '<p class="ui-sub">Entreviste e marque quem vai para a lista curta.</p>') +
+      '<button type="button" class="btn btn-primary" data-act="rs-enviar"' + (podem.length ? '' : ' disabled') + '>' + (ok ? 'Encaminhar ' + podem.length + ' para o painel do cliente' : 'Gerar pasta para o cliente (' + podem.length + ')') + '</button>' +
+      (ok ? '' : '<button type="button" class="btn" data-act="rs-dossie"' + (podem.length ? '' : ' disabled') + '>Só o dossiê em PDF</button>') + '</div>';
+    var link = 'triagem.html?vaga=' + esc(g.id) + '&amp;t=' + esc(S.tipo || '');
+    return titleRow('Processos seletivos', esc(g.titulo) + ' para ' + esc(cl.nome) + ' · ' + g.qtd + (g.qtd === 1 ? ' vaga' : ' vagas') + ' · ' + esc(g.regimeOferta), '<a class="btn" href="' + link + '" target="_blank" rel="noopener">Ver como o candidato responde</a><button type="button" class="btn" data-act="rs-novo">Novo processo</button><button type="button" class="btn btn-primary" data-act="copiar-link">Copiar link da pré-entrevista</button>') +
+      '<div class="tabs" role="tablist">' + tabs + '</div><div class="grid-main"><div class="stack">' + funil +
+      '<div class="card"><div class="card-head"><h2>Candidatos</h2><span class="ui-sub">Triagem, entrevista, lista curta e validação do cliente</span></div><div class="table-box"><table class="t stack-sm"><thead><tr><th>Candidato</th><th class="num hide-sm">Experiência</th><th>Triagem</th><th class="rs-etapa">Etapa</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>' +
+      '<div class="notice info"><div><strong>Como o processo anda</strong>A triagem descarta quem não atende aos critérios do cliente. A agência entrevista, registra nota e parecer e monta a lista curta. Só segue para o cliente quem autorizou o compartilhamento na pré-entrevista (LGPD, art. 7º, § 5º).</div></div></div>' +
+      '<div class="stack">' + acao + cliCard + crit + '</div></div>';
+  }
+  function vClientes() {
+    if (!S.agencia) { location.hash = '#/inicio'; return ''; }
+    var lin = (S.clientes || []).map(function (k) {
+      var procs = S.vagas.filter(function (v) { return v.cliente === k.id; });
+      return '<li><span><strong>' + esc(k.nome) + '</strong> ' + (k.integ === 'centralizar' ? pill('ok', 'Integrado · ' + k.codigo) : pill('mute', 'Externo')) + '<span class="sub">' + esc(k.cidade || '') + ' · ' + esc(k.contato || '') + ' · ' + procs.length + (procs.length === 1 ? ' processo' : ' processos') + '</span></span>' +
+        (k.integ === 'centralizar' ? '<a class="btn btn-sm" href="app.html?empresa=' + encodeURIComponent(k.nome) + '&amp;tipo=' + esc(tipoDoCodigo(k.codigo)) + '#/vagas">Abrir o painel do cliente (exemplo)</a>' : '') + '</li>';
+    }).join('');
+    var opts = Object.keys(window.CENTRALIZAR_TIPOS || {}).filter(function (t) { return t !== 'recrutamento'; }).map(function (t) { return '<option value="' + esc(window.CENTRALIZAR_CODIGO(t)) + '">' + esc(window.CENTRALIZAR_TIPOS[t]) + ' · ' + esc(window.CENTRALIZAR_CODIGO(t)) + '</option>'; }).join('');
+    return titleRow('Empresas clientes', 'Para quem a agência recruta', '') +
+      '<div class="grid-main"><div class="stack"><div class="card"><ul class="list">' + lin + '</ul></div>' +
+      '<div class="notice info"><div><strong>Dois jeitos de entregar os candidatos</strong>Cliente com o Centralizar: informe o código de conexão que aparece em Vagas, no painel dele; os candidatos chegam lá para validação e a resposta volta sozinha. Cliente externo: a agência gera uma pasta (.zip) com dossiê em PDF, planilha CSV e o arquivo de dados, e envia por e-mail ou WhatsApp.</div></div></div>' +
+      '<div class="stack"><form class="card card-pad stack" data-form="cliente"><h2 class="sec">Novo cliente</h2><div class="field"><label for="kn">Empresa</label><input id="kn" name="n" maxlength="80" required></div><div class="field"><label for="kc">Contato</label><input id="kc" name="c" maxlength="80" placeholder="Nome e WhatsApp ou e-mail do RH"></div>' +
+      '<div class="field"><label for="ki">Integração</label><select id="ki" name="i"><option value="externo">Externo (sem o sistema): pasta .zip</option><option value="centralizar">Usa o Centralizar: enviar pelo código</option></select></div><div class="field"><label for="kk">Código de conexão (se usa o Centralizar)</label><select id="kk" name="k"><option value="">Sem código</option>' + opts + '</select></div><button class="btn btn-primary" type="submit">Cadastrar cliente</button></form></div></div>';
+  }
+  function tipoDoCodigo(cod) { var t = ''; Object.keys(window.CENTRALIZAR_TIPOS || {}).forEach(function (x) { if (window.CENTRALIZAR_CODIGO(x) === cod) t = x; }); return t; }
+  function recebidosHTML() {
+    if (S.agencia) return '';
+    var ev = integ().envios.filter(function (e) { return e.para === S.empresa.codigo; });
+    var li = ev.map(function (e) {
+      var c = e.cand || {}, st = e.status === 'aprovado' ? pill('ok', 'Aprovado') : e.status === 'recusado' ? pill('bad', 'Recusado') : pill('warn', 'Aguardando você');
+      return '<li><span><strong>' + esc(c.n) + '</strong> ' + st + '<span class="sub">' + esc(e.titulo) + ' · indicado por ' + esc(e.de) + (e.origem === 'arquivo' ? ' (pasta importada)' : '') + ' · nota ' + esc(c.nota || '–') + ' de 5</span>' + (c.parecer ? '<span class="sub">' + esc(c.parecer) + '</span>' : '') + '</span><span class="actions"><button type="button" class="btn btn-sm" data-act="rec-ver" data-id="' + esc(e.id) + '">Ver perfil</button>' +
+        (e.status === 'enviado' ? '<button type="button" class="btn btn-sm btn-primary" data-act="rec-ok" data-id="' + esc(e.id) + '">Aprovar para admissão</button><button type="button" class="btn btn-sm" data-act="rec-nao" data-id="' + esc(e.id) + '">Recusar</button>' : '') + '</span></li>';
+    }).join('');
+    return '<div class="card"><div class="card-head"><h2>Recebidos de recrutadoras</h2><span class="ui-sub">Código de conexão desta empresa: <strong>' + esc(S.empresa.codigo || '') + '</strong></span></div>' +
+      (ev.length ? '<ul class="list">' + li + '</ul>' : '<p class="card-pad ui-sub">Nenhum candidato recebido. Passe o código acima para a recrutadora ou importe a pasta que ela enviou.</p>') +
+      '<div class="card-pad"><label class="btn btn-sm file-btn">Importar pasta da recrutadora (arquivo .json)<input type="file" accept=".json,application/json" data-in="rec-import" class="sr-only"></label></div></div>';
+  }
+  // Pasta para cliente externo: ZIP sem compressão (dossiê PDF, planilha CSV, dados JSON e LEIA-ME)
+  var CRC = (function () { var t = []; for (var n = 0; n < 256; n++) { var c = n; for (var k = 0; k < 8; k++) c = c & 1 ? (c >>> 1) ^ 0xEDB88320 : c >>> 1; t[n] = c >>> 0; } return t; })();
+  function crc32(u) { var c = 0xFFFFFFFF; for (var i = 0; i < u.length; i++) c = CRC[(c ^ u[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+  function zipar(arqs) {
+    var enc = new TextEncoder(), partes = [], central = [], pos = 0;
+    var d = new Date(), dt = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate(), tm = (d.getHours() << 11) | (d.getMinutes() << 5);
+    function cab(sig, len) { var b = new DataView(new ArrayBuffer(len)); b.setUint32(0, sig, true); return b; }
+    arqs.forEach(function (a) {
+      var nome = enc.encode(a.nome), dados = a.dados, crc = crc32(dados);
+      var l = cab(0x04034b50, 30); l.setUint16(4, 20, true); l.setUint16(6, 0x0800, true); l.setUint16(8, 0, true); l.setUint16(10, tm, true); l.setUint16(12, dt, true); l.setUint32(14, crc, true); l.setUint32(18, dados.length, true); l.setUint32(22, dados.length, true); l.setUint16(26, nome.length, true); l.setUint16(28, 0, true);
+      partes.push(l.buffer, nome, dados);
+      var c = cab(0x02014b50, 46); c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint16(8, 0x0800, true); c.setUint16(10, 0, true); c.setUint16(12, tm, true); c.setUint16(14, dt, true); c.setUint32(16, crc, true); c.setUint32(20, dados.length, true); c.setUint32(24, dados.length, true); c.setUint16(28, nome.length, true); c.setUint32(42, pos, true);
+      central.push(c.buffer, nome); pos += 30 + nome.length + dados.length;
+    });
+    var tamC = central.reduce(function (s, x) { return s + (x.byteLength || x.length); }, 0);
+    var f = cab(0x06054b50, 22); f.setUint16(8, arqs.length, true); f.setUint16(10, arqs.length, true); f.setUint32(12, tamC, true); f.setUint32(16, pos, true);
+    return new Blob(partes.concat(central, [f.buffer]), { type: 'application/zip' });
+  }
+  function celulaCSV(v) { v = String(v == null ? '' : v); if (/^[=+\-@]/.test(v)) v = "'" + v; return '"' + v.replace(/"/g, '""') + '"'; } // evita fórmula na planilha
+  function dossieHTML(g, lista) {
+    var cl = clientePor(g.cliente), cg = cargoPor(g.cargo), R = window.CENTRALIZAR_ROTULOS || {};
+    var disp = function (c) { return [REG[c.regime], (c.turnos || []).map(function (t) { return TUR[t]; }).join(', '), (R.inicio || {})[c.inicio]].filter(Boolean).join(' · '); };
+    return '<div class="paper"><h3>Dossiê de candidatos</h3><p class="center">' + esc(S.empresa.nome) + ' para ' + esc(cl.nome) + ' · ' + dmyy(S.hoje) + '</p>' +
+      '<p><strong>Vaga:</strong> ' + esc(g.titulo) + ' (CBO ' + esc(cg.cbo) + ', ' + esc(cg.cboNome) + ') · ' + esc(g.regimeOferta) + ' · ' + g.qtd + (g.qtd === 1 ? ' vaga' : ' vagas') + '. <strong>Inscritos:</strong> ' + g.cands.length + '. <strong>Apresentados:</strong> ' + lista.length + '.</p>' +
+      '<table class="t"><thead><tr><th>Candidato</th><th>Experiência</th><th>Disponibilidade</th><th class="num">Nota</th></tr></thead><tbody>' + lista.map(function (c) { return '<tr><td>' + esc(c.n) + '</td><td>' + c.exp + (c.exp === 1 ? ' ano' : ' anos') + '</td><td>' + esc(disp(c)) + '</td><td class="num">' + esc(c.nota || '–') + '/5</td></tr>'; }).join('') + '</tbody></table>' +
+      lista.map(function (c) {
+        return '<section class="cl"><h4>' + esc(c.n) + ' · nota ' + esc(c.nota || '–') + ' de 5</h4><p><strong>Parecer da entrevista:</strong> ' + esc(c.parecer || 'sem parecer') + '</p><p><strong>Contato:</strong> ' + esc(c.fone) + ' · <strong>Bairro:</strong> ' + esc(c.bairro || '') + ' · <strong>Disponibilidade:</strong> ' + esc(disp(c)) + ' · <strong>Distância:</strong> ' + c.km + ' km · <strong>Escolaridade:</strong> ' + esc((R.escolaridade || {})[c.escolaridade] || '') + ' · <strong>Pretensão:</strong> ' + esc((R.pretensao || {})[c.pretensao] || '') + (c.ultima ? ' · <strong>Última experiência:</strong> ' + esc(c.ultima) : '') + '</p></section>';
+      }).join('') +
+      '<p class="ui-sub">Dados compartilhados com autorização específica de cada candidato, só para esta vaga (LGPD, art. 7º, § 5º). Não repasse a terceiros e elimine os dados de quem não for contratado ao fim do processo. A seleção não usou critérios de sexo, idade, estado civil, gravidez, cor, origem ou deficiência (Lei 9.029/95).</p></div>';
+  }
+  function folhaDe(html) { var el = doc.createElement('div'); el.className = 'sheet-a4'; el.innerHTML = html; return el; }
+  function gerarPasta(g, lista, soPDF) {
+    var cl = clientePor(g.cliente), base = String('Candidatos ' + g.titulo.replace(/\((a|as|o|os)\)/g, '') + ' ' + cl.nome).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w ]/g, ' ').replace(/\s+/g, ' ').trim();
+    var marcar = function () { lista.forEach(function (c) { c.etapa = 'externo'; c.pastaEm = agora(); }); save(); render(); };
+    toast('Gerando o dossiê em PDF…');
+    return gerarPDF(folhaDe(dossieHTML(g, lista))).then(function (pdf) {
+      if (soPDF) return salvarArquivo('Dossie ' + base + '.pdf', pdf).then(marcar);
+      return pdf.arrayBuffer().then(function (buf) {
+        var enc = new TextEncoder(), R = window.CENTRALIZAR_ROTULOS || {};
+        var csv = '﻿' + ['Nome;WhatsApp;Bairro;Contratação;Turnos;Experiência (anos);Escolaridade;Pretensão;Pode começar;Nota;Parecer'].concat(lista.map(function (c) { return [c.n, c.fone, c.bairro, REG[c.regime], (c.turnos || []).map(function (t) { return TUR[t]; }).join(', '), c.exp, (R.escolaridade || {})[c.escolaridade], (R.pretensao || {})[c.pretensao], (R.inicio || {})[c.inicio], c.nota, c.parecer].map(celulaCSV).join(';'); })).join('\r\n');
+        var json = JSON.stringify({ formato: 'centralizar-candidatos', versao: 1, de: S.empresa.nome, gerado: S.hoje, vaga: { titulo: g.titulo, cargo: g.cargo, salario: g.salario, regimeOferta: g.regimeOferta }, candidatos: lista.map(resumoCand) }, null, 2);
+        var leia = 'Pasta de candidatos enviada por ' + S.empresa.nome + ' para ' + cl.nome + ' em ' + dmyy(S.hoje) + '.\r\n\r\n- Dossie (PDF): resumo e parecer de cada candidato.\r\n- candidatos.csv: abre no Excel ou no Google Planilhas.\r\n- candidatos.centralizar.json: quem usa o Centralizar importa em Vagas > Recebidos de recrutadoras.\r\n\r\nLGPD: os candidatos autorizaram o compartilhamento só para esta vaga (art. 7º, § 5º). Não repasse a terceiros e apague os dados de quem não for contratado.\r\n';
+        var zip = zipar([{ nome: 'Dossie ' + base + '.pdf', dados: new Uint8Array(buf) }, { nome: 'candidatos.csv', dados: enc.encode(csv) }, { nome: 'candidatos.centralizar.json', dados: enc.encode(json) }, { nome: 'LEIA-ME.txt', dados: enc.encode(leia) }]);
+        return salvarArquivo(base + '.zip', zip).then(marcar);
+      });
+    }, function () { toast('Não foi possível gerar o dossiê.'); });
+  }
+
+  /* ---------- Boas práticas de alimentos (adicional) ---------- */
+  var LIMT = {
+    frio: { r: 'abaixo de 5 °C', ok: function (v) { return v < 5; }, base: 'RDC 216, item 4.8.16' },
+    congelado: { r: '-18 °C ou menos', ok: function (v) { return v <= -18; }, base: 'RDC 216, item 4.8.16' },
+    quente: { r: 'acima de 60 °C (até 6 horas)', ok: function (v) { return v > 60; }, base: 'RDC 216, item 4.8.15' },
+    oleo: { r: 'até 180 °C', ok: function (v) { return v <= 180; }, base: 'RDC 216, item 4.8.11' }
+  };
+  function addMonths(iso, n) { var d = new Date(iso + 'T12:00:00'); d.setMonth(d.getMonth() + n); return d.toISOString().slice(0, 10); }
+  function equipPor(id) { return (S.bp.equip.filter(function (e) { return e.id === id; })[0]) || { nome: id, tipo: 'frio' }; }
+  function tempOk(r) { var e = equipPor(r.eq); return (LIMT[e.tipo] || LIMT.frio).ok(r.t); }
+  function fmtT(v) { return String(v).replace('.', ',') + ' °C'; }
+  function statusDoc(d) {
+    var prox = d.venc || (d.meses ? addMonths(d.ult, d.meses) : ''); if (!prox) return ['ok', 'Em dia', ''];
+    var n = diffDays(S.hoje, prox);
+    return n < 0 ? ['bad', 'Vencido', prox] : n <= 15 ? ['warn', 'Vence em ' + n + (n === 1 ? ' dia' : ' dias'), prox] : ['ok', 'Em dia', prox];
+  }
+  var CURTO = { higiene: 'Higiene', contaminacao: 'Contaminação', temperaturas: 'Temperaturas', recebimento: 'Recebimento', higienizacao: 'Limpeza', alergenicos: 'Alergênicos', seguranca: 'Segurança' };
+  function CURSOS() { return window.CENTRALIZAR_CURSOS || []; }
+  function cursoPor(id) { return CURSOS().filter(function (c) { return c.id === id; })[0]; }
+  function treino(pid, cid) { var t = (S.treinos || {})[pid]; t = t && t[cid]; if (!t) return null; var vence = addMonths(t.em, window.CENTRALIZAR_CURSO_VALIDADE_MESES || 12); return { nota: t.nota, em: t.em, vence: vence, vencido: diffDays(S.hoje, vence) < 0 }; }
+  function manipuladores() { return S.pessoas.filter(function (p) { return ['Entregas', 'Caixa', 'Gestão'].indexOf(p.setor) < 0 || p.id === 'e9'; }); }
+  function treinadoBase(p) { return (window.CENTRALIZAR_CURSOS_BASE || []).every(function (c) { var t = treino(p.id, c); return t && !t.vencido; }); }
+  function quemRegistrou(id) { if (!id) return 'Gestão'; var p = S.pessoas.filter(function (x) { return x.id === id; })[0]; return p ? p.nome.split(' ')[0] : 'Gestão'; }
+  function vBoas() {
+    if (!S.bp) return titleRow('Boas práticas de alimentos', 'Adicional para serviços de alimentação', '') + '<div class="notice info"><div><strong>Disponível para restaurante, lanchonete, padaria e hamburgueria</strong>Escolha um desses tipos de negócio na abertura do painel.</div></div>';
+    var emp = S.role === 'empresa', bp = S.bp;
+    var hoje = bp.temps.filter(function (r) { return r.data === S.hoje; }).sort(function (a, b) { return a.hora < b.hora ? 1 : -1; });
+    var fora = hoje.filter(function (r) { return !tempOk(r); }).length;
+    var docsAlerta = bp.docs.filter(function (d) { return statusDoc(d)[0] !== 'ok'; }).length;
+    var mani = manipuladores(), trein = mani.filter(treinadoBase).length;
+    var vencendo = S.produtos.filter(function (p) { return p.validade && diffDays(S.hoje, p.validade) <= 2; });
+    var kpi = function (l, v, cap) { return '<div class="kpi"><div class="lbl">' + l + '</div><div class="val num">' + v + '</div><div class="cap">' + cap + '</div></div>'; };
+    var acoes = emp ? '<button type="button" class="btn" data-act="bp-planilha">Planilha de temperaturas (PDF)</button>' : '';
+    var topo = titleRow('Boas práticas de alimentos', (emp ? 'Adicional · R$ 49 por mês · ' : '') + 'RDC Anvisa 216/2004', acoes);
+    if (!bp.ativo) return topo + '<div class="card card-pad stack"><h2 class="sec">Adicional para serviços de alimentação</h2><p>Planilha de temperaturas, prazos da vigilância sanitária e mini cursos com certificado para a equipe.</p><div><button type="button" class="btn btn-primary" data-act="bp-ativo">Ativar teste de 14 dias</button></div></div>';
+    var opts = bp.equip.map(function (e) { return '<option value="' + e.id + '">' + esc(e.nome) + ' · ' + esc((LIMT[e.tipo] || LIMT.frio).r) + '</option>'; }).join('');
+    var form = '<div class="card card-pad stack"><h2 class="sec">Registrar temperatura</h2><form class="stack" data-form="temp"><div class="form-grid"><div class="field"><label for="bt-eq">Equipamento</label><select id="bt-eq" name="eq">' + opts + '</select></div>' +
+      '<div class="field"><label for="bt-t">Temperatura (°C)</label><input id="bt-t" name="t" inputmode="decimal" maxlength="6" placeholder="Ex.: 3,5" required></div></div>' +
+      '<div class="field"><label for="bt-a">Ação corretiva (obrigatória se estiver fora da faixa)</label><input id="bt-a" name="a" maxlength="140" placeholder="Ex.: porta ajustada; produtos transferidos para a câmara"></div>' +
+      '<div><button type="submit" class="btn btn-primary">Registrar</button></div></form>' +
+      '<div class="table-box"><table class="t"><thead><tr><th>Hora</th><th>Equipamento</th><th class="num">Temperatura</th><th>Situação</th><th class="hide-sm">Por</th></tr></thead><tbody>' +
+      (hoje.length ? hoje.map(function (r) { var ok = tempOk(r); return '<tr><td class="num">' + esc(r.hora) + '</td><td>' + esc(equipPor(r.eq).nome) + (r.acao ? '<span class="sub">Ação: ' + esc(r.acao) + '</span>' : '') + '</td><td class="num">' + esc(fmtT(r.t)) + '</td><td>' + (ok ? pill('ok', 'Na faixa') : pill('bad', 'Fora da faixa')) + '</td><td class="hide-sm">' + esc(quemRegistrou(r.por)) + '</td></tr>'; }).join('') : '<tr><td colspan="5">Nenhum registro hoje.</td></tr>') +
+      '</tbody></table></div></div>';
+    var docs = emp ? '<div class="card"><div class="card-head"><h2>Documentos e prazos da vigilância sanitária</h2><span class="ui-sub">O que a fiscalização pede para ver</span></div><ul class="list">' + bp.docs.map(function (d) {
+      var st = statusDoc(d), resp = d.resp ? ' · ' + esc(quemRegistrou(d.resp)) : '';
+      return '<li><span><strong>' + esc(d.nome) + '</strong>' + ' ' + pill(st[0], st[1]) + '<span class="sub">' + esc(d.base) + resp + (d.ult ? ' · último em ' + dmyy(d.ult) : '') + (st[2] ? ' · próximo até ' + dmyy(st[2]) : '') + (d.nota ? ' · ' + esc(d.nota) : '') + '</span></span>' + (d.meses ? '<button type="button" class="btn btn-sm" data-act="bp-feito" data-id="' + d.id + '">Feito hoje</button>' : '') + '</li>';
+    }).join('') + '</ul></div>' : '';
+    var regras = '<div class="card card-pad stack"><h2 class="sec">Faixas seguras</h2><ul class="list">' +
+      [['Cocção', 'pelo menos 70 °C em todas as partes', '4.8.8'], ['Quente para servir', 'acima de 60 °C por até 6 horas', '4.8.15'], ['Resfriamento', 'de 60 °C a 10 °C em até 2 horas', '4.8.16'], ['Refrigerado', 'abaixo de 5 °C', '4.8.16'], ['Congelado', '-18 °C ou menos', '4.8.16'], ['Pronto refrigerado a 4 °C', 'até 5 dias', '4.8.17'], ['Óleo de fritura', 'até 180 °C', '4.8.11']]
+        .map(function (r) { return '<li><span>' + r[0] + '<span class="sub">RDC 216/2004, item ' + r[2] + '</span></span><strong>' + r[1] + '</strong></li>'; }).join('') + '</ul></div>';
+    var val = '<div class="card card-pad stack"><h2 class="sec">Validade nos próximos 2 dias</h2>' + (vencendo.length ? '<ul class="list">' + vencendo.map(function (p) { var n = diffDays(S.hoje, p.validade); return '<li><span>' + esc(p.nome) + '<span class="sub">lote ' + esc(p.lote || '') + '</span></span>' + pill(n < 0 ? 'bad' : 'warn', n < 0 ? 'Vencido' : n === 0 ? 'Vence hoje' : 'Vence em ' + n + (n === 1 ? ' dia' : ' dias')) + '</li>'; }).join('') + '</ul>' : '<p class="ui-sub">Nada vencendo.</p>') + (emp ? '<a class="link-btn" href="#/estoque">Ver estoque e etiquetas</a>' : '') + '</div>';
+    var cursos = '<div class="card card-pad stack"><h2 class="sec">Capacitação da equipe</h2><p class="ui-sub">A RDC 216 exige que os manipuladores sejam capacitados periodicamente em higiene pessoal, manipulação higiênica e doenças transmitidas por alimentos, com comprovação documental (item 4.6.7).</p>' +
+      (emp ? '<p><strong>' + trein + ' de ' + mani.length + '</strong> manipuladores com os três cursos básicos em dia.</p>' : '') + '<a class="btn" href="#/cursos">' + (emp ? 'Abrir mini cursos' : 'Fazer meus cursos') + '</a></div>';
+    var kpis = emp ? '<div class="card kpis">' + kpi('Temperaturas hoje', hoje.length, fora ? fora + ' fora da faixa' : 'todas na faixa') + kpi('Prazos sanitários', docsAlerta, docsAlerta ? 'vencendo ou vencidos' : 'tudo em dia') + kpi('Equipe treinada', trein + '/' + mani.length, 'cursos básicos em dia') + kpi('Validade', vencendo.length, 'produtos em até 2 dias') + '</div>' : '';
+    return topo + kpis + '<div class="grid-main"><div class="stack">' + form + docs + '</div><div class="stack">' + cursos + regras + val + '</div></div>';
+  }
+  function planilhaHTML() {
+    var dias = []; for (var i = 6; i >= 0; i--) dias.push(addDays(S.hoje, -i));
+    var regs = S.bp.temps.filter(function (r) { return dias.indexOf(r.data) > -1; }).sort(function (a, b) { return (a.data + a.hora) < (b.data + b.hora) ? -1 : 1; });
+    return '<div class="paper"><h3>Planilha de controle de temperaturas</h3><p class="center">' + esc(S.empresa.razao) + ' · ' + dmyy(dias[0]) + ' a ' + dmyy(S.hoje) + '</p>' +
+      '<table class="t"><thead><tr><th>Equipamento</th><th>Faixa</th></tr></thead><tbody>' + S.bp.equip.map(function (e) { var l = LIMT[e.tipo] || LIMT.frio; return '<tr><td>' + esc(e.nome) + '</td><td>' + esc(l.r) + ' (' + esc(l.base) + ')</td></tr>'; }).join('') + '</tbody></table>' +
+      '<table class="t"><thead><tr><th>Data</th><th>Hora</th><th>Equipamento</th><th class="num">Temp.</th><th>Situação e ação corretiva</th><th>Por</th></tr></thead><tbody>' +
+      regs.map(function (r) { var ok = tempOk(r); return '<tr><td>' + dmy(r.data) + '</td><td>' + esc(r.hora) + '</td><td>' + esc(equipPor(r.eq).nome) + '</td><td class="num">' + esc(fmtT(r.t)) + '</td><td>' + (ok ? 'Na faixa' : '<strong>Fora da faixa.</strong> ' + esc(r.acao || '')) + '</td><td>' + esc(quemRegistrou(r.por)) + '</td></tr>'; }).join('') + '</tbody></table>' +
+      '<p class="ui-sub">Registros feitos no aplicativo, com data e hora. A temperatura dos equipamentos de conservação e exposição deve ser monitorada regularmente (RDC Anvisa 216/2004, itens 4.8.15 a 4.8.17 e 4.10.3).</p>' +
+      '<div class="sig"><span>' + esc(quemRegistrou('e9') === 'Gestão' ? '' : S.pessoas.filter(function (p) { return p.id === 'e9'; })[0].nome) + '<br>Responsável pelas atividades de manipulação</span><span>Data da conferência</span></div></div>';
+  }
+
+  /* ---------- Mini cursos ---------- */
+  function certHTML(pid, cid) {
+    var p = S.pessoas.filter(function (x) { return x.id === pid; })[0], c = cursoPor(cid), t = treino(pid, cid), r = S.pessoas.filter(function (x) { return x.id === 'e9'; })[0];
+    if (!p || !c || !t) return '';
+    return '<div class="paper cert"><p class="cert-k">Certificado de capacitação</p><h3>' + esc(p.nome) + '</h3>' +
+      '<p class="center">concluiu o mini curso <strong>' + esc(c.titulo) + '</strong>, com duração de ' + c.min + ' minutos e aproveitamento de ' + t.nota + '% no teste, em ' + dmyy(t.em) + '.</p>' +
+      '<p><strong>Conteúdo:</strong> ' + c.aulas.map(function (a) { return esc(a[0]); }).join('; ') + '.</p><p><strong>Base:</strong> ' + esc(c.base) + '.</p>' +
+      '<p class="ui-sub">Registro de capacitação de manipuladores de alimentos (RDC Anvisa 216/2004, item 4.6.7), emitido por ' + esc(S.empresa.razao) + ', CNPJ ' + esc(S.empresa.cnpj) + '. Reciclagem sugerida até ' + dmyy(t.vence) + '. Não substitui o curso do responsável pelas atividades de manipulação (item 4.12.2) nem exigências da vigilância sanitária do município.</p>' +
+      '<div class="sig"><span>' + esc(p.nome) + '<br>Participante</span><span>' + esc(r ? r.nome : '') + '<br>Responsável pelas atividades de manipulação</span></div></div>';
+  }
+  function vCursos() {
+    var emp = S.role === 'empresa', u = S.ui, c = u.curso && cursoPor(u.curso);
+    if (c) {
+      var n = c.aulas.length, i = Math.min(u.aula || 0, n), corpo;
+      if (u.cursoRes) {
+        var rs = u.cursoRes;
+        corpo = '<div class="card card-pad stack"><h2 class="sec">' + (rs.ok ? 'Aprovado(a)! ' : 'Quase lá. ') + rs.acertos + ' de ' + rs.total + ' acertos</h2>' +
+          (rs.ok ? (emp ? '<p>Na visão da empresa o resultado não é registrado. Peça para o funcionário fazer pelo app.</p>' : '<p>Seu certificado já está no seu cadastro.</p><div><button type="button" class="btn btn-primary" data-act="cert" data-p="' + ME + '" data-c="' + c.id + '">Ver certificado</button></div>') : '<p>Para aprovar são 3 acertos de 4. Reveja as aulas e tente de novo.</p><div><button type="button" class="btn btn-primary" data-act="curso-aula" data-v="0">Rever as aulas</button></div>') +
+          rs.erros.map(function (e) { return '<div class="notice"><div><strong>' + esc(e[0]) + '</strong>Resposta certa: ' + esc(e[1]) + '</div></div>'; }).join('') + '<div><button type="button" class="btn" data-act="curso-sair">Voltar aos cursos</button></div></div>';
+      } else if (i < n) {
+        corpo = '<div class="card card-pad stack curso-aula"><p class="ui-sub">Aula ' + (i + 1) + ' de ' + n + '</p><h2 class="sec">' + esc(c.aulas[i][0]) + '</h2><p class="curso-txt">' + esc(c.aulas[i][1]) + '</p>' +
+          '<div class="actions">' + (i ? '<button type="button" class="btn" data-act="curso-aula" data-v="' + (i - 1) + '">Voltar</button>' : '') + '<button type="button" class="btn btn-primary" data-act="curso-aula" data-v="' + (i + 1) + '">' + (i + 1 < n ? 'Próxima aula' : 'Fazer o teste') + '</button></div></div>';
+      } else {
+        corpo = '<form class="card card-pad stack" data-form="quiz"><h2 class="sec">Teste · 4 perguntas</h2>' + c.quiz.map(function (q, k) {
+          return '<fieldset class="field cand-set"><legend>' + (k + 1) + '. ' + esc(q[0]) + '</legend>' + q[1].map(function (o, j) { return '<label class="check"><input type="radio" name="q' + k + '" value="' + j + '" required> ' + esc(o) + '</label>'; }).join('') + '</fieldset>';
+        }).join('') + '<div class="actions"><button type="button" class="btn" data-act="curso-aula" data-v="' + (n - 1) + '">Voltar às aulas</button><button type="submit" class="btn btn-primary">Enviar respostas</button></div></form>';
+      }
+      return titleRow(c.titulo, c.min + ' minutos · ' + c.base, '<button type="button" class="btn" data-act="curso-sair">Sair do curso</button>') + '<div class="curso-wrap">' + corpo + '</div>';
+    }
+    var lista = CURSOS().map(function (k) {
+      var t = !emp && treino(ME, k.id), base = (window.CENTRALIZAR_CURSOS_BASE || []).indexOf(k.id) > -1;
+      return '<li><span><strong>' + esc(k.titulo) + '</strong>' + (base ? ' ' + pill('mute', 'Básico') : '') + '<span class="sub">' + k.min + ' min · ' + k.aulas.length + ' aulas e teste · ' + esc(k.base) + '</span></span><span class="actions">' +
+        (t ? (t.vencido ? pill('warn', 'Refazer') : pill('ok', 'Feito em ' + dmy(t.em))) + ' <button type="button" class="btn btn-sm" data-act="cert" data-p="' + ME + '" data-c="' + k.id + '">Certificado</button>' : '') +
+        '<button type="button" class="btn btn-sm' + (t ? '' : ' btn-primary') + '" data-act="curso-abrir" data-c="' + k.id + '">' + (emp ? 'Ver como o funcionário' : t ? 'Refazer' : 'Começar') + '</button></span></li>';
+    }).join('');
+    if (!emp) return titleRow('Mini cursos', 'Aulas curtas com teste e certificado', '') + '<div class="card"><ul class="list">' + lista + '</ul></div>';
+    var mani = manipuladores(), ok = mani.filter(treinadoBase).length, certs = 0;
+    var head = '<tr><th>Pessoa</th>' + CURSOS().map(function (k) { return '<th class="center">' + esc(CURTO[k.id] || k.id) + '</th>'; }).join('') + '</tr>';
+    var rows = S.pessoas.map(function (p) {
+      return '<tr><td><strong>' + esc(p.nome) + '</strong><span class="sub">' + esc(p.funcao) + '</span></td>' + CURSOS().map(function (k) {
+        var t = treino(p.id, k.id); if (t) certs++;
+        return '<td class="center">' + (t ? '<button type="button" class="link-btn" data-act="cert" data-p="' + p.id + '" data-c="' + k.id + '" aria-label="Certificado de ' + esc(p.nome) + ' em ' + esc(k.titulo) + '">' + (t.vencido ? 'Refazer' : dmy(t.em)) + '</button>' : '<span class="faint">—</span>') + '</td>';
+      }).join('') + '</tr>';
+    }).join('');
+    return titleRow('Mini cursos', 'Capacitação da equipe com teste e certificado (RDC 216/2004, item 4.6.7)', '<button type="button" class="btn btn-primary" data-act="cursos-lembrar">Lembrar quem falta pelo WhatsApp</button>') +
+      '<div class="card kpis">' + '<div class="kpi"><div class="lbl">Cursos básicos em dia</div><div class="val num">' + ok + '/' + mani.length + '</div><div class="cap">manipuladores de alimentos</div></div>' + '<div class="kpi"><div class="lbl">Certificados</div><div class="val num">' + certs + '</div><div class="cap">emitidos na equipe</div></div>' + '<div class="kpi"><div class="lbl">Cursos</div><div class="val num">' + CURSOS().length + '</div><div class="cap">de 6 a 10 minutos cada</div></div></div>' +
+      '<div class="card"><div class="card-head"><h2>Quem já fez</h2><span class="ui-sub">Clique na data para ver o certificado</span></div><div class="table-box"><table class="t cursos-t"><thead>' + head + '</thead><tbody>' + rows + '</tbody></table></div></div>' +
+      '<div class="card"><div class="card-head"><h2>Cursos disponíveis</h2><span class="ui-sub">O funcionário faz pelo celular, no app</span></div><ul class="list">' + lista + '</ul></div>' +
+      '<div class="notice info"><div><strong>O que os cursos comprovam</strong>Os certificados registram a capacitação periódica dos manipuladores (RDC 216/2004, item 4.6.7). O curso do responsável pelas atividades de manipulação (item 4.12.2) e regras próprias do município continuam valendo.</div></div>';
   }
 
   /* ---------- Ponto ---------- */
@@ -377,7 +655,7 @@
       return '<tr><td><strong>' + esc(p.nome) + '</strong><span class="sub">' + esc(p.setor) + '</span></td><td class="num">' + esc(p.escala) + '</td>' + mk.map(function (x) { return '<td class="num hide-sm">' + esc(x || '·') + '</td>'; }).join('') + '<td class="hide-sm">' + esc(METODO[S.marcacoesMetodo[p.id]] || '·') + '</td><td>' + pill(s[0], s[1]) + '</td></tr>';
     }).join('');
     var aut = S.pessoas.map(function (p) { return '<li><label class="check"><input type="checkbox" data-in="aut" data-id="' + p.id + '"' + (p.celular ? ' checked' : '') + (S.role === 'empresa' ? '' : ' disabled') + '> ' + esc(p.nome) + '</label><span class="sub">' + (p.celular ? 'celular ou fixo' : 'só fixo') + '</span></li>'; }).join('');
-    return titleRow('Ponto e jornada', 'Quinta-feira, 05/11 · situação às ' + DEMO_AGORA + ' · tolerância de 10 minutos por dia (CLT, art. 58, § 1º)', '<button type="button" class="btn" data-act="export-afd">Exportar arquivo para a fiscalização (AFD)</button>') +
+    return titleRow('Ponto e jornada', 'Quinta-feira, 05/11 · situação às ' + demoAgora() + ' · tolerância de 10 minutos por dia (CLT, art. 58, § 1º)', '<button type="button" class="btn" data-act="export-afd">Exportar arquivo para a fiscalização (AFD)</button>') +
       '<div class="grid-main"><div class="card"><div class="table-box"><table class="t stack-sm"><thead><tr><th>Pessoa</th><th class="num">Escala</th><th class="num hide-sm">Entrada</th><th class="num hide-sm">Intervalo</th><th class="num hide-sm">Volta</th><th class="num hide-sm">Saída</th><th class="hide-sm">Como marcou</th><th>Situação</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>' +
       '<div class="stack">' + painel + '<div><h2 class="sec">Quem pode marcar pelo celular</h2><div class="card"><ul class="list">' + aut + '</ul></div></div></div></div>';
   }
@@ -573,11 +851,68 @@
     var f = $('input, select, textarea, .modal-foot .btn-primary', o) || $('.btn', o); if (f) f.focus();
   }
   function closeModal() { var o = $('.overlay'); if (o) { o.remove(); if (lastFocus && lastFocus.focus) lastFocus.focus(); } }
-  function printHTML(html) {
+  function imprimirNavegador(html) {
     var a = $('#print-area'); a.innerHTML = html; doc.body.classList.add('printing');
     var done = function () { doc.body.classList.remove('printing'); a.innerHTML = ''; window.removeEventListener('afterprint', done); };
-    window.addEventListener('afterprint', done); window.print(); setTimeout(done, 1500);
+    window.addEventListener('afterprint', done); try { window.print(); } catch (e) { /* bloqueado na prévia */ } setTimeout(done, 1500);
   }
+  // Prévia do documento: abre o arquivo em folha A4 na tela; "Baixar PDF" gera o PDF no navegador.
+  function printHTML(html, nome) {
+    nome = String(nome || 'Documento Centralizar').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w ]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 90);
+    fecharDoc();
+    var o = doc.createElement('div'); o.className = 'docview'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', 'Prévia do documento');
+    o.innerHTML = '<div class="docbar"><div><strong>Prévia do documento</strong><span class="ui-sub">' + esc(nome) + '.pdf' + (S.plano === 'assinante' ? '' : ' · plano de avaliação: sai com marca d\'água') + '</span></div><div class="actions"><button type="button" class="btn btn-primary" data-docact="pdf">Baixar PDF</button><button type="button" class="btn" data-docact="imprimir">Imprimir</button><button type="button" class="btn" data-docact="fechar">Fechar</button></div></div><div class="docscroll"><div class="sheet-a4" id="doc-sheet">' + html + '</div></div>';
+    $$('[contenteditable]', o).forEach(function (n) { n.removeAttribute('contenteditable'); });
+    doc.body.appendChild(o); doc.body.classList.add('doc-aberto');
+    o.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-docact]'); if (!b) return;
+      if (b.dataset.docact === 'fechar') fecharDoc();
+      if (b.dataset.docact === 'imprimir') { imprimirNavegador(html); toast('Se a janela de impressão não abrir aqui, use "Baixar PDF".'); }
+      if (b.dataset.docact === 'pdf') baixarPDF($('#doc-sheet'), nome, b);
+    });
+    var f = $('[data-docact="pdf"]', o); if (f) f.focus();
+  }
+  function fecharDoc() { var o = $('.docview'); if (o) o.remove(); doc.body.classList.remove('doc-aberto'); }
+  function gerarPDF(el) {
+    if (!window.html2pdf) return Promise.reject(new Error('sem gerador'));
+    var marca = S.plano !== 'assinante';
+    // Gera a partir de uma cópia sem a moldura da tela (sombra, altura mínima e recuo), para não sobrar página em branco.
+    var src = el.cloneNode(true); src.removeAttribute('id'); src.classList.add('pdf-gen');
+    return window.html2pdf().set({
+      margin: [16, 17, 18, 17], image: { type: 'jpeg', quality: 0.92 },
+      html2canvas: { scale: 2, scrollX: 0, scrollY: 0, backgroundColor: '#ffffff', ignoreElements: function (n) { return n.classList && (n.classList.contains('wm') || n.classList.contains('sugestao')); } },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      pagebreak: { mode: ['css', 'legacy'], avoid: ['p', 'li', 'tr', 'h4', '.label', '.sig'] }
+    }).from(src).toPdf().get('pdf').then(function (pdf) {
+      var n = pdf.internal.getNumberOfPages();
+      for (var i = 1; i <= n; i++) {
+        pdf.setPage(i); pdf.setFontSize(8); pdf.setTextColor(110, 120, 115);
+        pdf.text('Centralizar · ' + S.empresa.nome + ' · página ' + i + ' de ' + n, 105, 290, { align: 'center' });
+        if (marca) {
+          pdf.saveGraphicsState(); if (pdf.GState) pdf.setGState(new pdf.GState({ opacity: 0.13 }));
+          pdf.setFontSize(30); pdf.setTextColor(15, 61, 46);
+          [90, 160, 230].forEach(function (y) { pdf.text('CENTRALIZAR · VERSÃO DE AVALIAÇÃO', 105, y, { align: 'center', angle: 32 }); });
+          pdf.restoreGraphicsState();
+        }
+      }
+      return pdf.output('blob');
+    });
+  }
+  function baixarPDF(el, nome, btn) {
+    if (!window.html2pdf) { toast('O gerador de PDF não carregou. Use "Imprimir".'); return; }
+    btn.disabled = true; btn.textContent = 'Gerando PDF…';
+    var fim = function () { btn.disabled = false; btn.textContent = 'Baixar PDF'; };
+    gerarPDF(el).then(function (blob) { return salvarArquivo(nome + '.pdf', blob); }).then(fim, function () { toast('Não foi possível gerar o PDF.'); fim(); });
+  }
+  function salvarArquivo(nomeArq, blob) {
+    var usar = window.claude && window.claude.use ? window.claude.use('downloads') : Promise.resolve(null);
+    return Promise.resolve(usar).then(function (dl) {
+      if (dl) return dl.save({ filename: nomeArq, data: blob }).then(function () { toast('Arquivo salvo: ' + nomeArq); }, function (e) { toast(e && e.code === 'declined' ? 'Download cancelado.' : 'O download não está disponível aqui.'); });
+      var a = doc.createElement('a'); a.href = URL.createObjectURL(blob); a.download = nomeArq; doc.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000); toast('Arquivo baixado: ' + nomeArq);
+    }, function () { toast('O download não está disponível aqui.'); });
+  }
+
 
   /* ---------- ações ---------- */
   var A = {
@@ -585,7 +920,20 @@
     vaga: function (b) { S.ui.vaga = b.dataset.id; save(); render(); },
     'crit-reg': function (b) { vagaAtual().crit.regime = b.dataset.v; save(); render(); },
     'crit-tur': function (b) { var k = vagaAtual().crit, i = k.turnos.indexOf(b.dataset.v); if (i > -1) k.turnos.splice(i, 1); else k.turnos.push(b.dataset.v); save(); render(); },
-    'copiar-link': function () { var url = location.origin + location.pathname.replace(/app\.html$/, '') + 'triagem.html?vaga=' + vagaAtual().id; if (navigator.clipboard) navigator.clipboard.writeText(url).then(function () { toast('Link da pré-entrevista copiado. É ele que vai no anúncio da vaga ou no WhatsApp.'); }, function () { toast(url); }); else toast(url); },
+    'copiar-link': function () { var url = location.origin + location.pathname.replace(/app\.html$/, '') + 'triagem.html?vaga=' + vagaAtual().id + '&t=' + encodeURIComponent(S.tipo || ''); if (navigator.clipboard) navigator.clipboard.writeText(url).then(function () { toast('Link da pré-entrevista copiado. É ele que vai no anúncio da vaga ou no WhatsApp.'); }, function () { toast(url); }); else toast(url); },
+    'cand-ver': function (b) {
+      var g = vagaAtual(), c = g.cands[+b.dataset.i], R = window.CENTRALIZAR_ROTULOS || {}, cg = cargoPor(g.cargo), m = avalia(c, g.crit);
+      var lin = function (l, v) { return v ? '<li><span class="sub">' + esc(l) + '</span><span>' + esc(v) + '</span></li>' : ''; };
+      var reqs = (window.CENTRALIZAR_REQS_DO_CARGO ? window.CENTRALIZAR_REQS_DO_CARGO(cg) : []).map(function (r) { var v = (c.reqs || {})[r.k]; return '<li><span>' + esc(r.q) + '</span>' + (v ? pill(v === 'sim' ? 'ok' : (r.elim ? 'bad' : 'warn'), v === 'sim' ? 'Sim' : 'Não') : pill('mute', 'Sem resposta')) + '</li>'; }).join('');
+      modal('Respostas da pré-entrevista · ' + c.n,
+        (m ? '<div class="notice bad"><div><strong>Descartado na triagem</strong>' + esc(m) + '</div></div>' : '<div class="notice info"><div><strong>Passou na triagem</strong>Atende aos critérios da vaga.</div></div>') +
+        (c.jaTrabalhou === 'mesma' ? '<div class="notice bad"><div><strong>Já trabalhou aqui nesta função</strong>Se for contratado, não cabe contrato de experiência (TST): use prazo indeterminado.</div></div>' : '') +
+        '<ul class="list cand-resp">' + lin('WhatsApp', c.fone) + lin('E-mail', c.email) + lin('Bairro', c.bairro) + lin('Contratação', REG[c.regime]) + lin('Turnos', (c.turnos || []).map(function (t) { return TUR[t]; }).join(', ')) + lin('Feriados e domingos', (R.fds || {})[c.fds]) + lin('Pode começar', (R.inicio || {})[c.inicio]) + lin('Distância', c.km ? c.km + ' km' : '') + lin('Transporte', (R.transporte || {})[c.transporte]) + lin('Pretensão salarial', (R.pretensao || {})[c.pretensao]) + lin('Experiência na função', c.exp + (c.exp === 1 ? ' ano' : ' anos')) + lin('Última experiência', c.ultima) + lin('Já trabalhou aqui', (R.jaTrabalhou || {})[c.jaTrabalhou]) + lin('Escolaridade', (R.escolaridade || {})[c.escolaridade]) + lin('Autorizou WhatsApp', c.contato ? 'Sim' : 'Não') + '</ul>' +
+        (reqs ? '<h3 class="sec">Requisitos desta função</h3><ul class="list">' + reqs + '</ul>' : '') +
+        (c.sit1 ? '<h3 class="sec">Situação do dia a dia</h3><p class="ui-sub">' + esc((window.CENTRALIZAR_SITUACOES || {})[cg.setor] || '') + '</p><p>' + esc(c.sit1) + '</p>' : '') +
+        (c.sit2 ? '<h3 class="sec">Por que quer trabalhar aqui</h3><p>' + esc(c.sit2) + '</p>' : '') +
+        (!c.sit1 && !c.fds ? '<p class="ui-sub">Candidato do exemplo, cadastrado antes das perguntas completas.</p>' : ''));
+    },
     'ent-modal': function (b) {
       var g = vagaAtual(), i = +b.dataset.i, c = g.cands[i];
       modal('Chamar para entrevista · ' + c.n, '<form class="stack" data-form="ent" data-i="' + i + '"><div class="form-grid"><div class="field"><label for="ed">Dia</label><input id="ed" name="d" type="date" value="' + addDays(S.hoje, 1) + '" required></div><div class="field"><label for="eh">Horário</label><input id="eh" name="h" type="time" value="10:00" required></div></div><div class="field"><label for="el">Local</label><input id="el" name="l" maxlength="120" value="' + esc(S.empresa.endereco + ', ' + S.empresa.cidade) + '" required></div>' +
@@ -605,6 +953,7 @@
       c.etapa = 'docs';
       if (!S.admissoes.some(function (a) { return a.nome === c.n; })) {
         var aut = g.modelo === 'autonomo', docs = aut ? ['RG ou CNH', 'CPF', 'Cartão CNPJ do MEI', 'Chave PIX'] : ['RG ou CNH', 'CPF', 'Endereço', 'Carteira de Trabalho Digital', 'Conta para pagamento', 'Exame admissional (ASO)'];
+        var cgv = cargoPor(g.cargo); if (cgv && (cgv.flags.indexOf('PEV') > -1 || cgv.flags.indexOf('MOT') > -1 || ['cuidador-de-idosos', 'baba'].indexOf(cgv.id) > -1)) docs.push('Certidão de antecedentes criminais (permitida para esta função: Tema 1 do TST)');
         S.admissoes.push({ id: 'd' + Date.now(), nome: c.n, funcao: g.titulo + (aut ? ' (freelancer)' : ''), modelo: g.modelo, cargo: g.cargo, inicio: addDays(S.hoje, 7), salario: g.salario, cpf: '[a preencher]', docs: docs.map(function (d) { return { n: d, v: '', por: '', st: 'pendente' }; }), hist: [agora() + ' · ' + first(c.n) + ' aprovado(a) na entrevista; empresa enviou o link de documentos pelo WhatsApp'] });
       }
       save(); closeModal(); render(); toast('Link de documentos na fila do WhatsApp e admissão aberta. Neste protótipo nada é enviado de verdade.');
@@ -615,7 +964,7 @@
     'aprovar-adm': function () { var a = admAtual(); if (!a.conferida) return; a.aprovada = true; a.hist.push(agora() + ' · Empregador deu o ok; contador avisado para enviar a admissão ao eSocial'); save(); render(); toast('Ok dado. A admissão está aprovada e o contador foi avisado.'); },
     'gerar-contrato': function (b, e) { e.preventDefault(); var a = admAtual(), ct = ctEstado(); ct.alvo = a.id; ct.modelo = a.modelo === 'autonomo' ? 'autonomo' : 'experiencia'; if (a.cargo) ct.cargo = a.cargo; ct.salario = a.salario; ct.inicio = a.inicio; ct.peric = temPeric(cargoPor(ct.cargo)); ct.checks = {}; save(); location.hash = '#/contratos'; },
     plano: function (b) { S.plano = b.dataset.v; save(); render(); toast(S.plano === 'assinante' ? 'Simulando assinante: o PDF sai sem marca d\'água.' : 'Simulando avaliação gratuita: o PDF sai com marca d\'água.'); },
-    'ct-pdf': function () { var pp = $('#paper'); if (!pp) return; printHTML(pp.outerHTML); toast('Na janela de impressão, escolha "Salvar como PDF".'); },
+    'ct-pdf': function () { var pp = $('#paper'), x = contratoAtualHTML(); if (!pp) return; printHTML(pp.outerHTML, 'Contrato ' + (x.ct.modelo === 'experiencia' ? 'de experiencia ' : '') + x.cargo.cargo + ' ' + (x.pessoa.tipo === 'novo' ? 'modelo' : x.pessoa.nome)); },
     metodo: function (b) { S.ui.metodo = b.dataset.v; S.ui.faceOk = false; save(); render(); },
     face: function () { var f = $('#face'); if (f) f.textContent = 'Conferindo…'; setTimeout(function () { S.ui.faceOk = true; render(); }, 700); },
     marcar: function () {
@@ -641,18 +990,78 @@
       modal('Nova advertência', '<form class="stack" data-form="adv"><div class="field"><label for="ap">Funcionário</label><select id="ap" name="p">' + S.pessoas.map(function (p) { return '<option value="' + p.id + '">' + esc(p.nome) + '</option>'; }).join('') + '</select></div><div class="field"><label for="am">Motivo, com data e fato</label><textarea id="am" name="m" maxlength="400" required placeholder="Ex.: atraso de 30 minutos em 05/11, sem justificativa."></textarea></div><p class="ui-sub">Descreva só o fato. O funcionário recebe no app para dar ciência.</p><button class="btn btn-primary" type="submit">Enviar para ciência</button></form>');
     },
     slip: function (b) { var h = holerite(b.dataset.id); modal('Holerite · ' + h.p.nome, slipHTML(h, 'outubro de 2026'), '<button type="button" class="btn btn-primary" data-act="print-slip" data-id="' + esc(b.dataset.id) + '">Imprimir ou salvar PDF</button>'); },
-    'print-slip': function (b) { printHTML(slipHTML(holerite(b.dataset.id), 'outubro de 2026')); },
+    'print-slip': function (b) { var h = holerite(b.dataset.id); printHTML(slipHTML(h, 'outubro de 2026'), 'Holerite outubro 2026 ' + h.p.nome); },
     lancar: function (b) { var p = P(b.dataset.id); modal('Lançamento · ' + p.nome, '<form class="stack" data-form="lancar" data-id="' + p.id + '"><div class="field"><label for="hx">Horas extras a 50% em outubro</label><input id="hx" name="h" type="number" min="0" max="60" step="0.5" value="' + (S.horasExtras[p.id] || 0) + '"></div><p class="ui-sub">Se o holerite já estiver liberado, ele volta para aprovação da empresa.</p><button class="btn btn-primary" type="submit">Salvar lançamento</button></form>'); },
     'aprovar-sel': function () { var n = 0; $$('[data-in="sel-hol"]:checked:not(:disabled)').forEach(function (c) { S.holerites.aprovados.push(c.dataset.id); n++; }); if (!n) { toast('Marque pelo menos um holerite.'); return; } save(); render(); toast(n + ' holerite(s) liberado(s) para os funcionários.'); },
     'aprovar-todos': function () { S.holerites.aprovados = S.pessoas.map(function (p) { return p.id; }); save(); render(); toast('Holerites de outubro liberados para todos.'); },
     ck: function (b) { S.ui.ck = b.dataset.id; save(); render(); },
     'ck-regra': function (b) { var c = S.checklists.filter(function (x) { return x.id === (S.ui.ck || 'c1'); })[0]; c.foto = b.dataset.v; if (c.foto !== 'parcial') c.itens.forEach(function (i) { i.foto = c.foto === 'todos'; }); save(); render(); },
     qtd: function (b) { var p = S.produtos.filter(function (x) { return x.id === b.dataset.id; })[0]; p.qtd = Math.max(0, p.qtd + +b.dataset.d); save(); render(); },
-    'print-etq': function () { var n = Math.max(1, Math.min(40, +(S.ui.copias || 2))); printHTML('<div class="labels">' + S.produtos.filter(function (p) { return (S.ui.etq || {})[p.id]; }).map(function (p) { return labelHTML(p, n); }).join('') + '</div>'); },
+    'print-etq': function () { var n = Math.max(1, Math.min(40, +(S.ui.copias || 2))); printHTML('<div class="labels">' + S.produtos.filter(function (p) { return (S.ui.etq || {})[p.id]; }).map(function (p) { return labelHTML(p, n); }).join('') + '</div>', 'Etiquetas ' + S.empresa.nome); },
     'cmp-ir': function () { var n = gerarCompras(); save(); location.hash = '#/compras'; if (n) toast(n + ' item(ns) abaixo do mínimo foram para a lista de compras.'); },
     'cmp-gerar': function () { var n = gerarCompras(); save(); render(); toast(n + ' item(ns) sugerido(s) a partir do estoque mínimo.'); },
     'cmp-del': function (b) { S.compras.itens = S.compras.itens.filter(function (i) { return i.id !== b.dataset.id; }); save(); render(); },
-    'cmp-print': function () { printHTML(listaHTML()); },
+    'bp-ativo': function () { S.bp.ativo = true; save(); render(); toast('Teste do adicional ativado por 14 dias.'); },
+    'bp-feito': function (b) { var d = S.bp.docs.filter(function (x) { return x.id === b.dataset.id; })[0]; if (!d) return; d.ult = S.hoje; save(); render(); toast(d.nome + ': registrado hoje. Próximo prazo atualizado.'); },
+    'bp-planilha': function () { printHTML(planilhaHTML(), 'Planilha de temperaturas ' + S.empresa.nome); },
+    'curso-abrir': function (b) { S.ui.curso = b.dataset.c; S.ui.aula = 0; S.ui.cursoRes = null; save(); render(); window.scrollTo(0, 0); },
+    'curso-aula': function (b) { S.ui.aula = Math.max(0, +b.dataset.v || 0); S.ui.cursoRes = null; save(); render(); window.scrollTo(0, 0); },
+    'curso-sair': function () { S.ui.curso = null; S.ui.cursoRes = null; save(); render(); },
+    cert: function (b) { var h = certHTML(b.dataset.p, b.dataset.c); if (!h) { toast('Certificado ainda não emitido.'); return; } var p = S.pessoas.filter(function (x) { return x.id === b.dataset.p; })[0], c = cursoPor(b.dataset.c); printHTML(h, 'Certificado ' + c.titulo + ' ' + p.nome); },
+    'cursos-lembrar': function () { var f = manipuladores().filter(function (p) { return !treinadoBase(p); }); toast(f.length ? 'Lembrete enviado pelo WhatsApp para ' + f.length + ' pessoa(s): ' + f.map(function (p) { return p.nome.split(' ')[0]; }).join(', ') + '.' : 'Todos os manipuladores estão com os cursos básicos em dia.'); },
+    'rs-parecer': function (b) {
+      var g = vagaAtual(), i = +b.dataset.i, c = g.cands[i];
+      modal('Parecer da entrevista · ' + c.n, '<form class="stack" data-form="parecer" data-i="' + i + '"><div class="field"><label for="pn">Nota da entrevista</label><select id="pn" name="n">' + [5, 4, 3, 2, 1].map(function (n) { return '<option value="' + n + '">' + n + ' de 5</option>'; }).join('') + '</select></div>' +
+        '<div class="field"><label for="pp">Parecer para o cliente</label><textarea id="pp" name="p" maxlength="400" rows="4" placeholder="Experiência, postura, pontos fortes e o que precisa desenvolver. Sem critérios pessoais (Lei 9.029/95)." required></textarea></div><button class="btn btn-primary" type="submit">Salvar parecer</button></form>');
+    },
+    'rs-curta': function (b) { var c = vagaAtual().cands[+b.dataset.i]; c.etapa = 'curta'; save(); render(); toast(first(c.n) + ' entrou na lista curta.' + (c.compartilhar === false ? ' Atenção: sem autorização para compartilhar com o cliente.' : '')); },
+    'rs-nao': function (b) { var c = vagaAtual().cands[+b.dataset.i]; c.etapa = 'naoseguir'; save(); render(); },
+    'rs-tirar': function (b) { var c = vagaAtual().cands[+b.dataset.i]; c.etapa = 'entrevistado'; save(); render(); },
+    'rs-dec': function (b) { var c = vagaAtual().cands[+b.dataset.i]; c.decisao = b.dataset.v === 'aprovado' ? 'aprovado' : 'recusado'; save(); render(); toast('Decisão do cliente registrada para ' + first(c.n) + '.'); },
+    'rs-dossie': function () { var g = vagaAtual(); gerarPasta(g, g.cands.filter(function (c) { return c.etapa === 'curta' && c.compartilhar !== false; }), true); },
+    'rs-enviar': function () {
+      var g = vagaAtual(), cl = clientePor(g.cliente), lista = g.cands.filter(function (c) { return c.etapa === 'curta'; }), ok = lista.filter(function (c) { return c.compartilhar !== false; }), fora = lista.length - ok.length;
+      if (!ok.length) { toast('Ninguém na lista curta autorizou o compartilhamento.'); return; }
+      if (cl.integ !== 'centralizar') { gerarPasta(g, ok, false); return; }
+      modal('Encaminhar para ' + cl.nome, '<p>Os candidatos abaixo vão para o painel de <strong>' + esc(cl.nome) + '</strong> (código ' + esc(cl.codigo) + '), em Vagas, para o cliente aprovar ou recusar. Seguem só as respostas da pré-entrevista, a nota e o parecer.</p><ul class="list">' + ok.map(function (c) { return '<li><span>' + esc(c.n) + '<span class="sub">' + esc(c.parecer || '') + '</span></span>' + estrelas(c.nota) + '</li>'; }).join('') + '</ul>' +
+        (fora ? '<div class="notice"><div>' + fora + ' candidato(s) da lista curta não autorizaram o compartilhamento e não serão enviados (LGPD, art. 7º, § 5º).</div></div>' : ''),
+        '<button type="button" class="btn" data-act="fechar">Cancelar</button><button type="button" class="btn btn-primary" data-act="rs-enviar-ok">Encaminhar ' + ok.length + '</button>');
+    },
+    'rs-enviar-ok': function () {
+      var g = vagaAtual(), cl = clientePor(g.cliente), x = integ(), n = 0;
+      g.cands.forEach(function (c, i) {
+        if (c.etapa !== 'curta' || c.compartilhar === false) return;
+        var id = 'env-' + g.id + '-' + Date.now() + '-' + i;
+        x.envios.push({ id: id, para: cl.codigo, de: S.empresa.nome, processo: g.id, titulo: g.titulo, cargo: g.cargo, salario: g.salario, em: agora(), status: 'enviado', cand: resumoCand(c) });
+        c.etapa = 'enviado'; c.envio = id; n++;
+      });
+      salvaInteg(x); save(); closeModal(); render(); toast(n + ' candidato(s) enviados para o painel de ' + cl.nome + '. A decisão aparece aqui.');
+    },
+    'rs-novo': function () {
+      var cli = (S.clientes || []).map(function (k) { return '<option value="' + k.id + '">' + esc(k.nome) + '</option>'; }).join('');
+      var cgs = CARGOS.map(function (c) { return '<option value="' + c.id + '">' + esc(c.cargo) + ' · CBO ' + esc(c.cbo) + '</option>'; }).join('');
+      modal('Novo processo seletivo', '<form class="stack" data-form="processo"><div class="field"><label for="pc">Cliente</label><select id="pc" name="c">' + cli + '</select></div><div class="field"><label for="pt">Título da vaga</label><input id="pt" name="t" maxlength="60" required></div><div class="field"><label for="pg">Cargo (base com CBO)</label><select id="pg" name="g">' + cgs + '</select></div>' +
+        '<div class="form-grid"><div class="field"><label for="pq">Vagas</label><input id="pq" name="q" type="number" min="1" max="50" value="1"></div><div class="field"><label for="ps">Salário (R$)</label><input id="ps" name="s" type="number" min="0" step="0.01" value="2000"></div></div><button class="btn btn-primary" type="submit">Abrir processo</button></form>');
+    },
+    'rec-ver': function (b) {
+      var e = envioPor(b.dataset.id); if (!e) return; var c = e.cand || {}, R = window.CENTRALIZAR_ROTULOS || {};
+      var lin = function (l, v) { return v ? '<li><span class="sub">' + esc(l) + '</span><span>' + esc(v) + '</span></li>' : ''; };
+      modal('Indicado por ' + e.de + ' · ' + c.n, '<div class="notice info"><div><strong>' + esc(e.titulo) + ' · nota ' + esc(c.nota || '–') + ' de 5</strong>' + esc(c.parecer || 'Sem parecer.') + '</div></div><ul class="list cand-resp">' + lin('WhatsApp', c.fone) + lin('Bairro', c.bairro) + lin('Contratação', REG[c.regime]) + lin('Turnos', (c.turnos || []).map(function (t) { return TUR[t]; }).join(', ')) + lin('Pode começar', (R.inicio || {})[c.inicio]) + lin('Distância', c.km ? c.km + ' km' : '') + lin('Experiência na função', c.exp != null ? c.exp + (c.exp === 1 ? ' ano' : ' anos') : '') + lin('Última experiência', c.ultima) + lin('Escolaridade', (R.escolaridade || {})[c.escolaridade]) + lin('Pretensão salarial', (R.pretensao || {})[c.pretensao]) + '</ul><p class="ui-sub">Compartilhado com autorização do candidato, só para esta vaga (LGPD, art. 7º, § 5º).</p>');
+    },
+    'rec-ok': function (b) {
+      var x = integ(), e = x.envios.filter(function (y) { return y.id === b.dataset.id; })[0]; if (!e || e.status !== 'enviado') return;
+      var c = e.cand || {}, cg = cargoPor(e.cargo);
+      e.status = 'aprovado'; e.decididoEm = agora(); salvaInteg(x);
+      var docs = ['RG ou CNH', 'CPF', 'Endereço', 'Carteira de Trabalho Digital', 'Conta para pagamento', 'Exame admissional (ASO)'];
+      if (!S.admissoes.some(function (a) { return a.nome === c.n; })) S.admissoes.push({ id: 'd' + Date.now(), nome: c.n, funcao: e.titulo.replace(/\(a\)/g, ''), modelo: 'experiencia', cargo: cg.id, inicio: addDays(S.hoje, 7), salario: +e.salario || 0, cpf: '[a preencher]', docs: docs.map(function (d) { return { n: d, v: '', por: '', st: 'pendente' }; }), hist: [agora() + ' · Aprovado(a) pela empresa a partir da indicação de ' + e.de + '; link de documentos enviado pelo WhatsApp'] });
+      save(); render(); toast(first(c.n) + ' aprovado(a). A admissão foi aberta e a recrutadora foi avisada.');
+    },
+    'rec-nao': function (b) {
+      var e = envioPor(b.dataset.id); if (!e) return;
+      modal('Recusar · ' + (e.cand || {}).n, '<form class="stack" data-form="rec-nao" data-id="' + esc(e.id) + '"><div class="field"><label for="rm">Motivo (vai para a recrutadora)</label><select id="rm" name="m"><option>Perfil diferente do pedido</option><option>Experiência insuficiente para a função</option><option>Disponibilidade de horário incompatível</option><option>Vaga já preenchida</option><option>Pretensão acima do orçamento</option></select></div><button class="btn btn-primary" type="submit">Recusar</button></form>');
+    },
+    'ct-extra-del': function (b) { var c = ctEstado(), i = +b.dataset.i; if (c.extras[i]) { c.extras.splice(i, 1); c.checks = {}; save(); render(); toast('Cláusula removida do contrato.'); } },
+    'cmp-print': function () { printHTML(listaHTML(), 'Lista de compras ' + S.empresa.nome); },
     'cmp-receber': function () {
       var ok = S.compras.itens.filter(function (i) { return i.comprado; }), n = 0;
       ok.forEach(function (i) { var p = S.produtos.filter(function (x) { return x.id === i.prod; })[0]; if (p) { p.qtd = Math.round((p.qtd + i.qtd) * 100) / 100; n++; } });
@@ -668,6 +1077,51 @@
   function onSubmit(e) {
     var f = e.target.closest('[data-form]'); if (!f) return; e.preventDefault();
     var d = new FormData(f), k = f.dataset.form;
+    if (k === 'parecer') {
+      var cp = vagaAtual().cands[+f.dataset.i]; if (!cp) return;
+      cp.nota = Math.max(1, Math.min(5, +d.get('n') || 3)); cp.parecer = String(d.get('p') || '').trim().replace(/\s+/g, ' ').slice(0, 400); cp.etapa = 'entrevistado';
+      save(); closeModal(); render(); toast('Parecer salvo. Agora decida se ' + first(cp.n) + ' vai para a lista curta.'); return;
+    }
+    if (k === 'processo') {
+      var tt2 = String(d.get('t') || '').trim().slice(0, 60), cgp = cargoPor(String(d.get('g'))), cli = clientePor(String(d.get('c')));
+      if (!tt2) { toast('Dê um título para a vaga.'); return; }
+      var id2 = 'r' + Date.now();
+      S.vagas.push({ id: id2, cliente: cli.id, qtd: Math.max(1, Math.min(50, +d.get('q') || 1)), titulo: tt2, cargo: cgp.id, regimeOferta: 'CLT · experiência de 45 dias', modelo: 'experiencia', salario: Math.max(0, +d.get('s') || 0), aberta: true, crit: { regime: 'clt', turnos: [], km: 15, exp: 0 }, cands: [] });
+      S.ui.vaga = id2; save(); closeModal(); render(); toast('Processo aberto. Copie o link da pré-entrevista e divulgue a vaga.'); return;
+    }
+    if (k === 'cliente') {
+      var nn = String(d.get('n') || '').trim().slice(0, 80); if (!nn) return;
+      var cod = String(d.get('k') || ''), integra = d.get('i') === 'centralizar' && !!cod;
+      S.clientes.push({ id: 'k' + Date.now(), nome: nn, cidade: S.empresa.cidade, contato: String(d.get('c') || '').trim().slice(0, 80), integ: integra ? 'centralizar' : 'externo', codigo: integra ? cod : undefined });
+      save(); render(); toast(integra ? 'Cliente conectado pelo código ' + cod + '.' : 'Cliente externo cadastrado: a lista curta sai em pasta .zip.'); return;
+    }
+    if (k === 'rec-nao') {
+      var x2 = integ(), e2 = x2.envios.filter(function (y) { return y.id === f.dataset.id; })[0]; if (!e2) return;
+      e2.status = 'recusado'; e2.motivo = String(d.get('m') || '').slice(0, 80); e2.decididoEm = agora(); salvaInteg(x2); closeModal(); render(); toast('Recusa registrada e enviada para a recrutadora.'); return;
+    }
+    if (k === 'temp') {
+      var eqp = String(d.get('eq')), tv = parseFloat(String(d.get('t') || '').replace(',', '.')), ac = String(d.get('a') || '').trim().slice(0, 140);
+      if (!S.bp || !S.bp.equip.some(function (e) { return e.id === eqp; }) || !isFinite(tv) || tv < -40 || tv > 300) { toast('Informe uma temperatura válida.'); return; }
+      var reg = { eq: eqp, data: S.hoje, hora: new Date().toTimeString().slice(0, 5), t: Math.round(tv * 10) / 10, por: S.role === 'funcionario' ? ME : null, acao: ac };
+      if (!tempOk(reg) && !ac) { toast('Fora da faixa: descreva a ação corretiva antes de registrar.'); var fa = $('#bt-a'); if (fa) fa.focus(); return; }
+      S.bp.temps.push(reg); save(); render(); toast(tempOk(reg) ? 'Temperatura registrada.' : 'Registrado fora da faixa, com a ação corretiva. A gerência foi avisada.'); return;
+    }
+    if (k === 'quiz') {
+      var cq = cursoPor(S.ui.curso); if (!cq) return;
+      var ac2 = 0, erros = [];
+      cq.quiz.forEach(function (qq, i) { if (+d.get('q' + i) === qq[2]) ac2++; else erros.push([qq[0], qq[1][qq[2]]]); });
+      var aprovado = ac2 >= 3;
+      if (aprovado && S.role === 'funcionario') { S.treinos = S.treinos || {}; S.treinos[ME] = S.treinos[ME] || {}; S.treinos[ME][cq.id] = { nota: Math.round(ac2 / cq.quiz.length * 100), em: S.hoje }; }
+      S.ui.cursoRes = { acertos: ac2, total: cq.quiz.length, ok: aprovado, erros: erros }; save(); render(); window.scrollTo(0, 0); return;
+    }
+    if (k === 'ct-extra') {
+      var cx = ctEstado(), tt = String(d.get('t') || '').trim().replace(/\s+/g, ' ').slice(0, 80), tx = String(d.get('x') || '').replace(/\r/g, '').trim().slice(0, 1500);
+      if (!tt || tx.length < 10) { toast('Escreva o título e o texto da cláusula.'); return; }
+      if (cx.extras.length >= 10) { toast('Limite de 10 cláusulas próprias por contrato.'); return; }
+      cx.extras.push({ titulo: tt, texto: tx }); cx.checks = {}; save(); render();
+      var rs = window.CENTRALIZAR_RISCOS_CLAUSULA ? window.CENTRALIZAR_RISCOS_CLAUSULA(tt + ' ' + tx) : [];
+      toast(rs.some(function (r) { return r[0] === 'bad'; }) ? 'Cláusula incluída, mas a verificação encontrou ponto de nulidade.' : rs.length ? 'Cláusula incluída. Veja o alerta na verificação.' : 'Cláusula incluída no contrato.'); return;
+    }
     if (k === 'ent') {
       var gv = vagaAtual(), cv = gv.cands[+f.dataset.i], dd = String(d.get('d') || S.hoje);
       cv.etapa = 'entrevista'; cv.entrevistaEm = dmy(dd) + ' ' + String(d.get('h') || '10:00').slice(0, 5); cv.local = String(d.get('l')).slice(0, 120);
@@ -696,13 +1150,29 @@
     if (k === 'crit-exp') { vagaAtual().crit.exp = +t.value; save(); render(); }
     if (k === 'ct') {
       var ct = ctEstado(), key = t.dataset.k, val = t.type === 'checkbox' ? t.checked : t.value;
-      if (key === 'dias') val = +val; if (key === 'salario') val = Math.max(0, Math.round((+val || 0) * 100) / 100); if (key === 'cct') val = String(val).slice(0, 80);
+      if (['dias', 'comissao', 'grat', 'ncMeses', 'cursoMeses'].indexOf(key) > -1) val = Math.max(0, +val || 0); if (key === 'salario') val = Math.max(0, Math.round((+val || 0) * 100) / 100); if (key === 'cct') val = String(val).slice(0, 80);
       ct[key] = val;
       if (key === 'alvo') { var pa = pessoasContrato().filter(function (x) { return x.id === val; })[0]; if (pa && pa.cargo) ct.cargo = pa.cargo; if (pa && pa.salario) ct.salario = pa.salario; if (pa && pa.inicio) ct.inicio = pa.inicio; }
       if (key === 'cargo' || key === 'alvo') ct.peric = temPeric(cargoPor(ct.cargo));
       if (key === 'turno') ct.noturno = val !== 'diurno';
       ct.checks = {}; save(); render(); return;
     }
+    if (k === 'rec-import') {
+      var arq = t.files && t.files[0]; if (!arq) return;
+      if (arq.size > 2 * 1024 * 1024) { toast('Arquivo grande demais (limite de 2 MB).'); return; }
+      arq.text().then(function (txt) {
+        var j; try { j = JSON.parse(txt); } catch (er) { toast('Arquivo inválido: não é a pasta de candidatos do Centralizar.'); return; }
+        if (!j || j.formato !== 'centralizar-candidatos' || !Array.isArray(j.candidatos)) { toast('Arquivo inválido: não é a pasta de candidatos do Centralizar.'); return; }
+        var x3 = integ(), vg = j.vaga || {}, s = function (v, n) { return String(v == null ? '' : v).slice(0, n); }, cg = cargoPor(s(vg.cargo, 80));
+        j.candidatos.slice(0, 50).forEach(function (c, i) {
+          var cand = { n: s(c.n, 80), fone: s(c.fone, 20), bairro: s(c.bairro, 60), regime: REG[c.regime] ? c.regime : 'tanto', turnos: (Array.isArray(c.turnos) ? c.turnos : []).filter(function (x) { return TUR[x]; }), km: Math.max(0, +c.km || 0), exp: Math.max(0, Math.min(40, +c.exp || 0)), ultima: s(c.ultima, 120), escolaridade: s(c.escolaridade, 4), pretensao: s(c.pretensao, 12), inicio: s(c.inicio, 12), nota: Math.max(0, Math.min(5, +c.nota || 0)), parecer: s(c.parecer, 400) };
+          if (cand.n) x3.envios.push({ id: 'imp-' + Date.now() + '-' + i, para: S.empresa.codigo, de: s(j.de, 80) || 'Recrutadora', titulo: s(vg.titulo, 60) || cg.cargo, cargo: cg.id, salario: Math.max(0, +vg.salario || 0), em: agora(), status: 'enviado', origem: 'arquivo', cand: cand });
+        });
+        salvaInteg(x3); render(); toast('Pasta importada: os candidatos estão em Recebidos de recrutadoras.');
+      }, function () { toast('Não foi possível ler o arquivo.'); });
+      return;
+    }
+    if (k === 'ct-opc') { var co = ctEstado(); co.opc[t.dataset.k] = t.checked; co.checks = {}; save(); render(); var back = $('[data-in="ct-opc"][data-k="' + t.dataset.k + '"]'); if (back) back.focus(); return; }
     if (k === 'ct-check') { ctEstado().checks[t.dataset.k] = t.checked; save(); render(); return; }
     if (k === 'ponto-pessoa') { S.ui.pontoPessoa = t.value; S.ui.faceOk = false; S.ui.metodo = null; save(); render(); }
     if (k === 'aut') { P(t.dataset.id).celular = t.checked; save(); render(); }
@@ -741,13 +1211,13 @@
   view.addEventListener('change', onInput);
   view.addEventListener('submit', onSubmit);
   view.addEventListener('input', function (e) { if (e.target.dataset.in === 'crit-km') { var o = e.target.previousElementSibling; if (o) o.innerHTML = 'Distância máxima: <strong>' + (+e.target.value) + ' km</strong>'; } });
-  doc.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeModal(); });
+  doc.addEventListener('keydown', function (e) { if (e.key === 'Escape') { if ($('.docview')) fecharDoc(); else closeModal(); } });
 
   $('#role').addEventListener('change', function (e) { S.role = e.target.value; S.ui.recibo = null; S.ui.faceOk = false; save(); render(); toast('Agora você vê o sistema como ' + e.target.options[e.target.selectedIndex].text.toLowerCase() + '.'); });
   $('#menu-btn').addEventListener('click', function () { var s = $('#side'), o = s.classList.toggle('open'); this.setAttribute('aria-expanded', String(o)); });
-  $('#reset').addEventListener('click', function () { try { localStorage.removeItem(KEY); } catch (e) { /* ignora */ } var nome = S.empresa.nome; S = load(); S.empresa.nome = nome; save(); render(); toast('Dados de exemplo restaurados.'); });
+  $('#reset').addEventListener('click', function () { try { localStorage.removeItem(KEY); } catch (e) { /* ignora */ } var nome = S.empresa.nome, razao = S.empresa.razao, tp = S.tipo; S = novoExemplo(tp || 'padaria'); S.empresa.nome = nome; S.empresa.razao = razao; semearInteg(); save(); render(); toast('Dados de exemplo restaurados.'); });
   var dl = $('#q-list'); dl.innerHTML = S.pessoas.map(function (p) { return '<option value="' + esc(p.nome) + '">'; }).join('') + S.produtos.map(function (p) { return '<option value="' + esc(p.nome) + '">'; }).join('');
   $('#q').addEventListener('change', function (e) { var v = e.target.value.trim(); if (!v) return; S.ui.q = v.slice(0, 60); save(); if (location.hash === '#/busca') render(); else location.hash = '#/busca'; });
-  window.addEventListener('hashchange', function () { render(); view.focus({ preventScroll: true }); window.scrollTo(0, 0); });
+  window.addEventListener('hashchange', function () { var o = $('.overlay'); if (o) o.remove(); fecharDoc(); render(); view.focus({ preventScroll: true }); window.scrollTo(0, 0); });
   render();
 })();

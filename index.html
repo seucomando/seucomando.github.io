@@ -27,6 +27,7 @@
       <li><a href="#holerite">Como funciona</a></li>
       <li><a href="#documentos">Documentos</a></li>
       <li><a href="#precos">Preços</a></li>
+      <li><a href="recrutamento.html">Para recrutadoras</a></li>
       <li><a href="#duvidas">Dúvidas</a></li>
     </ul>
     <a class="btn btn-broto" href="app.html">Ver o sistema</a>
@@ -109,7 +110,7 @@
     </div>
     <div class="pre-copy">
       <h2 id="h-pre">A pré-entrevista, do lado do candidato</h2>
-      <p class="rise">Você publica a vaga com um link. O candidato responde pelo celular, sem cadastro e sem enviar documento, e a resposta chega no seu painel já filtrada pelos seus critérios.</p>
+      <p class="rise">Você publica a vaga com um link. O candidato responde pelo celular, sem cadastro e sem enviar documento, e a resposta chega no seu painel já filtrada pelos seus critérios. As perguntas mudam conforme o cargo: maioridade onde a lei exige, CNH para motorista, curso de motofretista, registro no conselho para profissões regulamentadas.</p>
       <ol class="pre-steps">
         <li class="rise"><strong>Triagem.</strong> Só perguntas sobre a vaga: regime, turnos, distância e experiência. Quem não se encaixa é descartado automaticamente.</li>
         <li class="rise"><strong>Entrevista.</strong> Você chama quem passou, com dia e hora, e o convite vai pelo WhatsApp. Depois, aprova ou não.</li>
@@ -241,6 +242,11 @@
       <ul id="plan-list"></ul>
       <p class="ui-sub">Valores de referência para o lançamento.</p>
       <a class="btn btn-pinho" href="#comecar" id="plan-cta">Começar com o Completo</a>
+      <div class="addon">
+        <p class="addon-k">Adicional para alimentação</p>
+        <p class="addon-t">Boas práticas de alimentos <span>+ R$ 49 por mês</span></p>
+        <p>Para restaurante, lanchonete, padaria e hamburgueria: planilha de temperaturas, prazos da vigilância sanitária (manual, POPs, caixa-d'água, pragas) e mini cursos para a equipe com teste e certificado, como pede a RDC Anvisa 216/2004.</p>
+      </div>
     </div>
   </section>
 
@@ -289,7 +295,7 @@
     <div class="wrap">
       <div class="cta-copy">
         <h2 id="h-cta">Abra o seu painel.</h2>
-        <p>Digite o nome da empresa e veja o protótipo já com ele. Nada é enviado: tudo fica no seu navegador.</p>
+        <p>Digite o nome e escolha o ramo: equipe, cargos, produtos, checklists e horários do exemplo mudam conforme a empresa. Nada é enviado: tudo fica no seu navegador.</p>
       </div>
       <div class="dialog" data-ui role="dialog" aria-labelledby="dlg-title">
         <div class="ui-head"><div class="ui-title" id="dlg-title">Criar sua empresa no Centralizar</div></div>
@@ -297,6 +303,32 @@
           <div class="field">
             <label class="ui-label" for="empresa">Nome da empresa</label>
             <input id="empresa" name="empresa" type="text" value="Padaria Sol" maxlength="60" autocomplete="organization" required>
+          </div>
+          <div class="field">
+            <label class="ui-label" for="tipo">Ramo da empresa</label>
+            <select id="tipo" name="tipo">
+              <optgroup label="Alimentação">
+                <option value="padaria">Padaria e confeitaria</option>
+                <option value="hamburgueria">Hamburgueria e lanchonete</option>
+                <option value="restaurante">Restaurante e pizzaria</option>
+              </optgroup>
+              <optgroup label="Comércio">
+                <option value="mercado">Mercado e supermercado</option>
+                <option value="loja">Loja de roupas e calçados</option>
+                <option value="oficina">Oficina mecânica e auto center</option>
+              </optgroup>
+              <optgroup label="Indústria e obras">
+                <option value="metalurgica">Indústria metalúrgica</option>
+                <option value="confeccao">Indústria de confecção</option>
+                <option value="construtora">Construtora</option>
+              </optgroup>
+              <optgroup label="Serviços">
+                <option value="salao">Salão de beleza e barbearia</option>
+                <option value="clinica">Clínica odontológica</option>
+                <option value="escritorio">Escritório de contabilidade</option>
+                <option value="recrutamento">Recrutamento e seleção (agência)</option>
+              </optgroup>
+            </select>
           </div>
           <div class="field">
             <span class="ui-label" id="lbl-porte">Quantos funcionários</span>
@@ -316,7 +348,7 @@
 <footer class="foot">
   <div class="wrap">
     <span>Centralizar · gestão empresarial</span>
-    <nav aria-label="Rodapé"><a href="app.html">Protótipo</a><a href="#documentos">Documentos</a><a href="#precos">Preços</a><a href="#duvidas">Dúvidas</a></nav>
+    <nav aria-label="Rodapé"><a href="app.html">Protótipo</a><a href="#documentos">Documentos</a><a href="#precos">Preços</a><a href="recrutamento.html">Para recrutadoras</a><a href="#duvidas">Dúvidas</a></nav>
     <span class="right">2026 · versão de demonstração</span>
   </div>
 </footer>

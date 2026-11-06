@@ -10,7 +10,9 @@ O protótipo **não tem servidor, banco de dados nem contas**. Os dados de exemp
 |---|---|---|
 | Política de conteúdo (CSP) | `script-src 'self'`, sem scripts inline, `object-src 'none'`, `base-uri 'self'` e `form-action 'self'`; estilos só do próprio site e do Google Fonts | Páginas carregadas sem violação no console |
 | Escape de todo dado dinâmico | Função `esc()` antes de qualquer `innerHTML`; `textContent` na landing | `?empresa=<b>Bom</b>` e um vale com `<img src=x onerror=alert(1)>` aparecem como texto e não são executados |
-| Sem código de terceiros | Nenhuma biblioteca JS externa, nenhum npm, nenhum CDN de script | — |
+| Código de terceiros mínimo | Só o html2pdf.js 0.10.2 (MIT), copiado para `assets/js/vendor/` e servido pelo próprio site, sem CDN; não usa `eval` nem `new Function`, então funciona com `script-src 'self'`. Ao gerar o PDF, o html2canvas tenta aplicar estilos inline num clone da página e a CSP bloqueia isso, o que só gera avisos no console: os PDFs saem corretos | PDFs de contrato, holerite, etiquetas, lista de compras, planilha de temperaturas, certificado e dossiê gerados e conferidos |
+| Arquivo importado da recrutadora | O `.json` é lido no navegador, com limite de 2 MB e 50 candidatos, campos validados e cortados, e tudo passa por `esc()` antes de aparecer | — |
+| Planilha CSV sem fórmula | Células que começam com `=`, `+`, `-` ou `@` recebem apóstrofo (CSV injection) | — |
 | Fotos locais | Fotos de checklist e atestado viram `blob:` no próprio navegador e não são enviadas | — |
 | Armazenamento tolerante a falhas | Leitura e escrita do `localStorage` dentro de try/catch | Funciona em aba anônima |
 | Privacidade de navegação | `referrer` restrito e painel com `noindex` | — |

@@ -15,7 +15,13 @@
 <link rel="stylesheet" href="assets/css/app.css">
 <script src="assets/js/code39.js" defer></script>
 <script src="assets/js/data.js" defer></script>
+<script src="assets/js/perfis.js" defer></script>
+<script src="assets/js/perfis2.js" defer></script>
+<script src="assets/js/cursos.js" defer></script>
 <script src="assets/js/cargos.js" defer></script>
+<script src="assets/js/clausulas.js" defer></script>
+<script src="assets/js/perguntas.js" defer></script>
+<script src="assets/js/vendor/html2pdf.bundle.min.js" defer></script>
 <script src="assets/js/app.js" defer></script>
 </head>
 <body>
@@ -28,7 +34,9 @@
       </div>
       <div class="nav-group" data-group>
         <span class="nav-label">Pessoas</span>
-        <a href="#/vagas" data-roles="empresa"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="8" r="4"/><path d="M3 21c0-4 3-6 7-6s7 2 7 6M17 11l2 2 4-4"/></svg>Vagas e seleção</a>
+        <a href="#/vagas" data-roles="empresa" data-nors><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="8" r="4"/><path d="M3 21c0-4 3-6 7-6s7 2 7 6M17 11l2 2 4-4"/></svg>Vagas e seleção</a>
+        <a href="#/selecao" data-roles="empresa" data-rs><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.2-4.2"/><path d="M9 11h4M11 9v4"/></svg><span>Processos seletivos</span></a>
+        <a href="#/clientes" data-roles="empresa" data-rs><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V8l8-4 8 4v12"/><path d="M9 20v-5h6v5"/><path d="M8 10h.01M12 10h.01M16 10h.01"/></svg><span>Empresas clientes</span></a>
         <a href="#/admissoes" data-roles="empresa contador"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg>Admissões<span class="count" data-count="adm"></span></a>
         <a href="#/contratos" data-roles="empresa contador"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h14v16H5z"/><path d="M8 8h8M8 12h8M8 16h4"/></svg>Contratos</a>
       </div>
@@ -47,6 +55,11 @@
         <span class="nav-label">Loja</span>
         <a href="#/estoque" data-roles="empresa"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>Estoque e etiquetas</a>
         <a href="#/compras" data-roles="empresa funcionario"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2l2.4 11h11L21 8H7"/><circle cx="10" cy="19.5" r="1.5"/><circle cx="17" cy="19.5" r="1.5"/></svg>Lista de compras<span class="count" data-count="cmp"></span></a>
+      </div>
+      <div class="nav-group" data-group>
+        <span class="nav-label">Alimentos</span>
+        <a href="#/boas" data-roles="empresa funcionario" data-food><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 14.8V4a2 2 0 1 0-4 0v10.8a4 4 0 1 0 4 0z"/><path d="M12 9v7"/></svg><span>Boas práticas</span></a>
+        <a href="#/cursos" data-roles="empresa funcionario" data-food><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-5 9 5-9 5-9-5z"/><path d="M7 11.5V16c0 1.4 2.2 3 5 3s5-1.6 5-3v-4.5"/><path d="M21 9v5"/></svg><span>Mini cursos</span></a>
       </div>
     </nav>
     <div class="side-foot">Protótipo com dados de exemplo. Nada sai do seu navegador. <button type="button" class="link-btn" id="reset">Restaurar exemplo</button></div>
