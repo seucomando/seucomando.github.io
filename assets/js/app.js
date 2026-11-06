@@ -1,7 +1,7 @@
 /* Centralizar — painel (protótipo navegável). Sem servidor: os dados de exemplo ficam só neste navegador. */
 (function () {
   'use strict';
-  var KEY = 'centralizar-prototipo-v2';
+  var KEY = 'centralizar-prototipo-v3';
   var SEED = window.BROTA_SEED, TPL = window.BROTA_CONTRATOS;
   var doc = document, view = doc.getElementById('view');
   var ME = 'e1'; // a funcionária usada na visão "Funcionário"
@@ -165,23 +165,25 @@
   function vVagas() {
     var g = vagaAtual(), k = g.crit;
     var tabs = S.vagas.map(function (v) { return '<button type="button" role="tab" aria-selected="' + (v.id === g.id) + '" data-act="vaga" data-id="' + v.id + '">' + esc(v.titulo) + '</button>'; }).join('');
-    var aptos = 0;
+    var aptos = 0, esc1 = g.cands.filter(function (c) { return c.escolhido; }), pend = esc1.filter(function (c) { return !c.avisado && c.contato; });
     var rows = g.cands.map(function (c, i) {
       var m = avalia(c, k); if (!m) aptos++;
-      return '<tr><td><strong>' + esc(c.n) + '</strong><span class="sub">' + esc(c.fone) + '</span></td><td>' + esc(REG[c.regime]) + '</td><td class="hide-sm">' + c.turnos.map(function (t) { return esc(TUR[t]); }).join(', ') + '</td><td class="num hide-sm">' + c.km + ' km</td><td class="num hide-sm">' + c.exp + (c.exp === 1 ? ' ano' : ' anos') + '</td><td>' + (m ? pill('mute', m) : pill('ok', c.avisado ? 'Apto · avisado' : 'Apto')) + '</td><td class="hide-sm">' + (c.contato ? 'Autorizou' : pill('warn', 'Não autorizou')) + '</td></tr>';
+      var dec = c.escolhido ? pill('ok', c.avisado ? 'Escolhido · link enviado' : 'Escolhido') + (c.avisado ? '' : ' <button type="button" class="btn btn-sm" data-act="desescolher" data-i="' + i + '">Desfazer</button>') : (m ? '<span class="ui-sub">·</span>' : '<button type="button" class="btn btn-sm btn-primary" data-act="escolher" data-i="' + i + '">Escolher</button>');
+      return '<tr><td><strong>' + esc(c.n) + '</strong><span class="sub">' + esc(c.fone) + (c.contato ? '' : ' · não autorizou WhatsApp') + '</span></td><td>' + esc(REG[c.regime]) + '</td><td class="hide-sm">' + c.turnos.map(function (t) { return esc(TUR[t]); }).join(', ') + '</td><td class="num hide-sm">' + c.km + ' km</td><td class="num hide-sm">' + c.exp + (c.exp === 1 ? ' ano' : ' anos') + '</td><td>' + (m ? pill('mute', m) : pill('ok', 'Apto')) + '</td><td>' + dec + '</td></tr>';
     }).join('');
     var seg = ['clt', 'free', 'temp', 'qualquer'].map(function (r) { return '<button type="button" data-act="crit-reg" data-v="' + r + '" aria-pressed="' + (k.regime === r) + '">' + REG[r] + '</button>'; }).join('');
     var chips = Object.keys(TUR).map(function (t) { return '<button type="button" class="chip" data-act="crit-tur" data-v="' + t + '" aria-pressed="' + (k.turnos.indexOf(t) > -1) + '">' + TUR[t] + '</button>'; }).join('');
     var exps = [0, 1, 2, 3].map(function (n) { return '<option value="' + n + '"' + (k.exp === n ? ' selected' : '') + '>' + (n ? 'Pelo menos ' + n + (n === 1 ? ' ano' : ' anos') : 'Sem exigência') + '</option>'; }).join('');
-    return titleRow('Vagas e pré-entrevista', esc(g.titulo) + ' · ' + esc(g.regimeOferta) + ' · ' + g.cands.length + ' respostas', '<button type="button" class="btn" data-act="copiar-link">Copiar link da pré-entrevista</button><button type="button" class="btn btn-primary" data-act="wa-modal"' + (aptos ? '' : ' disabled') + '>Avisar ' + aptos + ' apto(s) no WhatsApp</button>') +
+    return titleRow('Vagas e pré-entrevista', esc(g.titulo) + ' · ' + esc(g.regimeOferta) + ' · ' + g.cands.length + ' respostas', '<button type="button" class="btn" data-act="copiar-link">Copiar link da pré-entrevista</button><button type="button" class="btn btn-primary" data-act="wa-modal"' + (pend.length ? '' : ' disabled') + '>' + (pend.length ? 'Enviar link de documentos a ' + pend.length : 'Escolha quem segue') + '</button>') +
       '<div class="tabs" role="tablist">' + tabs + '</div>' +
-      '<div class="grid-main"><div class="card"><div class="card-head"><h2>Respostas dos candidatos</h2><span class="pill ok">' + aptos + ' de ' + g.cands.length + ' aptos</span></div><div class="table-box"><table class="t stack-sm"><thead><tr><th>Candidato</th><th>Quer trabalhar como</th><th class="hide-sm">Turnos</th><th class="num hide-sm">Distância</th><th class="num hide-sm">Experiência</th><th>Resultado</th><th class="hide-sm">WhatsApp</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>' +
+      '<div class="grid-main"><div class="stack"><div class="card"><div class="card-head"><h2>Respostas da pré-entrevista</h2><span class="pill ok">' + aptos + ' aptos · ' + esc1.length + ' escolhido(s)</span></div><div class="table-box"><table class="t stack-sm"><thead><tr><th>Candidato</th><th>Quer trabalhar como</th><th class="hide-sm">Turnos</th><th class="num hide-sm">Distância</th><th class="num hide-sm">Experiência</th><th>Filtro</th><th>Sua decisão</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>' +
+      '<div class="notice info"><div><strong>Passar no filtro não é ser contratado</strong>O filtro só separa quem atende aos seus critérios. Você escolhe quem segue, e só os escolhidos recebem pelo WhatsApp o link para enviar documentos. Só eles aparecem em Admissões.</div></div></div>' +
       '<div class="stack"><div class="card card-pad stack"><h2 class="sec">Seus critérios</h2>' +
       '<div class="field"><span class="lbl-s">Regime da vaga</span><div class="seg">' + seg + '</div></div>' +
       '<div class="field"><span class="lbl-s">Turnos obrigatórios</span><div class="chips">' + chips + '</div></div>' +
       '<div class="field"><label for="km">Distância máxima: <strong>' + k.km + ' km</strong></label><input id="km" type="range" min="1" max="25" value="' + k.km + '" data-in="crit-km"></div>' +
       '<div class="field"><label for="exp">Experiência no ramo</label><select id="exp" data-in="crit-exp">' + exps + '</select></div></div>' +
-      '<div class="card card-pad stack"><h2 class="sec">O que o candidato responde</h2><ul class="list"><li>Como você quer trabalhar? CLT, freelancer, temporário ou tanto faz</li><li>Quais turnos você pode fazer?</li><li>Qual a distância da sua casa até a loja?</li><li>Quanto tempo de experiência no ramo?</li><li>Podemos falar com você pelo WhatsApp?</li></ul>' +
+      '<div class="card card-pad stack"><h2 class="sec">O que o candidato responde</h2><p class="ui-sub">Na pré-entrevista são só perguntas: nenhum documento é pedido nessa etapa (LGPD, art. 6º, III, princípio da necessidade).</p><ul class="list"><li>Como você quer trabalhar? CLT, freelancer, temporário ou tanto faz</li><li>Quais turnos você pode fazer?</li><li>Qual a distância da sua casa até a loja?</li><li>Quanto tempo de experiência no ramo?</li><li>Podemos falar com você pelo WhatsApp?</li></ul>' +
       '<div class="notice info"><div><strong>Perguntas bloqueadas</strong>Sexo, idade, estado civil, filhos, gravidez, raça, cor, origem e deficiência não podem ser critério de seleção (Lei 9.029/95). O Centralizar não oferece essas perguntas.</div></div></div></div></div>';
   }
 
@@ -198,7 +200,7 @@
     var tudo = a.docs.every(function (d) { return d.st === 'ok'; });
     var hist = a.hist.slice().reverse().map(function (h) { return '<li>' + esc(h) + '</li>'; }).join('');
     var quem = S.role === 'contador' ? 'Você está como contador: pode corrigir qualquer campo, e a mudança fica no histórico.' : 'O candidato preenche pelo link; você e o contador podem corrigir. Toda mudança fica no histórico.';
-    return titleRow('Admissões', 'Candidato, contador e empresa no mesmo cadastro', '<a class="btn" href="#/contratos" data-act="gerar-contrato" data-id="' + a.id + '">Gerar contrato sugerido</a>' + (S.role === 'empresa' ? '<button type="button" class="btn btn-primary" data-act="aprovar-adm"' + (tudo && !a.aprovada ? '' : ' disabled') + '>' + (a.aprovada ? 'Admissão aprovada' : 'Aprovar admissão') + '</button>' : '')) +
+    return titleRow('Admissões', 'Só os candidatos que você escolheu nas vagas · candidato, contador e empresa no mesmo cadastro', '<a class="btn" href="#/contratos" data-act="gerar-contrato" data-id="' + a.id + '">Gerar contrato sugerido</a>' + (S.role === 'empresa' ? '<button type="button" class="btn btn-primary" data-act="aprovar-adm"' + (tudo && !a.aprovada ? '' : ' disabled') + '>' + (a.aprovada ? 'Admissão aprovada' : 'Aprovar admissão') + '</button>' : '')) +
       '<div class="grid-main"><div class="stack"><div class="card"><div class="table-box"><table class="t"><thead><tr><th>Pessoa</th><th class="num">Documentos</th><th class="num hide-sm">Início</th><th>Situação</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>' +
       '<div class="card"><div class="card-head"><h2>' + esc(a.nome) + '</h2><span class="ui-sub">' + esc(a.funcao) + '</span></div><div class="card-pad stack"><div class="notice info"><div>' + quem + '</div></div><div class="form-grid">' + docs + '</div>' +
       (tudo ? '' : '<div><button type="button" class="btn" data-act="pedir-docs">Pedir o que falta pelo WhatsApp</button></div>') + '</div></div></div>' +
@@ -463,14 +465,26 @@
     'crit-reg': function (b) { vagaAtual().crit.regime = b.dataset.v; save(); render(); },
     'crit-tur': function (b) { var k = vagaAtual().crit, i = k.turnos.indexOf(b.dataset.v); if (i > -1) k.turnos.splice(i, 1); else k.turnos.push(b.dataset.v); save(); render(); },
     'copiar-link': function () { var url = location.origin + location.pathname.replace(/app\.html$/, '') + 'app.html#/vagas'; if (navigator.clipboard) navigator.clipboard.writeText(url).then(function () { toast('Link copiado. No produto, ele abre o formulário da pré-entrevista.'); }, function () { toast(url); }); else toast(url); },
+    escolher: function (b) { var c = vagaAtual().cands[+b.dataset.i]; c.escolhido = true; save(); render(); toast(first(c.n) + ' escolhido(a). Agora envie o link de documentos.'); },
+    desescolher: function (b) { var c = vagaAtual().cands[+b.dataset.i]; c.escolhido = false; save(); render(); },
     'wa-modal': function () {
-      var g = vagaAtual(), ap = g.cands.filter(function (c) { return !avalia(c, g.crit); }), ok = ap.filter(function (c) { return c.contato; }), sem = ap.filter(function (c) { return !c.contato; });
-      var msg = 'Olá, {nome}! Você foi aprovado(a) na pré-entrevista para ' + g.titulo + ' na ' + S.empresa.nome + '. Envie seus documentos por este link para começarmos a admissão. Qualquer dúvida, é só responder aqui.';
-      modal('Avisar aptos no WhatsApp', '<p class="ui-sub">Modelo de mensagem aprovado pela Meta (API oficial do WhatsApp Business).</p><div class="wa-msg">' + esc(msg) + '</div><div><strong>Vai para:</strong><ul class="list">' + ok.map(function (c) { return '<li><span>' + esc(c.n) + '</span><span class="num">' + esc(c.fone) + '</span></li>'; }).join('') + '</ul></div>' +
-        (sem.length ? '<div class="notice"><div>' + sem.map(function (c) { return esc(c.n); }).join(', ') + ' não autorizou contato por WhatsApp e fica de fora (LGPD).</div></div>' : ''),
+      var g = vagaAtual(), ap = g.cands.filter(function (c) { return c.escolhido && !c.avisado; }), ok = ap.filter(function (c) { return c.contato; }), sem = ap.filter(function (c) { return !c.contato; });
+      var msg = 'Olá, {nome}! Você foi escolhido(a) para a vaga de ' + g.titulo + ' na ' + S.empresa.nome + '. Envie seus documentos por este link para começarmos a admissão. Qualquer dúvida, é só responder aqui.';
+      modal('Enviar link de documentos aos escolhidos', '<p class="ui-sub">Modelo de mensagem aprovado pela Meta (API oficial do WhatsApp Business).</p><div class="wa-msg">' + esc(msg) + '</div><div><strong>Vai para:</strong><ul class="list">' + ok.map(function (c) { return '<li><span>' + esc(c.n) + '</span><span class="num">' + esc(c.fone) + '</span></li>'; }).join('') + '</ul></div>' +
+        (sem.length ? '<div class="notice"><div>' + sem.map(function (c) { return esc(c.n); }).join(', ') + ' não autorizou contato por WhatsApp. Avise por telefone e envie o link por outro meio.</div></div>' : '') + '<p class="ui-sub">Ao enviar, a admissão de cada escolhido é aberta em Admissões.</p>',
         '<button type="button" class="btn" data-act="fechar">Cancelar</button><button type="button" class="btn btn-primary" data-act="wa-enviar"' + (ok.length ? '' : ' disabled') + '>Enviar ' + ok.length + ' mensagem(ns)</button>');
     },
-    'wa-enviar': function () { var g = vagaAtual(), n = 0; g.cands.forEach(function (c) { if (!avalia(c, g.crit) && c.contato) { c.avisado = true; n++; } }); save(); closeModal(); render(); toast(n + ' mensagem(ns) na fila de envio. Neste protótipo nada é enviado de verdade.'); },
+    'wa-enviar': function () {
+      var g = vagaAtual(), n = 0;
+      g.cands.forEach(function (c) {
+        if (!c.escolhido || c.avisado || !c.contato) return;
+        c.avisado = true; n++;
+        if (S.admissoes.some(function (a) { return a.nome === c.n; })) return;
+        var aut = g.modelo === 'autonomo', docs = aut ? ['RG ou CNH', 'CPF', 'Cartão CNPJ do MEI', 'Chave PIX'] : ['RG ou CNH', 'CPF', 'Endereço', 'Carteira de Trabalho Digital', 'Conta para pagamento', 'Exame admissional (ASO)'];
+        S.admissoes.push({ id: 'd' + Date.now() + n, nome: c.n, funcao: g.titulo + (aut ? ' (freelancer)' : ''), modelo: g.modelo, inicio: addDays(S.hoje, 7), salario: g.salario, cpf: '[a preencher]', docs: docs.map(function (d) { return { n: d, v: '', por: '', st: 'pendente' }; }), hist: [agora() + ' · Empresa escolheu ' + first(c.n) + ' na vaga ' + g.titulo + ' e enviou o link de documentos pelo WhatsApp'] });
+      });
+      save(); closeModal(); render(); toast(n + ' link(s) de documentos na fila do WhatsApp e admissão aberta. Neste protótipo nada é enviado de verdade.');
+    },
     adm: function (b) { S.ui.adm = b.dataset.id; save(); render(); },
     'pedir-docs': function () { var a = admAtual(); a.hist.push(agora() + ' · ' + (S.role === 'contador' ? 'Contador' : 'Empresa') + ' pediu pelo WhatsApp: ' + a.docs.filter(function (d) { return d.st !== 'ok'; }).map(function (d) { return d.n; }).join(', ')); save(); render(); toast('Pedido enviado a ' + first(a.nome) + ' (simulação).'); },
     'aprovar-adm': function () { var a = admAtual(); a.aprovada = true; a.hist.push(agora() + ' · Empresa aprovou a admissão; contador avisado para enviar ao eSocial'); save(); render(); toast('Admissão aprovada. O contador foi avisado.'); },

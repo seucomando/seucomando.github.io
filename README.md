@@ -22,9 +22,9 @@ No GitHub Pages, basta publicar a branch `main` na raiz.
 
 | Requisito | Onde está | Como funciona hoje |
 |---|---|---|
-| Documentos da contratação num lugar só | Admissões | O candidato preenche, o contador e a empresa corrigem, e tudo fica no histórico |
-| Pré-entrevista com filtro (CLT, freelancer etc.) | Vagas e pré-entrevista | O empregador escolhe os critérios e os candidatos são marcados como aptos ou não na hora. Perguntas discriminatórias ficam bloqueadas (Lei 9.029/95) |
-| WhatsApp para os aprovados | Vagas › Avisar aptos | Prévia da mensagem modelo. Só vai para quem autorizou o contato |
+| Documentos da contratação num lugar só | Admissões | Só para os candidatos que o empregador escolheu: o escolhido preenche, o contador e a empresa corrigem, e tudo fica no histórico |
+| Pré-entrevista com filtro (CLT, freelancer etc.) | Vagas e pré-entrevista | Só perguntas, sem documentos. O empregador define os critérios, o sistema marca quem está apto e o empregador escolhe quem segue. Perguntas discriminatórias ficam bloqueadas (Lei 9.029/95) |
+| WhatsApp para os aprovados | Vagas › Enviar link de documentos | Só para os escolhidos que autorizaram o contato; ao enviar, a admissão de cada um é aberta |
 | Contratos sugeridos, editáveis e em PDF | Contratos | 5 modelos (experiência, indeterminado, intermitente, autônomo e estágio) marcados como sugestão, editáveis na tela e com impressão em PDF |
 | Jornada, atestados e advertências | Ponto e jornada; Atestados e advertências | Situação do ponto do dia; atestado com foto para ciência e original físico pendente com prazo; advertência com ciência no app ou recusa com testemunhas |
 | Segunda via do holerite | Holerites (visão Funcionário) | Lista das competências com a segunda via para imprimir |

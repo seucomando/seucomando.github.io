@@ -82,19 +82,19 @@ window.BROTA_SEED = {
       { t: 'Guardar o malote no cofre', foto: false, feito: false } ] }
   ],
   vagas: [
-    { id: 'g1', titulo: 'Atendente de balcão', regimeOferta: 'CLT · experiência de 45 dias', aberta: true,
+    { id: 'g1', titulo: 'Atendente de balcão', regimeOferta: 'CLT · experiência de 45 dias', aberta: true, modelo: 'experiencia', salario: 1980,
       crit: { regime: 'clt', turnos: ['manha'], km: 8, exp: 0 },
       cands: [
-        { n: 'Larissa Costa', regime: 'tanto', turnos: ['manha', 'tarde', 'fds'], km: 7, exp: 2, fone: '(48) 9 8840-2291', contato: true, status: 'admissao' },
+        { n: 'Larissa Costa', regime: 'tanto', turnos: ['manha', 'tarde', 'fds'], km: 7, exp: 2, fone: '(48) 9 8840-2291', contato: true, escolhido: true, avisado: true },
         { n: 'Diego Martins', regime: 'free', turnos: ['noite', 'fds'], km: 6, exp: 1, fone: '(48) 9 9177-0382', contato: true },
         { n: 'Camila Duarte', regime: 'clt', turnos: ['manha', 'tarde'], km: 3, exp: 1, fone: '(48) 9 9812-4410', contato: true },
         { n: 'Rogério Vieira', regime: 'clt', turnos: ['manha'], km: 18, exp: 5, fone: '(48) 9 9604-7713', contato: true },
         { n: 'Júlia Fernandes', regime: 'temp', turnos: ['manha', 'tarde', 'fds'], km: 2, exp: 0, fone: '(48) 9 9931-5058', contato: false }
       ] },
-    { id: 'g2', titulo: 'Auxiliar de padeiro', regimeOferta: 'Freelancer · fins de semana', aberta: true,
+    { id: 'g2', titulo: 'Auxiliar de padeiro', regimeOferta: 'Freelancer · fins de semana', aberta: true, modelo: 'autonomo', salario: 160,
       crit: { regime: 'free', turnos: ['fds'], km: 12, exp: 1 },
       cands: [
-        { n: 'Diego Martins', regime: 'free', turnos: ['noite', 'fds'], km: 6, exp: 1, fone: '(48) 9 9177-0382', contato: true, status: 'admissao' },
+        { n: 'Diego Martins', regime: 'free', turnos: ['noite', 'fds'], km: 6, exp: 1, fone: '(48) 9 9177-0382', contato: true, escolhido: true, avisado: true },
         { n: 'Igor Batista', regime: 'tanto', turnos: ['manha', 'fds'], km: 9, exp: 3, fone: '(48) 9 9220-6618', contato: true },
         { n: 'Sabrina Melo', regime: 'clt', turnos: ['manha', 'tarde'], km: 4, exp: 2, fone: '(48) 9 9451-3307', contato: true }
       ] }
@@ -108,14 +108,14 @@ window.BROTA_SEED = {
         { n: 'Carteira de Trabalho Digital', v: 'Número do CPF (CTPS digital)', por: 'candidato', st: 'ok' },
         { n: 'Conta para pagamento', v: '', por: '', st: 'pendente' },
         { n: 'Exame admissional (ASO)', v: '', por: '', st: 'pendente' } ],
-      hist: [ '04/11 19:22 · Larissa enviou RG, CPF, endereço e CTPS pelo link do WhatsApp', '05/11 10:03 · Contador corrigiu o CEP de 88800-000 para 88804-010', '05/11 10:05 · Contador pediu a chave PIX à candidata' ] },
+      hist: [ '04/11 18:40 · Empresa escolheu Larissa na vaga Atendente de balcão e enviou o link de documentos pelo WhatsApp', '04/11 19:22 · Larissa enviou RG, CPF, endereço e CTPS pelo link do WhatsApp', '05/11 10:03 · Contador corrigiu o CEP de 88800-000 para 88804-010', '05/11 10:05 · Contador pediu a chave PIX à candidata' ] },
     { id: 'd2', nome: 'Diego Martins', funcao: 'Auxiliar de padeiro (freelancer)', modelo: 'autonomo', inicio: '2026-11-07', salario: 160, cpf: '[000.000.000-00]',
       docs: [
         { n: 'RG ou CNH', v: 'CNH 0123456789', por: 'candidato', st: 'ok' },
         { n: 'CPF', v: '[000.000.000-00]', por: 'candidato', st: 'ok' },
         { n: 'Cartão CNPJ do MEI', v: 'MEI ativo desde 2024', por: 'candidato', st: 'ok' },
         { n: 'Chave PIX', v: '', por: '', st: 'pendente' } ],
-      hist: [ '05/11 08:40 · Diego enviou RG, CPF e cartão do MEI' ] }
+      hist: [ '04/11 20:15 · Empresa escolheu Diego na vaga Auxiliar de padeiro e enviou o link de documentos pelo WhatsApp', '05/11 08:40 · Diego enviou RG, CPF e cartão do MEI' ] }
   ]
 };
 

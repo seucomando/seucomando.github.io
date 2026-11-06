@@ -24,6 +24,7 @@
   var nomesTurno = { manha: 'manhã', tarde: 'tarde', noite: 'noite', fds: 'fim de semana' };
   var nomesRegime = { clt: 'quer CLT', free: 'quer freelancer', ambos: 'aceita os dois' };
   var crit = { regime: 'clt', turnos: ['manha'], km: 12 };
+  var escolhidos = ['Ana Beatriz'];
   var list = $('#cands');
 
   function apto(c) {
@@ -36,6 +37,7 @@
   function renderCands() {
     list.textContent = '';
     var n = 0;
+    escolhidos = escolhidos.filter(function (nm) { return cands.some(function (c) { return c.n === nm && apto(c).ok; }); });
     cands.forEach(function (c) {
       var r = apto(c); if (r.ok) n++;
       var li = doc.createElement('li'); li.className = 'cand' + (r.ok ? '' : ' out');
@@ -45,13 +47,18 @@
       var mt = doc.createElement('div'); mt.className = 'cand-meta';
       mt.textContent = nomesRegime[c.regime] + ' · ' + c.turnos.map(function (t) { return nomesTurno[t]; }).join(', ') + ' · ' + c.km + ' km';
       mid.appendChild(nm); mid.appendChild(mt);
-      var st = doc.createElement('span'); st.className = 'pill ' + (r.ok ? 'pill-ok' : 'pill-mute');
-      st.textContent = r.ok ? 'Apto' : r.motivo;
+      var st;
+      if (r.ok) {
+        var on = escolhidos.indexOf(c.n) > -1;
+        st = doc.createElement('button'); st.type = 'button'; st.className = 'chip pick'; st.dataset.n = c.n;
+        st.setAttribute('aria-pressed', String(on)); st.textContent = on ? 'Escolhido' : 'Escolher';
+      } else { st = doc.createElement('span'); st.className = 'pill pill-mute'; st.textContent = r.motivo; }
       li.appendChild(av); li.appendChild(mid); li.appendChild(st); list.appendChild(li);
     });
-    $('#apt-count').textContent = n + ' de ' + cands.length + ' atendem aos critérios';
-    var b = $('#wa-send'); b.disabled = n === 0;
-    b.textContent = n ? 'Avisar ' + (n === 1 ? 'o apto' : 'os ' + n + ' aptos') + ' no WhatsApp' : 'Nenhum apto ainda';
+    var e = escolhidos.length;
+    $('#apt-count').textContent = n + ' de ' + cands.length + ' aptos · ' + e + (e === 1 ? ' escolhido' : ' escolhidos');
+    var b = $('#wa-send'); b.disabled = e === 0;
+    b.textContent = e ? 'Enviar link de documentos a ' + (e === 1 ? '1 pessoa' : e + ' pessoas') : (n ? 'Escolha quem segue' : 'Nenhum apto ainda');
     $('#wa').hidden = true;
   }
   $$('[data-crit]').forEach(function (g) {
@@ -69,12 +76,17 @@
     });
   });
   $('#dist').addEventListener('input', function (e) { crit.km = +e.target.value; $('#dist-out').textContent = crit.km + ' km'; renderCands(); });
+  list.addEventListener('click', function (ev) {
+    var p = ev.target.closest('.pick'); if (!p) return;
+    var i = escolhidos.indexOf(p.dataset.n); if (i > -1) escolhidos.splice(i, 1); else escolhidos.push(p.dataset.n);
+    renderCands();
+  });
   $('#wa-send').addEventListener('click', function () {
-    var ap = cands.filter(function (c) { return apto(c).ok; });
+    var ap = cands.filter(function (c) { return escolhidos.indexOf(c.n) > -1; });
     if (!ap.length) return;
     var first = ap[0];
-    $('#wa-msg').textContent = 'Olá, ' + first.n.split(' ')[0] + '! Você foi aprovada na pré-entrevista para Atendente de balcão na Padaria Sol. Envie seus documentos por este link para começarmos a admissão. Qualquer dúvida, é só responder aqui.';
-    if (first.n === 'Diego Martins' || first.n === 'Marcos Lima') $('#wa-msg').textContent = $('#wa-msg').textContent.replace('aprovada', 'aprovado');
+    $('#wa-msg').textContent = 'Olá, ' + first.n.split(' ')[0] + '! Você foi escolhida para a vaga de Atendente de balcão na Padaria Sol. Envie seus documentos por este link para começarmos a admissão. Qualquer dúvida, é só responder aqui.';
+    if (first.n === 'Diego Martins' || first.n === 'Marcos Lima') $('#wa-msg').textContent = $('#wa-msg').textContent.replace('escolhida', 'escolhido');
     var hh = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     $('#wa-meta').textContent = 'Para ' + first.fone + ' · ' + hh + (ap.length > 1 ? ' · mais ' + (ap.length - 1) + (ap.length === 2 ? ' mensagem' : ' mensagens') + ' na fila' : '');
     $('#wa').hidden = false;
