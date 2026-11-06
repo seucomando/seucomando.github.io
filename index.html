@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>Centralizar · gestão de pessoas</title>
+<meta name="description" content="Pré-entrevista com WhatsApp, admissão com o contador, contratos sugeridos, ponto, atestados, holerite aprovado pela empresa, checklists, estoque e vales num lugar só.">
+<meta name="theme-color" content="#0F3D2E">
+<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="assets/css/site.css">
+<script src="assets/js/code39.js" defer></script>
+<script src="assets/js/site.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#conteudo">Pular para o conteúdo</a>
+
+<header class="hero" id="topo">
+  <div class="wrap nav">
+    <a class="wordmark" href="#topo" aria-label="Centralizar, início"><img src="assets/img/logo.svg" alt="" width="36" height="36">centralizar</a>
+    <ul class="nav-links">
+      <li><a href="#holerite">Como funciona</a></li>
+      <li><a href="#documentos">Documentos</a></li>
+      <li><a href="#precos">Preços</a></li>
+      <li><a href="#duvidas">Dúvidas</a></li>
+    </ul>
+    <a class="btn btn-broto" href="app.html">Ver o sistema</a>
+  </div>
+
+  <div class="wrap hero-grid" id="conteudo">
+    <div class="hero-copy">
+      <h1><span class="line"><span>Do currículo</span></span><span class="line"><span>ao holerite.</span></span></h1>
+      <p class="hero-lead fade-up">Um sistema só para candidato, empresário e contador: pré-entrevista, contrato, ponto, atestados, holerite, estoque e vales da sua empresa.</p>
+      <div class="hero-actions fade-up">
+        <a class="btn btn-broto" href="app.html">Abrir o protótipo</a>
+        <a class="link" href="#holerite">Ver como funciona</a>
+      </div>
+    </div>
+
+    <div class="screen" data-ui id="pre">
+      <div class="ui-head">
+        <div>
+          <div class="ui-title">Pré-entrevista · Atendente de balcão</div>
+          <div class="ui-sub">Padaria Sol · 5 candidatos responderam</div>
+        </div>
+        <span class="pill pill-ok">Vaga aberta</span>
+      </div>
+      <div class="screen-grid">
+        <div class="screen-criteria">
+          <div>
+            <span class="ui-label" id="lbl-regime">Regime que a vaga oferece</span>
+            <div class="seg" role="group" aria-labelledby="lbl-regime" data-crit="regime">
+              <button type="button" data-v="clt" aria-pressed="true">CLT</button>
+              <button type="button" data-v="free" aria-pressed="false">Freelancer</button>
+              <button type="button" data-v="ambos" aria-pressed="false">Os dois</button>
+            </div>
+          </div>
+          <div>
+            <span class="ui-label" id="lbl-turno">Turnos obrigatórios</span>
+            <div class="chips" role="group" aria-labelledby="lbl-turno" data-crit="turnos">
+              <button type="button" class="chip" data-v="manha" aria-pressed="true">Manhã</button>
+              <button type="button" class="chip" data-v="tarde" aria-pressed="false">Tarde</button>
+              <button type="button" class="chip" data-v="noite" aria-pressed="false">Noite</button>
+              <button type="button" class="chip" data-v="fds" aria-pressed="false">Fim de semana</button>
+            </div>
+          </div>
+          <div>
+            <label class="ui-label" for="dist">Distância máxima de casa: <strong id="dist-out">12 km</strong></label>
+            <div class="range-row"><input id="dist" type="range" min="1" max="20" value="12"></div>
+          </div>
+        </div>
+        <div>
+          <ul class="cand-list" id="cands" aria-live="polite"></ul>
+        </div>
+      </div>
+      <div class="screen-foot">
+        <strong id="apt-count">0 de 5 atendem aos critérios</strong>
+        <button type="button" class="ui-btn" id="wa-send">Avisar aptos no WhatsApp</button>
+      </div>
+      <div class="wa" id="wa" hidden>
+        <div class="wa-msg" id="wa-msg"></div>
+        <span class="wa-meta" id="wa-meta"></span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="wrap section split" id="holerite" aria-labelledby="h-holerite">
+    <div class="stick-field">
+      <div class="payslip" data-ui>
+        <div class="ui-head">
+          <div>
+            <div class="ui-title">Holerite · outubro de 2026</div>
+            <div class="ui-sub">Ana Beatriz Souza · Atendente de balcão</div>
+          </div>
+          <span class="ui-sub">Padaria Sol Ltda</span>
+        </div>
+        <div class="ui-body">
+          <table>
+            <thead><tr><th>Descrição</th><th class="num">Ref.</th><th class="num">Valor (R$)</th></tr></thead>
+            <tbody id="slip-rows"></tbody>
+            <tfoot><tr class="total"><td>Líquido a receber</td><td></td><td class="num" id="slip-net"></td></tr></tfoot>
+          </table>
+          <p class="notice" id="slip-notice" hidden></p>
+        </div>
+        <div class="payslip-status">
+          <span class="pill pill-warn" id="slip-status">Aguardando aprovação da empresa</span>
+          <span class="ui-sub">Lançado pelo contador</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="read-col">
+      <h2 id="h-holerite">O holerite que todo mundo confere</h2>
+      <div class="block rise">
+        <h3>O contador lança, sem planilha por e-mail.</h3>
+        <p>Ele entra com o próprio acesso, preenche proventos e descontos, e o sistema guarda quem mudou o quê e quando.</p>
+        <div class="ctl">
+          <label class="ui-label" for="he">Horas extras a 50% no mês: <strong id="he-out">6 h</strong></label>
+          <div class="range-row"><input id="he" type="range" min="0" max="20" value="6"></div>
+        </div>
+      </div>
+      <div class="block rise">
+        <h3>Falta sem atestado aparece antes de fechar a folha.</h3>
+        <p>O sistema cruza o ponto com os atestados e mostra o que não foi abonado. A falta injustificada desconta o dia e o descanso semanal daquela semana.</p>
+        <div class="ctl"><label class="toggle"><input type="checkbox" id="abono"> Atestado de 14/10 entregue e original conferido</label></div>
+      </div>
+      <div class="block rise">
+        <h3>Vale da loja vira desconto, com autorização assinada.</h3>
+        <p>Cada vale leva a assinatura do funcionário no aplicativo. Sem a autorização por escrito, o sistema não deixa lançar o desconto.</p>
+        <div class="ctl">
+          <label class="ui-label" for="vale">Vales de mercadorias no mês: <strong id="vale-out">R$ 45,00</strong></label>
+          <div class="range-row"><input id="vale" type="range" min="0" max="300" step="5" value="45"></div>
+        </div>
+      </div>
+      <div class="block rise">
+        <h3>A empresa aprova. Só então o funcionário vê.</h3>
+        <p>Nada chega ao celular do funcionário antes do seu ok. Depois disso, a segunda via fica disponível a qualquer hora, sem pedir ao escritório.</p>
+        <div class="ctl"><button type="button" class="btn btn-folha" id="aprovar">Aprovar holerite</button></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap section showcase" id="documentos" aria-labelledby="h-docs">
+    <div class="doc-index">
+      <h2 id="h-docs">Documentos prontos para conferir</h2>
+      <ul role="tablist" aria-label="Documentos gerados">
+        <li><button type="button" role="tab" aria-selected="true" aria-controls="sheet" data-doc="contrato">Contrato de experiência</button></li>
+        <li><button type="button" role="tab" aria-selected="false" aria-controls="sheet" data-doc="advertencia">Advertência</button></li>
+        <li><button type="button" role="tab" aria-selected="false" aria-controls="sheet" data-doc="ponto">Comprovante de ponto</button></li>
+        <li><button type="button" role="tab" aria-selected="false" aria-controls="sheet" data-doc="etiqueta">Etiqueta de estoque</button></li>
+        <li><button type="button" role="tab" aria-selected="false" aria-controls="sheet" data-doc="checklist">Checklist de abertura</button></li>
+      </ul>
+      <p class="rise">Modelos com cláusulas sugeridas para cada tipo de vaga. Você edita no sistema, imprime em PDF, e o documento sai marcado como sugestão até alguém revisar.</p>
+    </div>
+    <div class="stage">
+      <article class="sheet" id="sheet" role="tabpanel" data-ui aria-live="polite"></article>
+    </div>
+  </section>
+
+  <section class="wrap section how" id="admissao" aria-labelledby="h-adm">
+    <div class="how-steps">
+      <h2 id="h-adm">Admissão a três mãos</h2>
+      <div class="step active" data-step="0">
+        <h3>Primeiro, o candidato preenche pelo celular.</h3>
+        <p>Recebe o link no WhatsApp, envia documentos, endereço e conta para pagamento, e fotografa tudo ali mesmo.</p>
+      </div>
+      <div class="step" data-step="1">
+        <h3>Depois, o contador confere e corrige.</h3>
+        <p>Ele vê o mesmo cadastro, ajusta o que veio errado, e cada alteração fica registrada com nome e horário.</p>
+      </div>
+      <div class="step" data-step="2">
+        <h3>Por fim, o empresário aprova e assina.</h3>
+        <p>Com tudo conferido, o contrato sugerido já vem preenchido. Você revisa, assina, e o contador envia a admissão ao eSocial.</p>
+      </div>
+    </div>
+    <div class="how-stage">
+      <div class="adm" data-ui>
+        <div class="ui-head">
+          <div>
+            <div class="ui-title">Admissão · Ana Beatriz Souza</div>
+            <div class="ui-sub">Atendente de balcão · início em 03/11/2026</div>
+          </div>
+          <span class="pill" id="adm-pill"></span>
+        </div>
+        <div id="adm-rows"></div>
+        <div class="adm-foot">
+          <progress id="adm-prog" max="6" value="0">0 de 6</progress>
+          <span class="who mono-num" id="adm-count"></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap section pricing" id="precos" aria-labelledby="h-precos">
+    <div>
+      <h2 class="sr-only" id="h-precos">Preços</h2>
+      <ul class="plans" role="tablist" aria-label="Planos">
+        <li><button type="button" role="tab" aria-selected="false" aria-controls="plan-stage" data-plan="semente">Essencial</button></li>
+        <li><button type="button" role="tab" aria-selected="true" aria-controls="plan-stage" data-plan="broto">Completo</button></li>
+        <li><button type="button" role="tab" aria-selected="false" aria-controls="plan-stage" data-plan="arvore">Total</button></li>
+      </ul>
+    </div>
+    <div class="plan-stage" id="plan-stage" role="tabpanel" aria-live="polite">
+      <p class="plan-price"><span id="plan-price">R$ 189</span> <small>por mês</small></p>
+      <p id="plan-size">Até 30 funcionários</p>
+      <ul id="plan-list"></ul>
+      <p class="ui-sub">Valores de referência para o lançamento.</p>
+      <a class="btn btn-pinho" href="#comecar" id="plan-cta">Começar com o Completo</a>
+    </div>
+  </section>
+
+  <section class="wrap section faq" id="duvidas" aria-labelledby="h-faq">
+    <div class="faq-head">
+      <h2 id="h-faq">Dúvidas de quem contrata</h2>
+      <p>O que a lei exige em cada parte do sistema, sem juridiquês.</p>
+    </div>
+    <div class="faq-list">
+      <details name="faq" open>
+        <summary>Bater ponto pelo celular tem validade?<span class="plus" aria-hidden="true"></span></summary>
+        <div class="answer"><p>Tem. A Portaria MTP 671/2021 criou o <strong>REP-P</strong>, o registro de ponto por programa, que não depende de acordo coletivo. O programa precisa estar registrado no INPI, emitir o comprovante de cada marcação, gerar os arquivos que a fiscalização pede (AFD e AEJ) e seguir a hora legal brasileira. O Centralizar está sendo construído sobre essas regras.</p></div>
+      </details>
+      <details name="faq">
+        <summary>Reconhecimento facial e digital esbarram na LGPD?<span class="plus" aria-hidden="true"></span></summary>
+        <div class="answer"><p>Biometria é dado pessoal sensível (LGPD, art. 5º, II). Usá-la para confirmar quem está marcando o ponto se apoia na <strong>prevenção à fraude em processos de identificação</strong> (art. 11, II, g). O funcionário é informado, o rosto não vira foto de arquivo e quem não puder usar biometria tem outro meio de marcar.</p></div>
+      </details>
+      <details name="faq">
+        <summary>Atestado digital vale ou precisa ser em papel?<span class="plus" aria-hidden="true"></span></summary>
+        <div class="answer"><p>Os dois valem. O papel segue válido, e a plataforma Atesta CFM, que validaria os digitais, está suspensa por decisão judicial. Por isso o Centralizar registra a foto para ciência imediata e deixa o <strong>original físico como pendente</strong> até a entrega, avisando o funcionário do prazo definido pela empresa.</p></div>
+      </details>
+      <details name="faq">
+        <summary>Posso descontar em folha o que o funcionário comprou na loja?<span class="plus" aria-hidden="true"></span></summary>
+        <div class="answer"><p>Pode, com <strong>autorização prévia e por escrito</strong> (CLT, art. 462, e Súmula 342 do TST). Cada vale fica assinado no aplicativo, e o sistema avisa quando os descontos se aproximam de 70% do salário, limite adotado pelo TST na OJ 18 da SDC.</p></div>
+      </details>
+      <details name="faq">
+        <summary>Que critérios posso usar para filtrar candidatos?<span class="plus" aria-hidden="true"></span></summary>
+        <div class="answer"><p>Os que dizem respeito à vaga: regime, turno, disponibilidade, experiência e distância. A Lei 9.029/95 proíbe selecionar por sexo, origem, raça, cor, estado civil, situação familiar, deficiência ou idade, e também exigir teste de gravidez. <strong>O Centralizar não oferece essas perguntas.</strong></p></div>
+      </details>
+      <details name="faq">
+        <summary>As mensagens de WhatsApp são automáticas mesmo?<span class="plus" aria-hidden="true"></span></summary>
+        <div class="answer"><p>São, pela <strong>API oficial do WhatsApp Business</strong>. O candidato autoriza o contato na pré-entrevista, os modelos de mensagem são aprovados pela Meta e cada envio fica registrado. Ferramentas não oficiais costumam ter o número bloqueado, por isso não são usadas.</p></div>
+      </details>
+      <details name="faq">
+        <summary>Os contratos sugeridos substituem um advogado?<span class="plus" aria-hidden="true"></span></summary>
+        <div class="answer"><p>Não. Eles saem <strong>marcados como sugestão</strong>, com as cláusulas mais comuns para cada tipo de vaga: experiência, prazo indeterminado, intermitente, temporário, estágio e autônomo. Você edita, imprime em PDF e, nos casos fora do padrão, leva para revisão.</p></div>
+      </details>
+      <details name="faq">
+        <summary>O contador paga para acessar?<span class="plus" aria-hidden="true"></span></summary>
+        <div class="answer"><p>Não. Ele entra com acesso próprio e gratuito, vê só as empresas que o adicionaram e lança os holerites direto no sistema.</p></div>
+      </details>
+    </div>
+  </section>
+
+  <section class="cta" id="comecar" aria-labelledby="h-cta">
+    <div class="wrap">
+      <div class="cta-copy">
+        <h2 id="h-cta">Abra o seu painel.</h2>
+        <p>Digite o nome da empresa e veja o protótipo já com ele. Nada é enviado: tudo fica no seu navegador.</p>
+      </div>
+      <div class="dialog" data-ui role="dialog" aria-labelledby="dlg-title">
+        <div class="ui-head"><div class="ui-title" id="dlg-title">Criar sua empresa no Centralizar</div></div>
+        <form id="start" action="app.html" method="get">
+          <div class="field">
+            <label class="ui-label" for="empresa">Nome da empresa</label>
+            <input id="empresa" name="empresa" type="text" value="Padaria Sol" maxlength="60" autocomplete="organization" required>
+          </div>
+          <div class="field">
+            <span class="ui-label" id="lbl-porte">Quantos funcionários</span>
+            <div class="seg" role="group" aria-labelledby="lbl-porte" id="porte">
+              <button type="button" data-v="10" aria-pressed="true">Até 10</button>
+              <button type="button" data-v="50" aria-pressed="false">11 a 50</button>
+            </div>
+            <input type="hidden" name="porte" id="porte-in" value="10">
+          </div>
+          <button class="ui-btn" type="submit">Abrir o painel</button>
+        </form>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <span>Centralizar · gestão de pessoas</span>
+    <nav aria-label="Rodapé"><a href="app.html">Protótipo</a><a href="#documentos">Documentos</a><a href="#precos">Preços</a><a href="#duvidas">Dúvidas</a></nav>
+    <span class="right">2026 · versão de demonstração</span>
+  </div>
+</footer>
+</body>
+</html>

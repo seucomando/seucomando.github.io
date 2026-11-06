@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<meta name="robots" content="noindex">
+<title>Painel · Centralizar</title>
+<meta name="theme-color" content="#F6F8F5">
+<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="assets/css/app.css">
+<script src="assets/js/code39.js" defer></script>
+<script src="assets/js/data.js" defer></script>
+<script src="assets/js/app.js" defer></script>
+</head>
+<body>
+<div class="shell">
+  <aside class="side" id="side" aria-label="Menu principal">
+    <a class="brand" href="index.html"><img src="assets/img/logo.svg" alt="" width="30" height="30">centralizar</a>
+    <nav class="nav" id="nav">
+      <div class="nav-group">
+        <a href="#/inicio" data-roles="empresa contador funcionario"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Início</a>
+      </div>
+      <div class="nav-group" data-group>
+        <span class="nav-label">Pessoas</span>
+        <a href="#/vagas" data-roles="empresa"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="8" r="4"/><path d="M3 21c0-4 3-6 7-6s7 2 7 6M17 11l2 2 4-4"/></svg>Vagas e pré-entrevista</a>
+        <a href="#/admissoes" data-roles="empresa contador"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg>Admissões<span class="count" data-count="adm"></span></a>
+        <a href="#/contratos" data-roles="empresa contador"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h14v16H5z"/><path d="M8 8h8M8 12h8M8 16h4"/></svg>Contratos</a>
+      </div>
+      <div class="nav-group" data-group>
+        <span class="nav-label">Rotina</span>
+        <a href="#/ponto" data-roles="empresa contador funcionario"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Ponto e jornada</a>
+        <a href="#/ocorrencias" data-roles="empresa contador funcionario"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17v.5"/></svg>Atestados e advertências<span class="count" data-count="orig"></span></a>
+        <a href="#/checklists" data-roles="empresa funcionario"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6l2 2 3-3M4 13l2 2 3-3M4 20l2 2 3-3M12 7h8M12 14h8M12 21h8"/></svg>Checklists</a>
+      </div>
+      <div class="nav-group" data-group>
+        <span class="nav-label">Folha</span>
+        <a href="#/holerites" data-roles="empresa contador funcionario"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></svg>Holerites<span class="count" data-count="hol"></span></a>
+        <a href="#/vales" data-roles="empresa contador funcionario"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16v10H4z"/><path d="M8 7v10M14 11h3"/></svg>Vales</a>
+      </div>
+      <div class="nav-group" data-group>
+        <span class="nav-label">Loja</span>
+        <a href="#/estoque" data-roles="empresa"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>Estoque e etiquetas</a>
+      </div>
+    </nav>
+    <div class="side-foot">Protótipo com dados de exemplo. Nada sai do seu navegador. <button type="button" class="link-btn" id="reset">Restaurar exemplo</button></div>
+  </aside>
+
+  <header class="top">
+    <button type="button" class="btn menu-btn" id="menu-btn" aria-controls="side" aria-expanded="false">Menu</button>
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+      <label class="sr-only" for="q">Buscar pessoa</label>
+      <input id="q" type="search" placeholder="Buscar pessoa, documento ou produto" list="q-list" autocomplete="off">
+      <datalist id="q-list"></datalist>
+    </div>
+    <div class="top-right">
+      <label class="role"><span>Ver como</span>
+        <select id="role">
+          <option value="empresa">Empresário</option>
+          <option value="contador">Contador</option>
+          <option value="funcionario">Funcionário</option>
+        </select>
+      </label>
+      <div class="switcher"><span class="mark" id="co-mark">P</span><div><strong id="co-name">Padaria Sol</strong><span>Criciúma/SC · 12 pessoas</span></div></div>
+    </div>
+  </header>
+
+  <main class="main" id="view" tabindex="-1"></main>
+</div>
+<div id="print-area"></div>
+</body>
+</html>

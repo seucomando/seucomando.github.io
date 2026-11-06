@@ -1,0 +1,55 @@
+# Centralizar · gestão de pessoas para pequenas e médias empresas
+
+Protótipo navegável do Centralizar: um sistema único para **candidato, empresário e contador**, do currículo ao holerite.
+
+- `index.html`: página de apresentação (landing page).
+- `app.html`: o painel do sistema, com dados de exemplo. Use o seletor **Ver como** no topo para alternar entre **Empresário**, **Contador** e **Funcionário**.
+
+Os dados são fictícios e ficam só no navegador de quem abre (localStorage). Nada é enviado a servidor algum.
+
+## Como rodar
+
+O site é estático: não tem build nem dependências. Para abrir localmente:
+
+```bash
+python3 -m http.server 8000
+# abra http://localhost:8000
+```
+
+No GitHub Pages, basta publicar a branch `main` na raiz.
+
+## O que cada requisito virou no protótipo
+
+| Requisito | Onde está | Como funciona hoje |
+|---|---|---|
+| Documentos da contratação num lugar só | Admissões | O candidato preenche, o contador e a empresa corrigem, e tudo fica no histórico |
+| Pré-entrevista com filtro (CLT, freelancer etc.) | Vagas e pré-entrevista | O empregador escolhe os critérios e os candidatos são marcados como aptos ou não na hora. Perguntas discriminatórias ficam bloqueadas (Lei 9.029/95) |
+| WhatsApp para os aprovados | Vagas › Avisar aptos | Prévia da mensagem modelo. Só vai para quem autorizou o contato |
+| Contratos sugeridos, editáveis e em PDF | Contratos | 5 modelos (experiência, indeterminado, intermitente, autônomo e estágio) marcados como sugestão, editáveis na tela e com impressão em PDF |
+| Jornada, atestados e advertências | Ponto e jornada; Atestados e advertências | Situação do ponto do dia; atestado com foto para ciência e original físico pendente com prazo; advertência com ciência no app ou recusa com testemunhas |
+| Segunda via do holerite | Holerites (visão Funcionário) | Lista das competências com a segunda via para imprimir |
+| Holerite aprovado pela empresa | Holerites | O contador lança, a empresa aprova e só então o funcionário vê |
+| Faltas não abonadas | Holerites e Início | Alerta antes da aprovação, cruzando faltas com atestados sem o original |
+| Bater ponto pelo celular ou em aparelho fixo | Ponto e jornada | Autorização por pessoa, validação facial ou digital simulada e comprovante com NSR |
+| Checklists com foto total ou parcial | Checklists | Por setor e responsável, com regra de foto em todos os itens, só nos marcados ou sem foto |
+| Etiquetas e estoque | Estoque e etiquetas | Mínimo, validade e etiquetas com código de barras Code 39 real, prontas para imprimir |
+| Vales descontados em folha | Vales | Assinatura do funcionário obrigatória, alerta em 60% e trava em 70% do salário |
+
+## Estrutura
+
+```
+index.html            landing page
+app.html              painel (protótipo)
+assets/css/site.css   estilo da landing
+assets/css/app.css    estilo do painel
+assets/js/site.js     interações da landing
+assets/js/app.js      telas, regras e ações do painel
+assets/js/data.js     dados de exemplo e base de contratos
+assets/js/code39.js   gerador de código de barras
+assets/img/           logo e favicon
+SECURITY.md           análise de segurança e requisitos para a versão real
+```
+
+## Antes de virar produto
+
+Veja o `SECURITY.md`: ele traz o que precisa existir no servidor (contas, isolamento por empresa, LGPD, REP-P e WhatsApp oficial) antes de entrar qualquer dado real.
