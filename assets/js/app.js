@@ -908,6 +908,7 @@
     var usar = window.claude && window.claude.use ? window.claude.use('downloads') : Promise.resolve(null);
     return Promise.resolve(usar).then(function (dl) {
       if (dl) return dl.save({ filename: nomeArq, data: blob }).then(function () { toast('Arquivo salvo: ' + nomeArq); }, function (e) { toast(e && e.code === 'declined' ? 'Download cancelado.' : 'O download não está disponível aqui.'); });
+      if (window.claude && window.top !== window.self) { toast('O download não está disponível nesta visualização. Use "Imprimir" e escolha "Salvar como PDF".'); return; }
       var a = doc.createElement('a'); a.href = URL.createObjectURL(blob); a.download = nomeArq; doc.body.appendChild(a); a.click(); a.remove();
       setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000); toast('Arquivo baixado: ' + nomeArq);
     }, function () { toast('O download não está disponível aqui.'); });
