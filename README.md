@@ -3,6 +3,7 @@
 Protótipo navegável do Centralizar: um sistema único de gestão empresarial que junta equipe, documentos, ponto, holerite, estoque e vales, com **empresário, contador, funcionário e candidato** no mesmo lugar.
 
 - `index.html`: página de apresentação (landing page).
+- `triagem.html`: a pré-entrevista que o candidato responde pelo link da vaga, só com perguntas e sem documentos. A resposta aparece no painel.
 - `app.html`: o painel do sistema, com dados de exemplo. Use o seletor **Ver como** no topo para alternar entre **Empresário**, **Contador** e **Funcionário**.
 
 Os dados são fictícios e ficam só no navegador de quem abre (localStorage). Nada é enviado a servidor algum.
@@ -22,10 +23,10 @@ No GitHub Pages, basta publicar a branch `main` na raiz.
 
 | Requisito | Onde está | Como funciona hoje |
 |---|---|---|
-| Documentos da contratação num lugar só | Admissões | Só para os candidatos que o empregador escolheu: o escolhido preenche, o contador e a empresa corrigem, e tudo fica no histórico |
-| Pré-entrevista com filtro (CLT, freelancer etc.) | Vagas e pré-entrevista | Só perguntas, sem documentos. O empregador define os critérios, o sistema marca quem está apto e o empregador escolhe quem segue. Perguntas discriminatórias ficam bloqueadas (Lei 9.029/95) |
-| WhatsApp para os aprovados | Vagas › Enviar link de documentos | Só para os escolhidos que autorizaram o contato; ao enviar, a admissão de cada um é aberta |
-| Contratos sugeridos, editáveis e em PDF | Contratos | 5 modelos (experiência, indeterminado, intermitente, autônomo e estágio) marcados como sugestão, editáveis na tela e com impressão em PDF |
+| Documentos da contratação num lugar só | Admissões | Só para quem foi aprovado na entrevista: o aprovado envia, o contador confere e o empregador dá o ok final, liberado só depois da conferência. Tudo fica no histórico |
+| Triagem e entrevista (CLT, freelancer etc.) | Vagas e seleção | A triagem são só perguntas e descarta quem não se encaixa. Quem passa é chamado para entrevista (dia, hora e convite no WhatsApp) e o empregador aprova ou não. Funil da vaga na tela. Perguntas discriminatórias ficam bloqueadas (Lei 9.029/95) |
+| WhatsApp | Vagas | Convite de entrevista para quem passou na triagem e link de documentos para quem foi aprovado na entrevista; ao enviar o link, a admissão é aberta |
+| Contratos sugeridos, editáveis e em PDF | Contratos | Base de 221 cargos em 16 setores, com CBO conferida na tabela oficial, atribuições e pontos trabalhistas. O empregador escolhe o enquadramento (cargo, prazo, jornada, turno, adicionais, salário, CCT e art. 481), o sistema verifica riscos e só libera o PDF depois do checklist. No plano de avaliação o PDF sai com marca d'água |
 | Jornada, atestados e advertências | Ponto e jornada; Atestados e advertências | Situação do ponto do dia; atestado com foto para ciência e original físico pendente com prazo; advertência com ciência no app ou recusa com testemunhas |
 | Segunda via do holerite | Holerites (visão Funcionário) | Lista das competências com a segunda via para imprimir |
 | Holerite aprovado pela empresa | Holerites | O contador lança, a empresa aprova e só então o funcionário vê |

@@ -51,14 +51,14 @@
       if (r.ok) {
         var on = escolhidos.indexOf(c.n) > -1;
         st = doc.createElement('button'); st.type = 'button'; st.className = 'chip pick'; st.dataset.n = c.n;
-        st.setAttribute('aria-pressed', String(on)); st.textContent = on ? 'Escolhido' : 'Escolher';
+        st.setAttribute('aria-pressed', String(on)); st.textContent = on ? 'Convidado' : 'Convidar';
       } else { st = doc.createElement('span'); st.className = 'pill pill-mute'; st.textContent = r.motivo; }
       li.appendChild(av); li.appendChild(mid); li.appendChild(st); list.appendChild(li);
     });
     var e = escolhidos.length;
-    $('#apt-count').textContent = n + ' de ' + cands.length + ' aptos · ' + e + (e === 1 ? ' escolhido' : ' escolhidos');
+    $('#apt-count').textContent = n + ' de ' + cands.length + ' passaram na triagem · ' + e + ' para entrevista';
     var b = $('#wa-send'); b.disabled = e === 0;
-    b.textContent = e ? 'Enviar link de documentos a ' + (e === 1 ? '1 pessoa' : e + ' pessoas') : (n ? 'Escolha quem segue' : 'Nenhum apto ainda');
+    b.textContent = e ? 'Convidar ' + (e === 1 ? '1 pessoa' : e + ' pessoas') + ' para entrevista' : (n ? 'Escolha quem entrevistar' : 'Ninguém passou ainda');
     $('#wa').hidden = true;
   }
   $$('[data-crit]').forEach(function (g) {
@@ -85,7 +85,7 @@
     var ap = cands.filter(function (c) { return escolhidos.indexOf(c.n) > -1; });
     if (!ap.length) return;
     var first = ap[0];
-    $('#wa-msg').textContent = 'Olá, ' + first.n.split(' ')[0] + '! Você foi escolhida para a vaga de Atendente de balcão na Padaria Sol. Envie seus documentos por este link para começarmos a admissão. Qualquer dúvida, é só responder aqui.';
+    $('#wa-msg').textContent = 'Olá, ' + first.n.split(' ')[0] + '! Você passou na triagem para a vaga de Atendente de balcão na Padaria Sol. Sua entrevista é amanhã às 10h, aqui na loja. Pode confirmar?';
     if (first.n === 'Diego Martins' || first.n === 'Marcos Lima') $('#wa-msg').textContent = $('#wa-msg').textContent.replace('escolhida', 'escolhido');
     var hh = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     $('#wa-meta').textContent = 'Para ' + first.fone + ' · ' + hh + (ap.length > 1 ? ' · mais ' + (ap.length - 1) + (ap.length === 2 ? ' mensagem' : ' mensagens') + ' na fila' : '');

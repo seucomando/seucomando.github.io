@@ -75,6 +75,7 @@ h2.sec { font-size: var(--fs-section); font-weight: 600; margin: 0 0 10px; }
 .stack { display: grid; gap: 16px; }
 .grid-main { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; align-items: start; }
 .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.grid-main > *, .grid-2 > *, .stack > * { min-width: 0; }
 
 /* KPIs: um cartão dividido */
 .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -148,7 +149,7 @@ meter::-webkit-meter-even-less-good-value { background: #B3412A; }
 .paper { background: #fff; border: 1px solid var(--border); border-radius: 4px; padding: 48px 56px; max-width: 760px; font-size: 15px; line-height: 1.65; }
 .paper h3 { font-family: var(--display); font-size: 22px; letter-spacing: -0.02em; margin: 0 0 4px; text-align: center; }
 .paper .center { text-align: center; color: var(--muted); margin: 0 0 18px; }
-.paper ol { padding-left: 22px; display: grid; gap: 8px; }
+.paper ol { padding-left: 30px; display: grid; gap: 8px; }
 .paper [contenteditable="true"] { outline: 1px dashed transparent; border-radius: 4px; }
 .paper [contenteditable="true"]:hover { outline-color: var(--control); }
 .paper [contenteditable="true"]:focus { outline: 2px solid #3FB97A; background: #FBFDFB; }
@@ -169,6 +170,36 @@ meter::-webkit-meter-even-less-good-value { background: #B3412A; }
 .ck-item img { width: 44px; height: 44px; object-fit: cover; border-radius: 6px; }
 .file-btn { position: relative; overflow: hidden; }
 .file-btn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+
+/* Página do candidato (pré-entrevista) */
+.cand-body { background: var(--ground); }
+.cand-page { max-width: 560px; margin: 0 auto; padding: 24px 16px 48px; display: grid; gap: 16px; }
+.cand-head { display: flex; align-items: center; gap: 12px; }
+.cand-head h1 { font-family: var(--display); font-size: 24px; letter-spacing: -0.02em; margin: 2px 0 0; line-height: 1.15; }
+.cand-head p { margin: 0; }
+.cand-set { border: 0; padding: 0; margin: 0; gap: 8px; }
+.cand-set legend { font-size: 13px; color: var(--muted); font-weight: 500; margin-bottom: 6px; padding: 0; }
+.cand-set .check { min-height: 40px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--surface); }
+.cand-send { height: 48px; font-size: 16px; }
+.cand-page .field input, .cand-page .field select { min-height: 44px; font-size: 16px; }
+
+/* Contratos: enquadramento, verificação e marca d'água */
+.ct-wrap { grid-template-columns: 380px minmax(0, 1fr); }
+.paper { position: relative; overflow: hidden; }
+.paper .sig { grid-template-columns: 1fr 1fr; row-gap: 48px; }
+.wm { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 2; }
+.wm span { transform: rotate(-35deg); font-family: var(--display); font-weight: 800; font-size: 46px; letter-spacing: .04em; color: rgba(15, 61, 46, .11); white-space: nowrap; }
+@media print { body.printing { background: #fff; } .wm { position: fixed; flex-direction: column; justify-content: space-around; padding: 40mm 0; } .wm span { font-size: 30px; color: rgba(15, 61, 46, .16); } .wm span + span { display: block; } #print-area .paper { overflow: visible; } }
+.wm span + span { display: none; }
+@media (max-width: 1100px) { .ct-wrap { grid-template-columns: minmax(0, 1fr); } }
+
+/* Etapas da admissão */
+.steps { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; margin: 0; padding: 0; }
+.steps li { font-size: 12.5px; font-weight: 600; padding: 5px 10px; border-radius: 999px; background: var(--pill-mute-bg); color: var(--pill-mute-ink); }
+.steps li.done { background: var(--pill-ok-bg); color: var(--pill-ok-ink); }
+.steps li.now { background: var(--pill-warn-bg); color: var(--pill-warn-ink); }
+.kpis-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+@media (max-width: 860px) { .kpis-5 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .kpis-5 .kpi { border-left: 0; border-top: 1px solid var(--rule); } }
 
 /* Lista de compras */
 .qtd-in { width: 76px; min-height: 32px; border: 1px solid var(--control); border-radius: 6px; padding: 0 6px; text-align: right; background: var(--surface); }

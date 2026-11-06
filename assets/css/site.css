@@ -140,6 +140,21 @@ input[type="range"] { accent-color: var(--folha); flex: 1; min-height: 36px; }
 section { scroll-margin-top: 24px; }
 .section { padding-top: var(--section-gap); }
 
+/* pré-entrevista: formulário do candidato e passos */
+.pre { display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 6fr); gap: clamp(32px, 5vw, 96px); align-items: center; }
+.pre-field { background: var(--menta); border-radius: var(--radius); padding: clamp(24px, 4vw, 56px); display: grid; place-items: center; }
+.pre-form { width: min(400px, 100%); }
+.pre-body { display: grid; gap: 10px; }
+.pre-opts { display: grid; gap: 6px; }
+.pre-opts.row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pre-opt { display: flex; align-items: center; min-height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid #CDD8D1; font-size: 14px; } /* taste-skill-ignore: fragmento de interface (data-ui) */
+.pre-opt.on { border-color: var(--folha); background: var(--menta); color: var(--pinho); font-weight: 600; }
+.pre-btn { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; min-height: 46px; margin-top: 4px; }
+.pre-copy { display: grid; gap: 22px; }
+.pre-copy > p { font-size: 20px; line-height: 1.5; max-width: 46ch; }
+.pre-steps { margin: 0; padding-left: 1.4em; display: grid; gap: 14px; max-width: 52ch; }
+.pre-steps strong { color: var(--pinho); }
+
 /* features: saída fixa, controles vivos */
 .split { display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 6fr); gap: clamp(32px, 5vw, 96px); }
 .stick-field { position: sticky; top: 0; height: 100svh; background: var(--menta); border-radius: var(--radius); display: grid; place-items: center; padding: 32px; }
@@ -280,7 +295,7 @@ progress::-moz-progress-bar { background: var(--folha); border-radius: 999px; }
 /* ---------- Telas menores ---------- */
 @media (max-width: 1080px) {
   .nav-links { display: none; }
-  .hero-grid, .split, .showcase, .how, .pricing, .faq, .cta .wrap { grid-template-columns: minmax(0, 1fr); }
+  .hero-grid, .split, .showcase, .how, .pricing, .faq, .cta .wrap, .pre { grid-template-columns: minmax(0, 1fr); }
   .stick-field { height: auto; min-height: 0; position: relative; padding: 24px 16px; }
   .read-col { max-width: none; padding-top: 48px; }
   .block { min-height: 0; padding-block: 28px; }

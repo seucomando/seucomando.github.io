@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<meta name="robots" content="noindex">
+<title>Pré-entrevista · Centralizar</title>
+<meta name="theme-color" content="#0F3D2E">
+<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="assets/css/app.css">
+<script src="assets/js/data.js" defer></script>
+<script src="assets/js/triagem.js" defer></script>
+</head>
+<body class="cand-body">
+<main class="cand-page">
+  <header class="cand-head">
+    <img src="assets/img/logo.svg" alt="" width="36" height="36">
+    <div>
+      <p class="ui-sub" id="t-empresa">Padaria Sol</p>
+      <h1 id="t-vaga">Pré-entrevista · Atendente de balcão</h1>
+    </div>
+  </header>
+
+  <form id="triagem" class="card card-pad stack" novalidate>
+    <p>Responda em 2 minutos. <strong>Nenhum documento é pedido agora</strong>: se você for chamado(a) para entrevista, a empresa avisa pelo WhatsApp.</p>
+
+    <div class="field"><label for="t-nome">Seu nome completo</label><input id="t-nome" name="nome" maxlength="80" autocomplete="name" required></div>
+    <div class="field"><label for="t-fone">WhatsApp com DDD</label><input id="t-fone" name="fone" type="tel" inputmode="tel" maxlength="20" placeholder="(48) 9 0000-0000" autocomplete="tel" required></div>
+
+    <fieldset class="field cand-set"><legend>Como você quer trabalhar?</legend>
+      <label class="check"><input type="radio" name="regime" value="clt" required> Com carteira assinada (CLT)</label>
+      <label class="check"><input type="radio" name="regime" value="free"> Como freelancer, por diária</label>
+      <label class="check"><input type="radio" name="regime" value="temp"> Temporário</label>
+      <label class="check"><input type="radio" name="regime" value="tanto"> Tanto faz</label>
+    </fieldset>
+
+    <fieldset class="field cand-set"><legend>Em quais turnos você pode trabalhar?</legend>
+      <label class="check"><input type="checkbox" name="turnos" value="manha"> Manhã</label>
+      <label class="check"><input type="checkbox" name="turnos" value="tarde"> Tarde</label>
+      <label class="check"><input type="checkbox" name="turnos" value="noite"> Noite</label>
+      <label class="check"><input type="checkbox" name="turnos" value="fds"> Fim de semana</label>
+    </fieldset>
+
+    <div class="field"><label for="t-km">Distância da sua casa até a loja</label>
+      <select id="t-km" name="km" required><option value="">Escolha</option><option value="2">Até 2 km</option><option value="5">Até 5 km</option><option value="10">Até 10 km</option><option value="15">Até 15 km</option><option value="20">Mais de 15 km</option></select></div>
+
+    <div class="field"><label for="t-exp">Experiência na função</label>
+      <select id="t-exp" name="exp" required><option value="">Escolha</option><option value="0">Nenhuma ainda</option><option value="1">Cerca de 1 ano</option><option value="2">Cerca de 2 anos</option><option value="3">3 anos ou mais</option></select></div>
+
+    <label class="check"><input type="checkbox" name="contato" value="sim" checked> Aceito receber mensagens desta empresa pelo WhatsApp sobre esta vaga</label>
+
+    <p class="ui-sub">Seus dados servem só para esta seleção (LGPD, art. 7º, V) e são apagados em até 6 meses se você não for contratado(a). Esta pré-entrevista não pergunta idade, estado civil, filhos, gravidez, cor, origem nem deficiência (Lei 9.029/95).</p>
+    <p class="notice bad" id="t-erro" hidden></p>
+    <button class="btn btn-primary cand-send" type="submit">Enviar respostas</button>
+  </form>
+
+  <section class="card card-pad stack" id="t-ok" hidden>
+    <h2 class="sec" id="t-ok-tit">Recebemos suas respostas</h2>
+    <p id="t-ok-txt">Obrigado! Se o seu perfil combinar com a vaga, a empresa chama você para uma entrevista pelo WhatsApp.</p>
+    <p class="ui-sub">Neste protótipo, a resposta aparece no painel da empresa, em Vagas e seleção, neste mesmo navegador.</p>
+    <a class="btn" href="app.html#/vagas">Ver como a empresa recebe</a>
+  </section>
+</main>
+</body>
+</html>

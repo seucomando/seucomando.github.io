@@ -3,18 +3,18 @@ window.BROTA_SEED = {
   hoje: '2026-11-05',
   empresa: { nome: 'Padaria Sol', razao: 'Padaria Sol Ltda', cnpj: '[00.000.000/0001-00]', cidade: 'Criciúma/SC', endereco: 'Rua [endereço], Centro' },
   pessoas: [
-    { id: 'e1', nome: 'Ana Beatriz Souza', funcao: 'Atendente de balcão', setor: 'Salão', salario: 1980, admissao: '2025-03-03', celular: true, cpf: '***.456.789-**', escala: '07:00' },
-    { id: 'e2', nome: 'Joana Ribeiro', funcao: 'Atendente de balcão', setor: 'Salão', salario: 1980, admissao: '2024-08-12', celular: true, cpf: '***.218.334-**', escala: '06:30' },
-    { id: 'e3', nome: 'Marcos Lima', funcao: 'Repositor', setor: 'Estoque', salario: 1850, admissao: '2025-06-02', celular: false, cpf: '***.902.115-**', escala: '07:00' },
-    { id: 'e4', nome: 'Paulo Henrique Rocha', funcao: 'Padeiro', setor: 'Produção', salario: 2650, admissao: '2022-01-10', celular: false, cpf: '***.611.470-**', escala: '04:00' },
-    { id: 'e5', nome: 'Renata Alves', funcao: 'Confeiteira', setor: 'Produção', salario: 2480, admissao: '2023-05-15', celular: false, cpf: '***.375.028-**', escala: '05:00' },
-    { id: 'e6', nome: 'Carlos Eduardo Nunes', funcao: 'Auxiliar de padeiro', setor: 'Produção', salario: 1900, admissao: '2024-02-01', celular: false, cpf: '***.140.663-**', escala: '04:00' },
-    { id: 'e7', nome: 'Fernanda Lopes', funcao: 'Operadora de caixa', setor: 'Caixa', salario: 2050, admissao: '2023-09-18', celular: true, cpf: '***.587.209-**', escala: '07:00' },
-    { id: 'e8', nome: 'Bruno Teixeira', funcao: 'Operador de caixa', setor: 'Caixa', salario: 2050, admissao: '2025-01-06', celular: true, cpf: '***.033.781-**', escala: '13:00' },
-    { id: 'e9', nome: 'Patrícia Gomes', funcao: 'Gerente', setor: 'Gestão', salario: 3800, admissao: '2021-04-05', celular: true, cpf: '***.764.552-**', escala: '08:00' },
-    { id: 'e10', nome: 'Rafaela Martins', funcao: 'Auxiliar de limpeza', setor: 'Salão', salario: 1750, admissao: '2024-11-04', celular: false, cpf: '***.298.416-**', escala: '06:00' },
-    { id: 'e11', nome: 'Thiago Pereira', funcao: 'Entregador', setor: 'Entregas', salario: 1820, admissao: '2025-08-11', celular: true, cpf: '***.857.640-**', escala: '08:00' },
-    { id: 'e12', nome: 'Gabriela Santos', funcao: 'Atendente (meio período)', setor: 'Salão', salario: 1100, admissao: '2025-10-01', celular: true, cpf: '***.416.093-**', escala: '13:00' }
+    { id: 'e1', cargo: 'atendente-de-lanchonete', nome: 'Ana Beatriz Souza', funcao: 'Atendente de balcão', setor: 'Salão', salario: 1980, admissao: '2025-03-03', celular: true, cpf: '***.456.789-**', escala: '07:00' },
+    { id: 'e2', cargo: 'atendente-de-lanchonete', nome: 'Joana Ribeiro', funcao: 'Atendente de balcão', setor: 'Salão', salario: 1980, admissao: '2024-08-12', celular: true, cpf: '***.218.334-**', escala: '06:30' },
+    { id: 'e3', cargo: 'repositor-de-mercadorias', nome: 'Marcos Lima', funcao: 'Repositor', setor: 'Estoque', salario: 1850, admissao: '2025-06-02', celular: false, cpf: '***.902.115-**', escala: '07:00' },
+    { id: 'e4', cargo: 'padeiro', nome: 'Paulo Henrique Rocha', funcao: 'Padeiro', setor: 'Produção', salario: 2650, admissao: '2022-01-10', celular: false, cpf: '***.611.470-**', escala: '04:00' },
+    { id: 'e5', cargo: 'confeiteiro', nome: 'Renata Alves', funcao: 'Confeiteira', setor: 'Produção', salario: 2480, admissao: '2023-05-15', celular: false, cpf: '***.375.028-**', escala: '05:00' },
+    { id: 'e6', cargo: 'auxiliar-nos-servicos-de-alimentacao', nome: 'Carlos Eduardo Nunes', funcao: 'Auxiliar de padeiro', setor: 'Produção', salario: 1900, admissao: '2024-02-01', celular: false, cpf: '***.140.663-**', escala: '04:00' },
+    { id: 'e7', cargo: 'operador-de-caixa', nome: 'Fernanda Lopes', funcao: 'Operadora de caixa', setor: 'Caixa', salario: 2050, admissao: '2023-09-18', celular: true, cpf: '***.587.209-**', escala: '07:00' },
+    { id: 'e8', cargo: 'operador-de-caixa', nome: 'Bruno Teixeira', funcao: 'Operador de caixa', setor: 'Caixa', salario: 2050, admissao: '2025-01-06', celular: true, cpf: '***.033.781-**', escala: '13:00' },
+    { id: 'e9', cargo: 'gerente-de-loja-e-supermercado', nome: 'Patrícia Gomes', funcao: 'Gerente', setor: 'Gestão', salario: 3800, admissao: '2021-04-05', celular: true, cpf: '***.764.552-**', escala: '08:00' },
+    { id: 'e10', cargo: 'faxineiro', nome: 'Rafaela Martins', funcao: 'Auxiliar de limpeza', setor: 'Salão', salario: 1750, admissao: '2024-11-04', celular: false, cpf: '***.298.416-**', escala: '06:00' },
+    { id: 'e11', cargo: 'motofretista-motoboy', nome: 'Thiago Pereira', funcao: 'Entregador', setor: 'Entregas', salario: 1820, admissao: '2025-08-11', celular: true, cpf: '***.857.640-**', escala: '08:00' },
+    { id: 'e12', cargo: 'atendente-de-lanchonete', nome: 'Gabriela Santos', funcao: 'Atendente (meio período)', setor: 'Salão', salario: 1100, admissao: '2025-10-01', celular: true, cpf: '***.416.093-**', escala: '13:00' }
   ],
   ponto: {
     e1: ['06:58', '11:02', '12:01', ''], e2: ['06:27', '10:31', '11:30', ''], e3: ['07:47', '', '', ''], e4: ['03:56', '08:00', '09:00', '13:02'],
@@ -82,25 +82,25 @@ window.BROTA_SEED = {
       { t: 'Guardar o malote no cofre', foto: false, feito: false } ] }
   ],
   vagas: [
-    { id: 'g1', titulo: 'Atendente de balcão', regimeOferta: 'CLT · experiência de 45 dias', aberta: true, modelo: 'experiencia', salario: 1980,
+    { id: 'g1', titulo: 'Atendente de balcão', regimeOferta: 'CLT · experiência de 45 dias', aberta: true, modelo: 'experiencia', salario: 1980, cargo: 'atendente-de-lanchonete',
       crit: { regime: 'clt', turnos: ['manha'], km: 8, exp: 0 },
       cands: [
-        { n: 'Larissa Costa', regime: 'tanto', turnos: ['manha', 'tarde', 'fds'], km: 7, exp: 2, fone: '(48) 9 8840-2291', contato: true, escolhido: true, avisado: true },
+        { n: 'Larissa Costa', regime: 'tanto', turnos: ['manha', 'tarde', 'fds'], km: 7, exp: 2, fone: '(48) 9 8840-2291', contato: true, etapa: 'docs' },
         { n: 'Diego Martins', regime: 'free', turnos: ['noite', 'fds'], km: 6, exp: 1, fone: '(48) 9 9177-0382', contato: true },
-        { n: 'Camila Duarte', regime: 'clt', turnos: ['manha', 'tarde'], km: 3, exp: 1, fone: '(48) 9 9812-4410', contato: true },
+        { n: 'Camila Duarte', regime: 'clt', turnos: ['manha', 'tarde'], km: 3, exp: 1, fone: '(48) 9 9812-4410', contato: true, etapa: 'entrevista', entrevistaEm: '06/11 10:00' },
         { n: 'Rogério Vieira', regime: 'clt', turnos: ['manha'], km: 18, exp: 5, fone: '(48) 9 9604-7713', contato: true },
         { n: 'Júlia Fernandes', regime: 'temp', turnos: ['manha', 'tarde', 'fds'], km: 2, exp: 0, fone: '(48) 9 9931-5058', contato: false }
       ] },
-    { id: 'g2', titulo: 'Auxiliar de padeiro', regimeOferta: 'Freelancer · fins de semana', aberta: true, modelo: 'autonomo', salario: 160,
+    { id: 'g2', titulo: 'Auxiliar de padeiro', regimeOferta: 'Freelancer · fins de semana', aberta: true, modelo: 'autonomo', salario: 160, cargo: 'auxiliar-nos-servicos-de-alimentacao',
       crit: { regime: 'free', turnos: ['fds'], km: 12, exp: 1 },
       cands: [
-        { n: 'Diego Martins', regime: 'free', turnos: ['noite', 'fds'], km: 6, exp: 1, fone: '(48) 9 9177-0382', contato: true, escolhido: true, avisado: true },
-        { n: 'Igor Batista', regime: 'tanto', turnos: ['manha', 'fds'], km: 9, exp: 3, fone: '(48) 9 9220-6618', contato: true },
+        { n: 'Diego Martins', regime: 'free', turnos: ['noite', 'fds'], km: 6, exp: 1, fone: '(48) 9 9177-0382', contato: true, etapa: 'docs' },
+        { n: 'Igor Batista', regime: 'tanto', turnos: ['manha', 'fds'], km: 9, exp: 3, fone: '(48) 9 9220-6618', contato: true, etapa: 'aprovado' },
         { n: 'Sabrina Melo', regime: 'clt', turnos: ['manha', 'tarde'], km: 4, exp: 2, fone: '(48) 9 9451-3307', contato: true }
       ] }
   ],
   admissoes: [
-    { id: 'd1', nome: 'Larissa Costa', funcao: 'Atendente de balcão', modelo: 'experiencia', inicio: '2026-11-10', salario: 1980, cpf: '[000.000.000-00]',
+    { id: 'd1', nome: 'Larissa Costa', funcao: 'Atendente de balcão', modelo: 'experiencia', cargo: 'atendente-de-lanchonete', inicio: '2026-11-10', salario: 1980, cpf: '[000.000.000-00]',
       docs: [
         { n: 'RG ou CNH', v: 'RG 6.123.456 SSP/SC', por: 'candidato', st: 'ok' },
         { n: 'CPF', v: '[000.000.000-00]', por: 'candidato', st: 'ok' },
@@ -108,14 +108,14 @@ window.BROTA_SEED = {
         { n: 'Carteira de Trabalho Digital', v: 'Número do CPF (CTPS digital)', por: 'candidato', st: 'ok' },
         { n: 'Conta para pagamento', v: '', por: '', st: 'pendente' },
         { n: 'Exame admissional (ASO)', v: '', por: '', st: 'pendente' } ],
-      hist: [ '04/11 18:40 · Empresa escolheu Larissa na vaga Atendente de balcão e enviou o link de documentos pelo WhatsApp', '04/11 19:22 · Larissa enviou RG, CPF, endereço e CTPS pelo link do WhatsApp', '05/11 10:03 · Contador corrigiu o CEP de 88800-000 para 88804-010', '05/11 10:05 · Contador pediu a chave PIX à candidata' ] },
-    { id: 'd2', nome: 'Diego Martins', funcao: 'Auxiliar de padeiro (freelancer)', modelo: 'autonomo', inicio: '2026-11-07', salario: 160, cpf: '[000.000.000-00]',
+      hist: [ '03/11 15:00 · Larissa passou na triagem e foi entrevistada', '04/11 18:40 · Larissa aprovada na entrevista; empresa enviou o link de documentos pelo WhatsApp', '04/11 19:22 · Larissa enviou RG, CPF, endereço e CTPS pelo link do WhatsApp', '05/11 10:03 · Contador corrigiu o CEP de 88800-000 para 88804-010', '05/11 10:05 · Contador pediu a chave PIX à candidata' ] },
+    { id: 'd2', nome: 'Diego Martins', funcao: 'Auxiliar de padeiro (freelancer)', modelo: 'autonomo', cargo: 'auxiliar-nos-servicos-de-alimentacao', inicio: '2026-11-07', salario: 160, cpf: '[000.000.000-00]',
       docs: [
         { n: 'RG ou CNH', v: 'CNH 0123456789', por: 'candidato', st: 'ok' },
         { n: 'CPF', v: '[000.000.000-00]', por: 'candidato', st: 'ok' },
         { n: 'Cartão CNPJ do MEI', v: 'MEI ativo desde 2024', por: 'candidato', st: 'ok' },
         { n: 'Chave PIX', v: '', por: '', st: 'pendente' } ],
-      hist: [ '04/11 20:15 · Empresa escolheu Diego na vaga Auxiliar de padeiro e enviou o link de documentos pelo WhatsApp', '05/11 08:40 · Diego enviou RG, CPF e cartão do MEI' ] }
+      hist: [ '04/11 20:15 · Diego aprovado na entrevista; empresa enviou o link de documentos pelo WhatsApp', '05/11 08:40 · Diego enviou RG, CPF e cartão do MEI' ] }
   ]
 };
 

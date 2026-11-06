@@ -23,6 +23,7 @@
   <div class="wrap nav">
     <a class="wordmark" href="#topo" aria-label="Centralizar, início"><img src="assets/img/logo.svg" alt="" width="36" height="36">centralizar</a>
     <ul class="nav-links">
+      <li><a href="#pre-entrevista">Pré-entrevista</a></li>
       <li><a href="#holerite">Como funciona</a></li>
       <li><a href="#documentos">Documentos</a></li>
       <li><a href="#precos">Preços</a></li>
@@ -44,7 +45,7 @@
     <div class="screen" data-ui id="pre">
       <div class="ui-head">
         <div>
-          <div class="ui-title">Pré-entrevista · Atendente de balcão</div>
+          <div class="ui-title">Triagem · Atendente de balcão</div>
           <div class="ui-sub">Padaria Sol · 5 candidatos responderam</div>
         </div>
         <span class="pill pill-ok">Vaga aberta</span>
@@ -79,7 +80,7 @@
       </div>
       <div class="screen-foot">
         <strong id="apt-count">0 de 5 atendem aos critérios</strong>
-        <button type="button" class="ui-btn" id="wa-send">Escolha quem segue</button>
+        <button type="button" class="ui-btn" id="wa-send">Escolha quem entrevistar</button>
       </div>
       <div class="wa" id="wa" hidden>
         <div class="wa-msg" id="wa-msg"></div>
@@ -90,6 +91,34 @@
 </header>
 
 <main>
+  <section class="wrap section pre" id="pre-entrevista" aria-labelledby="h-pre">
+    <div class="pre-field">
+      <div class="pre-form" data-ui>
+        <div class="ui-head"><div><div class="ui-title">Pré-entrevista · Atendente de balcão</div><div class="ui-sub">Padaria Sol · leva 2 minutos</div></div></div>
+        <div class="ui-body pre-body">
+          <span class="ui-label">Como você quer trabalhar?</span>
+          <div class="pre-opts"><span class="pre-opt on">Com carteira assinada (CLT)</span><span class="pre-opt">Como freelancer, por diária</span><span class="pre-opt">Temporário</span><span class="pre-opt">Tanto faz</span></div>
+          <span class="ui-label">Em quais turnos você pode trabalhar?</span>
+          <div class="pre-opts row"><span class="pre-opt on">Manhã</span><span class="pre-opt on">Tarde</span><span class="pre-opt">Noite</span><span class="pre-opt">Fim de semana</span></div>
+          <span class="ui-label">Distância da sua casa até a loja</span>
+          <div class="pre-opts"><span class="pre-opt on">Até 5 km</span></div>
+          <p class="ui-sub">Nenhum documento é pedido agora. Seus dados servem só para esta seleção.</p>
+          <a class="ui-btn pre-btn" href="triagem.html">Abrir a pré-entrevista como candidato</a>
+        </div>
+      </div>
+    </div>
+    <div class="pre-copy">
+      <h2 id="h-pre">A pré-entrevista, do lado do candidato</h2>
+      <p class="rise">Você publica a vaga com um link. O candidato responde pelo celular, sem cadastro e sem enviar documento, e a resposta chega no seu painel já filtrada pelos seus critérios.</p>
+      <ol class="pre-steps">
+        <li class="rise"><strong>Triagem.</strong> Só perguntas sobre a vaga: regime, turnos, distância e experiência. Quem não se encaixa é descartado automaticamente.</li>
+        <li class="rise"><strong>Entrevista.</strong> Você chama quem passou, com dia e hora, e o convite vai pelo WhatsApp. Depois, aprova ou não.</li>
+        <li class="rise"><strong>Documentos.</strong> Só quem você aprovou na entrevista recebe o link para enviar os documentos.</li>
+        <li class="rise"><strong>Contador e ok final.</strong> O contador confere os documentos e só então você dá o ok da admissão.</li>
+      </ol>
+    </div>
+  </section>
+
   <section class="wrap section split" id="holerite" aria-labelledby="h-holerite">
     <div class="stick-field">
       <div class="payslip" data-ui>
@@ -167,16 +196,16 @@
     <div class="how-steps">
       <h2 id="h-adm">Admissão a três mãos</h2>
       <div class="step active" data-step="0">
-        <h3>Primeiro, o escolhido preenche pelo celular.</h3>
-        <p>Só quem você escolheu depois da pré-entrevista recebe o link no WhatsApp para enviar documentos, endereço e conta para pagamento.</p>
+        <h3>Primeiro, o aprovado envia os documentos.</h3>
+        <p>Depois da triagem e da entrevista, só quem você aprovou recebe o link no WhatsApp para enviar documentos, endereço e conta para pagamento.</p>
       </div>
       <div class="step" data-step="1">
         <h3>Depois, o contador confere e corrige.</h3>
         <p>Ele vê o mesmo cadastro, ajusta o que veio errado, e cada alteração fica registrada com nome e horário.</p>
       </div>
       <div class="step" data-step="2">
-        <h3>Por fim, o empresário aprova e assina.</h3>
-        <p>Com tudo conferido, o contrato sugerido já vem preenchido. Você revisa, assina, e o contador envia a admissão ao eSocial.</p>
+        <h3>Por fim, o empresário dá o ok.</h3>
+        <p>O ok só fica liberado depois da conferência do contador. Com ele, o contrato sugerido já vem preenchido e o contador envia a admissão ao eSocial.</p>
       </div>
     </div>
     <div class="how-stage">

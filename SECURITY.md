@@ -41,6 +41,9 @@ O GitHub Pages não permite configurar cabeçalhos HTTP. Por isso, `frame-ancest
 **WhatsApp**
 - Somente a API oficial (WhatsApp Business Platform), com opt-in do candidato e modelos de mensagem aprovados. As chaves ficam no servidor, nunca no navegador.
 
+**PDF com marca d'água**
+- No protótipo, a marca d'água do plano de avaliação é aplicada no navegador e pode ser removida por quem souber mexer no código. Na versão real, o PDF deve ser gerado no servidor, com a marca gravada no arquivo, conforme o plano pago.
+
 **Operação**
 - Segredos em cofre (variáveis de ambiente do provedor), limite de requisições no login e nos formulários públicos, backups testados e, antes de abrir para clientes, o checklist **OWASP ASVS nível 2** e um teste de invasão.
 

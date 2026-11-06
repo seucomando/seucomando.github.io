@@ -1,7 +1,7 @@
 /* Centralizar — painel (protótipo navegável). Sem servidor: os dados de exemplo ficam só neste navegador. */
 (function () {
   'use strict';
-  var KEY = 'centralizar-prototipo-v3';
+  var KEY = 'centralizar-prototipo-v5';
   var SEED = window.BROTA_SEED, TPL = window.BROTA_CONTRATOS;
   var doc = document, view = doc.getElementById('view');
   var ME = 'e1'; // a funcionária usada na visão "Funcionário"
@@ -78,7 +78,7 @@
   /* ---------- moldura ---------- */
   var ROUTES = {
     inicio: { t: 'Início', r: 'empresa contador funcionario', f: vInicio },
-    vagas: { t: 'Vagas e pré-entrevista', r: 'empresa', f: vVagas },
+    vagas: { t: 'Vagas e seleção', r: 'empresa', f: vVagas },
     admissoes: { t: 'Admissões', r: 'empresa contador', f: vAdmissoes },
     contratos: { t: 'Contratos', r: 'empresa contador', f: vContratos },
     ponto: { t: 'Ponto e jornada', r: 'empresa contador funcionario', f: vPonto },
@@ -102,7 +102,7 @@
       if (a.getAttribute('href') === '#/' + r) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     });
     $$('#nav [data-group]').forEach(function (g) { g.hidden = !$$('a', g).some(function (a) { return !a.hidden; }); });
-    var counts = { adm: S.admissoes.filter(function (a) { return a.docs.some(function (d) { return d.st !== 'ok'; }); }).length, orig: originaisPendentes().length, hol: S.role === 'funcionario' ? 0 : S.pessoas.length - S.holerites.aprovados.length, cmp: S.role === 'empresa' ? S.compras.itens.length : 0 };
+    var counts = { adm: S.admissoes.filter(function (a) { return S.role === 'contador' ? passoAdm(a) === 3 : !a.aprovada; }).length, orig: originaisPendentes().length, hol: S.role === 'funcionario' ? 0 : S.pessoas.length - S.holerites.aprovados.length, cmp: S.role === 'empresa' ? S.compras.itens.length : 0 };
     $$('[data-count]').forEach(function (c) { var n = counts[c.dataset.count]; c.textContent = n || ''; c.hidden = !n; });
     $('#co-name').textContent = S.empresa.nome; $('#co-mark').textContent = S.empresa.nome.charAt(0).toUpperCase();
     $('#role').value = S.role;
@@ -127,7 +127,7 @@
     var pend = [];
     originaisPendentes().forEach(function (a) { var venc = diffDays(S.hoje, a.prazo) < 0; pend.push([venc ? pill('bad', 'Vencido') : pill('warn', 'Até ' + dmy(a.prazo)), 'Atestado original de ' + P(a.pessoa).nome, 'Foto recebida em ' + dmy(a.foto) + '; falta o papel', '#/ocorrencias', 'Registrar entrega']); });
     S.vales.filter(function (v) { return !v.assinado; }).forEach(function (v) { pend.push([pill('warn', 'Sem assinatura'), 'Vale de R$ ' + brl(v.valor) + ' · ' + P(v.pessoa).nome, 'Não pode ser descontado sem autorização escrita', '#/vales', 'Ver vale']); });
-    S.admissoes.forEach(function (a) { var f = a.docs.filter(function (d) { return d.st !== 'ok'; }).length; if (f) pend.push([pill('warn', f + ' documento(s)'), 'Admissão de ' + a.nome, a.funcao + ' · início em ' + dmy(a.inicio), '#/admissoes', 'Abrir']); });
+    S.admissoes.forEach(function (a) { var f = a.docs.filter(function (d) { return d.st !== 'ok'; }).length, n = passoAdm(a); if (n === 5) return; pend.push(n === 2 ? [pill('warn', f + ' documento(s)'), 'Admissão de ' + a.nome, 'Aguardando documentos · início em ' + dmy(a.inicio), '#/admissoes', 'Abrir'] : n === 3 ? [pill('mute', 'Com o contador'), 'Admissão de ' + a.nome, 'Documentos completos, em conferência', '#/admissoes', 'Abrir'] : [pill('warn', 'Falta seu ok'), 'Admissão de ' + a.nome, 'Conferida pelo contador', '#/admissoes', 'Dar o ok']); });
     S.checklists.forEach(function (c) { var f = c.itens.filter(function (i) { return i.foto && !i.fotoEm; }).length; if (f) pend.push([pill('mute', f + ' foto(s)'), c.nome + ' · ' + c.setor, 'Responsável: ' + P(c.resp).nome, '#/checklists', 'Ver checklist']); });
     var falta = sugestaoCompra().length;
     if (falta) pend.push([pill('bad', falta + ' item(ns)'), 'Abaixo do estoque mínimo', 'Ainda fora da lista de compras', '#/estoque', 'Ver estoque']);
@@ -162,71 +162,192 @@
     if (c.exp < k.exp) return 'Experiência menor';
     return '';
   }
+  var ETAPAS_SEL = ['entrevista', 'aprovado', 'docs', 'reprovado'];
+  function etapaHTML(c, i, m) {
+    if (c.etapa === 'entrevista') return pill('warn', 'Entrevista ' + c.entrevistaEm) + ' <button type="button" class="btn btn-sm btn-primary" data-act="ent-ok" data-i="' + i + '">Aprovar</button> <button type="button" class="btn btn-sm" data-act="ent-nao" data-i="' + i + '">Não aprovar</button>';
+    if (c.etapa === 'aprovado') return pill('ok', 'Aprovado na entrevista') + (c.contato ? ' <button type="button" class="btn btn-sm btn-primary" data-act="docs-modal" data-i="' + i + '">Enviar link de documentos</button>' : '<span class="sub">Sem WhatsApp: envie o link por outro meio</span>');
+    if (c.etapa === 'docs') return pill('ok', 'Em admissão') + ' <a class="btn btn-sm" href="#/admissoes">Ver</a>';
+    if (c.etapa === 'reprovado') return pill('mute', 'Não aprovado na entrevista');
+    if (m) return '<span class="ui-sub">Descartado na triagem</span>';
+    return '<button type="button" class="btn btn-sm btn-primary" data-act="ent-modal" data-i="' + i + '">Chamar para entrevista</button>';
+  }
   function vVagas() {
     var g = vagaAtual(), k = g.crit;
     var tabs = S.vagas.map(function (v) { return '<button type="button" role="tab" aria-selected="' + (v.id === g.id) + '" data-act="vaga" data-id="' + v.id + '">' + esc(v.titulo) + '</button>'; }).join('');
-    var aptos = 0, esc1 = g.cands.filter(function (c) { return c.escolhido; }), pend = esc1.filter(function (c) { return !c.avisado && c.contato; });
+    var aptos = 0;
     var rows = g.cands.map(function (c, i) {
       var m = avalia(c, k); if (!m) aptos++;
-      var dec = c.escolhido ? pill('ok', c.avisado ? 'Escolhido · link enviado' : 'Escolhido') + (c.avisado ? '' : ' <button type="button" class="btn btn-sm" data-act="desescolher" data-i="' + i + '">Desfazer</button>') : (m ? '<span class="ui-sub">·</span>' : '<button type="button" class="btn btn-sm btn-primary" data-act="escolher" data-i="' + i + '">Escolher</button>');
-      return '<tr><td><strong>' + esc(c.n) + '</strong><span class="sub">' + esc(c.fone) + (c.contato ? '' : ' · não autorizou WhatsApp') + '</span></td><td>' + esc(REG[c.regime]) + '</td><td class="hide-sm">' + c.turnos.map(function (t) { return esc(TUR[t]); }).join(', ') + '</td><td class="num hide-sm">' + c.km + ' km</td><td class="num hide-sm">' + c.exp + (c.exp === 1 ? ' ano' : ' anos') + '</td><td>' + (m ? pill('mute', m) : pill('ok', 'Apto')) + '</td><td>' + dec + '</td></tr>';
+      return '<tr><td><strong>' + esc(c.n) + '</strong>' + (c.novo ? ' ' + pill('warn', 'Novo') : '') + '<span class="sub">' + esc(c.fone) + (c.contato ? '' : ' · não autorizou WhatsApp') + '</span></td><td>' + esc(REG[c.regime]) + '</td><td class="hide-sm">' + c.turnos.map(function (t) { return esc(TUR[t]); }).join(', ') + '</td><td class="num hide-sm">' + c.km + ' km</td><td class="num hide-sm">' + c.exp + (c.exp === 1 ? ' ano' : ' anos') + '</td><td>' + (m ? pill('mute', m) : pill('ok', 'Passou')) + '</td><td>' + etapaHTML(c, i, m) + '</td></tr>';
     }).join('');
+    var conta = function (et) { return g.cands.filter(function (c) { return et.indexOf(c.etapa) > -1; }).length; };
+    var kpi = function (l, v, cap) { return '<div class="kpi"><div class="lbl">' + l + '</div><div class="val num">' + v + '</div><div class="cap">' + cap + '</div></div>'; };
+    var funil = '<div class="card kpis kpis-5">' + kpi('Responderam', g.cands.length, 'triagem pelo link') + kpi('Passaram na triagem', aptos, 'pelos seus critérios') + kpi('Entrevistados', conta(ETAPAS_SEL), 'chamados para entrevista') + kpi('Aprovados', conta(['aprovado', 'docs']), 'na entrevista') + kpi('Em admissão', conta(['docs']), 'enviando documentos') + '</div>';
     var seg = ['clt', 'free', 'temp', 'qualquer'].map(function (r) { return '<button type="button" data-act="crit-reg" data-v="' + r + '" aria-pressed="' + (k.regime === r) + '">' + REG[r] + '</button>'; }).join('');
     var chips = Object.keys(TUR).map(function (t) { return '<button type="button" class="chip" data-act="crit-tur" data-v="' + t + '" aria-pressed="' + (k.turnos.indexOf(t) > -1) + '">' + TUR[t] + '</button>'; }).join('');
     var exps = [0, 1, 2, 3].map(function (n) { return '<option value="' + n + '"' + (k.exp === n ? ' selected' : '') + '>' + (n ? 'Pelo menos ' + n + (n === 1 ? ' ano' : ' anos') : 'Sem exigência') + '</option>'; }).join('');
-    return titleRow('Vagas e pré-entrevista', esc(g.titulo) + ' · ' + esc(g.regimeOferta) + ' · ' + g.cands.length + ' respostas', '<button type="button" class="btn" data-act="copiar-link">Copiar link da pré-entrevista</button><button type="button" class="btn btn-primary" data-act="wa-modal"' + (pend.length ? '' : ' disabled') + '>' + (pend.length ? 'Enviar link de documentos a ' + pend.length : 'Escolha quem segue') + '</button>') +
+    return titleRow('Vagas e seleção', esc(g.titulo) + ' · ' + esc(g.regimeOferta), '<a class="btn" href="triagem.html?vaga=' + esc(g.id) + '" target="_blank" rel="noopener">Ver como o candidato responde</a><button type="button" class="btn btn-primary" data-act="copiar-link">Copiar link da pré-entrevista</button>') +
       '<div class="tabs" role="tablist">' + tabs + '</div>' +
-      '<div class="grid-main"><div class="stack"><div class="card"><div class="card-head"><h2>Respostas da pré-entrevista</h2><span class="pill ok">' + aptos + ' aptos · ' + esc1.length + ' escolhido(s)</span></div><div class="table-box"><table class="t stack-sm"><thead><tr><th>Candidato</th><th>Quer trabalhar como</th><th class="hide-sm">Turnos</th><th class="num hide-sm">Distância</th><th class="num hide-sm">Experiência</th><th>Filtro</th><th>Sua decisão</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>' +
-      '<div class="notice info"><div><strong>Passar no filtro não é ser contratado</strong>O filtro só separa quem atende aos seus critérios. Você escolhe quem segue, e só os escolhidos recebem pelo WhatsApp o link para enviar documentos. Só eles aparecem em Admissões.</div></div></div>' +
-      '<div class="stack"><div class="card card-pad stack"><h2 class="sec">Seus critérios</h2>' +
+      '<div class="grid-main"><div class="stack">' + funil + '<div class="card"><div class="card-head"><h2>Candidatos</h2><span class="ui-sub">Triagem, entrevista e documentos, nessa ordem</span></div><div class="table-box"><table class="t stack-sm"><thead><tr><th>Candidato</th><th>Quer trabalhar como</th><th class="hide-sm">Turnos</th><th class="num hide-sm">Distância</th><th class="num hide-sm">Experiência</th><th>Triagem</th><th>Etapa</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>' +
+      '<div class="notice info"><div><strong>Como a seleção anda</strong>A triagem só descarta quem não se encaixa nos seus critérios. Quem passa é chamado para entrevista; só quem você aprova na entrevista recebe o link de documentos. Depois, o contador confere e você dá o ok final em Admissões.</div></div></div>' +
+      '<div class="stack"><div class="card card-pad stack"><h2 class="sec">Critérios da triagem</h2>' +
       '<div class="field"><span class="lbl-s">Regime da vaga</span><div class="seg">' + seg + '</div></div>' +
       '<div class="field"><span class="lbl-s">Turnos obrigatórios</span><div class="chips">' + chips + '</div></div>' +
       '<div class="field"><label for="km">Distância máxima: <strong>' + k.km + ' km</strong></label><input id="km" type="range" min="1" max="25" value="' + k.km + '" data-in="crit-km"></div>' +
       '<div class="field"><label for="exp">Experiência no ramo</label><select id="exp" data-in="crit-exp">' + exps + '</select></div></div>' +
-      '<div class="card card-pad stack"><h2 class="sec">O que o candidato responde</h2><p class="ui-sub">Na pré-entrevista são só perguntas: nenhum documento é pedido nessa etapa (LGPD, art. 6º, III, princípio da necessidade).</p><ul class="list"><li>Como você quer trabalhar? CLT, freelancer, temporário ou tanto faz</li><li>Quais turnos você pode fazer?</li><li>Qual a distância da sua casa até a loja?</li><li>Quanto tempo de experiência no ramo?</li><li>Podemos falar com você pelo WhatsApp?</li></ul>' +
+      '<div class="card card-pad stack"><h2 class="sec">Perguntas da triagem</h2><p class="ui-sub">Na triagem são só perguntas: nenhum documento é pedido nessa etapa (LGPD, art. 6º, III, princípio da necessidade).</p><ul class="list"><li>Como você quer trabalhar? CLT, freelancer, temporário ou tanto faz</li><li>Quais turnos você pode fazer?</li><li>Qual a distância da sua casa até a loja?</li><li>Quanto tempo de experiência no ramo?</li><li>Podemos falar com você pelo WhatsApp?</li></ul>' +
       '<div class="notice info"><div><strong>Perguntas bloqueadas</strong>Sexo, idade, estado civil, filhos, gravidez, raça, cor, origem e deficiência não podem ser critério de seleção (Lei 9.029/95). O Centralizar não oferece essas perguntas.</div></div></div></div></div>';
   }
 
   /* ---------- Admissões ---------- */
   function admAtual() { var id = S.ui.adm || S.admissoes[0].id; return S.admissoes.filter(function (a) { return a.id === id; })[0]; }
+  var PASSOS = ['Triagem', 'Entrevista', 'Documentos', 'Conferência do contador', 'Ok do empregador'];
+  function passoAdm(a) { var tudo = a.docs.every(function (d) { return d.st === 'ok'; }); return a.aprovada ? 5 : a.conferida ? 4 : tudo ? 3 : 2; }
+  function situacaoAdm(a) { var n = passoAdm(a); return n === 5 ? ['ok', 'Admissão aprovada'] : n === 4 ? ['warn', 'Aguardando o ok do empregador'] : n === 3 ? ['mute', 'Com o contador'] : ['warn', 'Aguardando documentos']; }
   function vAdmissoes() {
-    var a = admAtual(), editar = can('empresa contador');
-    var rows = S.admissoes.map(function (x) { var ok = x.docs.filter(function (d) { return d.st === 'ok'; }).length; return '<tr class="click' + (x.id === a.id ? ' sel' : '') + '" data-act="adm" data-id="' + x.id + '"><td><strong>' + esc(x.nome) + '</strong><span class="sub">' + esc(x.funcao) + '</span></td><td class="num">' + ok + ' de ' + x.docs.length + '</td><td class="num hide-sm">' + dmy(x.inicio) + '</td><td>' + (x.aprovada ? pill('ok', 'Aprovada') : ok === x.docs.length ? pill('ok', 'Pronta para aprovar') : pill('warn', 'Em preenchimento')) + '</td></tr>'; }).join('');
+    var a = admAtual(), editar = can('empresa contador'), passo = passoAdm(a);
+    var rows = S.admissoes.map(function (x) { var ok = x.docs.filter(function (d) { return d.st === 'ok'; }).length, st = situacaoAdm(x); return '<tr class="click' + (x.id === a.id ? ' sel' : '') + '" data-act="adm" data-id="' + x.id + '"><td><strong>' + esc(x.nome) + '</strong><span class="sub">' + esc(x.funcao) + '</span></td><td class="num">' + ok + ' de ' + x.docs.length + '</td><td class="num hide-sm">' + dmy(x.inicio) + '</td><td>' + pill(st[0], st[1]) + '</td></tr>'; }).join('');
     var docs = a.docs.map(function (d, i) {
-      var por = d.por === 'contador' ? 'editado pelo contador' : d.por === 'empresa' ? 'editado pela empresa' : d.por === 'candidato' ? 'preenchido pelo candidato' : 'ainda não enviado';
+      var por = d.por === 'contador' ? 'editado pelo contador' : d.por === 'empresa' ? 'editado pela empresa' : d.por === 'candidato' ? 'enviado pelo candidato' : 'ainda não enviado';
       return '<div class="field"><label for="doc' + i + '">' + esc(d.n) + ' <span class="pill ' + (d.st === 'ok' ? 'ok' : 'warn') + '">' + esc(por) + '</span></label>' +
-        (editar ? '<input id="doc' + i + '" value="' + esc(d.v) + '" data-in="doc" data-i="' + i + '" placeholder="Aguardando o candidato">' : '<input id="doc' + i + '" value="' + esc(d.v) + '" readonly>') + '</div>';
+        (editar && !a.aprovada ? '<input id="doc' + i + '" value="' + esc(d.v) + '" data-in="doc" data-i="' + i + '" placeholder="Aguardando o candidato">' : '<input id="doc' + i + '" value="' + esc(d.v) + '" readonly>') + '</div>';
     }).join('');
-    var tudo = a.docs.every(function (d) { return d.st === 'ok'; });
+    var tudo = passo >= 3;
+    var trilha = '<ol class="steps" aria-label="Etapas da admissão">' + PASSOS.map(function (t, i) { return '<li class="' + (i < passo ? 'done' : i === passo ? 'now' : '') + '"' + (i === passo ? ' aria-current="step"' : '') + '>' + esc(t) + '</li>'; }).join('') + '</ol>';
     var hist = a.hist.slice().reverse().map(function (h) { return '<li>' + esc(h) + '</li>'; }).join('');
-    var quem = S.role === 'contador' ? 'Você está como contador: pode corrigir qualquer campo, e a mudança fica no histórico.' : 'O candidato preenche pelo link; você e o contador podem corrigir. Toda mudança fica no histórico.';
-    return titleRow('Admissões', 'Só os candidatos que você escolheu nas vagas · candidato, contador e empresa no mesmo cadastro', '<a class="btn" href="#/contratos" data-act="gerar-contrato" data-id="' + a.id + '">Gerar contrato sugerido</a>' + (S.role === 'empresa' ? '<button type="button" class="btn btn-primary" data-act="aprovar-adm"' + (tudo && !a.aprovada ? '' : ' disabled') + '>' + (a.aprovada ? 'Admissão aprovada' : 'Aprovar admissão') + '</button>' : '')) +
+    var quem = S.role === 'contador' ? 'Você está como contador: confira os documentos, corrija o que for preciso e clique em “Conferir documentos” para liberar o ok do empregador.' : 'O aprovado na entrevista envia os documentos pelo link, o contador confere e só então você dá o ok final.';
+    var acoes = '<a class="btn" href="#/contratos" data-act="gerar-contrato" data-id="' + a.id + '">Gerar contrato sugerido</a>';
+    if (S.role === 'contador') acoes += '<button type="button" class="btn btn-primary" data-act="conferir"' + (tudo && !a.conferida ? '' : ' disabled') + '>' + (a.conferida ? 'Documentos conferidos' : 'Conferir documentos') + '</button>';
+    if (S.role === 'empresa') acoes += '<button type="button" class="btn btn-primary" data-act="aprovar-adm"' + (a.conferida && !a.aprovada ? '' : ' disabled') + '>' + (a.aprovada ? 'Ok dado' : a.conferida ? 'Dar o ok na admissão' : 'Ok após o contador conferir') + '</button>';
+    return titleRow('Admissões', 'Só quem foi aprovado na entrevista · o contador confere e o empregador dá o ok', acoes) +
       '<div class="grid-main"><div class="stack"><div class="card"><div class="table-box"><table class="t"><thead><tr><th>Pessoa</th><th class="num">Documentos</th><th class="num hide-sm">Início</th><th>Situação</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>' +
-      '<div class="card"><div class="card-head"><h2>' + esc(a.nome) + '</h2><span class="ui-sub">' + esc(a.funcao) + '</span></div><div class="card-pad stack"><div class="notice info"><div>' + quem + '</div></div><div class="form-grid">' + docs + '</div>' +
+      '<div class="card"><div class="card-head"><h2>' + esc(a.nome) + '</h2><span class="ui-sub">' + esc(a.funcao) + '</span></div><div class="card-pad stack">' + trilha + '<div class="notice info"><div>' + quem + '</div></div><div class="form-grid">' + docs + '</div>' +
       (tudo ? '' : '<div><button type="button" class="btn" data-act="pedir-docs">Pedir o que falta pelo WhatsApp</button></div>') + '</div></div></div>' +
       '<div><h2 class="sec">Histórico</h2><div class="card"><ul class="list">' + hist + '</ul></div></div></div>';
   }
 
   /* ---------- Contratos ---------- */
-  function pessoasContrato() { return S.admissoes.map(function (a) { return { id: a.id, nome: a.nome, funcao: a.funcao, salario: a.salario, inicio: a.inicio, cpf: a.cpf }; }).concat(S.pessoas.map(function (p) { return { id: p.id, nome: p.nome, funcao: p.funcao, salario: p.salario, inicio: p.admissao, cpf: p.cpf }; })); }
-  function vContratos() {
-    var t = TPL.filter(function (x) { return x.id === (S.ui.tpl || 'experiencia'); })[0];
-    var ps = pessoasContrato(), alvo = ps.filter(function (x) { return x.id === (S.ui.alvo || ps[0].id); })[0] || ps[0];
-    var sal = t.id === 'intermitente' ? alvo.salario / 220 : alvo.salario;
-    var campos = { funcao: alvo.funcao.toLowerCase(), cidade: S.empresa.cidade, inicio: dmyy(alvo.inicio), salario: brl(sal) };
+  // Fluxo: o empregador escolhe o enquadramento, o sistema monta o contrato e verifica os pontos de risco,
+  // o empregador confere o checklist e só então exporta o PDF (com marca d'água no plano de avaliação).
+  var CARGOS = window.CENTRALIZAR_CARGOS || [], ALERTAS = window.CENTRALIZAR_ALERTAS || {};
+  function cargoPor(id) { return CARGOS.filter(function (c) { return c.id === id; })[0] || CARGOS[0]; }
+  var JORNADAS = {
+    '44-sab': ['44 horas semanais, de segunda a sábado', 'de segunda a sexta-feira, das 8h às 17h, com 1 hora de intervalo, e aos sábados das 8h às 12h'],
+    '44-sex': ['44 horas semanais, de segunda a sexta', 'de segunda a sexta-feira, 8 horas e 48 minutos por dia, com 1 hora de intervalo, compensando o sábado por acordo individual escrito (CLT, art. 59, § 6º)'],
+    '1236': ['escala 12x36', 'em escala de 12 horas de trabalho por 36 de descanso, com intervalo para repouso e alimentação, ajustada por acordo individual escrito (CLT, art. 59-A)'],
+    'p30': ['tempo parcial de 30 horas', 'em regime de tempo parcial de até 30 horas semanais, sem horas extras (CLT, art. 58-A)'],
+    'p26': ['tempo parcial de 26 horas', 'em regime de tempo parcial de até 26 horas semanais, com até 6 horas extras por semana (CLT, art. 58-A)'],
+    '6h': ['6 horas diárias (36 semanais)', 'de 6 horas diárias e 36 semanais, com intervalo de 15 minutos (CLT, arts. 71, § 1º, e 227)']
+  };
+  var TURNOS = { diurno: 'diurno', noturno: 'noturno (22h às 5h)', misto: 'misto' };
+  var INSAL = { '': 'Não', '10': 'Grau mínimo (10%)', '20': 'Grau médio (20%)', '40': 'Grau máximo (40%)' };
+  function ctEstado() {
+    var c = S.ui.ct || (S.ui.ct = { modelo: 'experiencia', alvo: 'novo', cargo: 'atendente-de-lanchonete', dias: 45, jornada: '44-sab', turno: 'diurno', insal: '', peric: false, noturno: false, salario: 1980, art481: false, cct: '', inicio: addDays(S.hoje, 3), checks: {} });
+    c.checks = c.checks || {}; return c;
+  }
+  function pessoasContrato() {
+    return [{ id: 'novo', nome: '[NOME DO EMPREGADO]', cpf: '[CPF]', salario: null, cargo: null, tipo: 'novo' }]
+      .concat(S.admissoes.map(function (a) { return { id: a.id, nome: a.nome, cpf: a.cpf, salario: a.salario, cargo: a.cargo, inicio: a.inicio, tipo: 'admissao' }; }))
+      .concat(S.pessoas.map(function (p) { return { id: p.id, nome: p.nome, cpf: p.cpf, salario: p.salario, cargo: p.cargo, admissao: p.admissao, funcao: p.funcao, tipo: 'empregado' }; }));
+  }
+  function temFlag(cargo, prefixos) { return cargo.flags.some(function (f) { return prefixos.some(function (p) { return f.indexOf(p) === 0; }); }); }
+  // Periculosidade marcada automaticamente só quando a lei já garante; motociclista (PEM) fica como alerta.
+  var PERIC = ['PE', 'PEI', 'PEE', 'PEV', 'PEB'];
+  function temPeric(cargo) { return cargo.flags.some(function (f) { return PERIC.indexOf(f) > -1; }); }
+  function contratoExperiencia(ct, pessoa, cargo) {
+    var fim = addDays(ct.inicio, ct.dias - 1), resto = 90 - ct.dias, j = JORNADAS[ct.jornada];
+    var noturno = ct.turno !== 'diurno';
+    var adic = [];
+    if (ct.insal) adic.push('adicional de insalubridade de ' + ct.insal + '%, calculado sobre o salário-mínimo, salvo base mais favorável em norma coletiva (CLT, art. 192)');
+    if (ct.peric) adic.push('adicional de periculosidade de 30% sobre o salário-base (CLT, art. 193, § 1º)');
+    if (ct.noturno) adic.push('adicional noturno de 20% sobre a hora diurna nas horas trabalhadas entre 22h e 5h (CLT, art. 73)');
+    var nrs = cargo.flags.filter(function (f) { return /^NR\d+$/.test(f); }).map(function (f) { return 'NR-' + f.slice(2); });
+    var cl = [
+      'A EMPREGADA(O) é admitida(o) para exercer a função de <strong>' + esc(cargo.cargo) + '</strong> (CBO ' + esc(cargo.cbo) + '), com as seguintes atribuições: ' + cargo.atrib.map(function (a) { return esc(a.charAt(0).toLowerCase() + a.slice(1)); }).join('; ') + '; além de outras tarefas compatíveis com a sua condição pessoal (CLT, art. 456, parágrafo único).',
+      'Este é um contrato de experiência de <strong>' + ct.dias + ' dias</strong>, de ' + dmyy(ct.inicio) + ' a ' + dmyy(fim) + (resto > 0 ? ', que poderá ser prorrogado uma única vez por até ' + resto + ' dias, sem ultrapassar 90 dias no total' : ', sem possibilidade de prorrogação por já atingir o limite de 90 dias') + ' (CLT, arts. 443, § 2º, "c", 445, parágrafo único, e 451). Vencido o prazo sem rescisão, o contrato passa a vigorar por prazo indeterminado.',
+      'A jornada é de <strong>' + esc(j[0]) + '</strong>, ' + esc(j[1]) + ', em turno ' + esc(TURNOS[ct.turno]) + (noturno ? ', com hora noturna reduzida de 52 minutos e 30 segundos' : '') + ', com registro de ponto por programa eletrônico (Portaria MTP 671/2021).',
+      'O salário mensal é de <strong>R$ ' + brl(+ct.salario || 0) + '</strong>' + (adic.length ? ', acrescido de ' + adic.join('; ') : '') + ', pago até o 5º dia útil do mês seguinte ao trabalhado (CLT, art. 459, § 1º).',
+      'O trabalho será prestado no estabelecimento da EMPREGADORA em ' + esc(S.empresa.endereco) + ', ' + esc(S.empresa.cidade) + '.',
+      'A EMPREGADA(O) receberá os equipamentos de proteção e os treinamentos exigidos para a função' + (nrs.length ? ' (' + esc(nrs.join(', ')) + ')' : '') + ', obrigando-se a usá-los; a recusa injustificada constitui falta (CLT, art. 158, parágrafo único).',
+      'Só serão descontados do salário os valores previstos em lei ou norma coletiva, os adiantamentos e os vales autorizados por escrito, e os danos causados com dolo ou, se por culpa, nos termos deste ajuste (CLT, art. 462, § 1º; Súmula 342 do TST).',
+      ct.art481 ? 'As partes ajustam o direito recíproco de rescisão antes do termo final; exercido esse direito, aplicam-se os princípios da rescisão do contrato por prazo indeterminado, inclusive o aviso-prévio (CLT, art. 481; Súmula 163 do TST).' : 'A rescisão antecipada sem justa causa obedecerá aos arts. 479 e 480 da CLT.',
+      'Aplicam-se a este contrato as normas coletivas da categoria' + (ct.cct ? ' (' + esc(ct.cct) + ')' : '') + ', no que forem mais favoráveis à EMPREGADA(O).',
+      'Os dados pessoais da EMPREGADA(O) serão tratados para cumprir este contrato e as obrigações legais e regulatórias (LGPD, art. 7º, II e V).'
+    ];
+    return '<h3>Contrato de trabalho por prazo determinado, na modalidade de experiência</h3><p class="center">' + esc(S.empresa.cidade) + '</p>' +
+      '<p><strong>EMPREGADORA:</strong> ' + esc(S.empresa.razao) + ', CNPJ ' + esc(S.empresa.cnpj) + ', ' + esc(S.empresa.endereco) + ', ' + esc(S.empresa.cidade) + '.<br><strong>EMPREGADA(O):</strong> ' + esc(pessoa.nome) + ', CPF ' + esc(pessoa.cpf) + '.</p>' +
+      '<p>As partes celebram este contrato de experiência, assinado antes do início da prestação de serviços, nas condições abaixo.</p>' +
+      '<ol>' + cl.map(function (c) { return '<li contenteditable="true">' + c + '</li>'; }).join('') + '</ol>' +
+      '<p class="center">' + esc(S.empresa.cidade.split('/')[0]) + ', ____ de ______________ de 2026.</p>' +
+      '<div class="sig"><span>' + esc(S.empresa.razao) + '</span><span>' + esc(pessoa.nome) + '</span><span>Testemunha</span><span>Testemunha</span></div>';
+  }
+  function contratoModelo(t, pessoa, cargo, ct) {
+    var sal = t.id === 'intermitente' ? (+ct.salario || 0) / 220 : +ct.salario || 0;
+    var campos = { funcao: cargo.cargo.toLowerCase() + ' (CBO ' + cargo.cbo + ')', cidade: S.empresa.cidade, inicio: dmyy(ct.inicio), salario: brl(sal) };
     var fill = function (s) { return esc(s).replace(/\{\{(\w+)\}\}/g, function (_, k) { return '<strong>' + esc(campos[k] || '') + '</strong>'; }); };
-    var list = TPL.map(function (x) { return '<li><button type="button" data-act="tpl" data-id="' + x.id + '" aria-current="' + (x.id === t.id) + '">' + esc(x.nome) + '<span class="sub">' + esc(x.base) + '</span></button></li>'; }).join('');
-    var opts = ps.map(function (x) { return '<option value="' + x.id + '"' + (x.id === alvo.id ? ' selected' : '') + '>' + esc(x.nome) + ' · ' + esc(x.funcao) + '</option>'; }).join('');
     var partes = t.id === 'autonomo' ? ['CONTRATANTE', 'CONTRATADO'] : t.id === 'estagio' ? ['CONCEDENTE', 'ESTAGIÁRIO(A)'] : ['EMPREGADORA', 'EMPREGADO(A)'];
-    var paper = '<article class="paper" id="paper"><div class="notice sugestao"><div><strong>Sugestão de cláusulas, não é parecer jurídico</strong>Revise com seu advogado ou contador antes de assinar. Clique em qualquer trecho para editar.</div></div>' +
-      (t.aviso ? '<div class="notice bad sugestao"><div>' + esc(t.aviso) + '</div></div>' : '') +
-      '<h3 contenteditable="true">' + esc(t.titulo) + '</h3><p class="center">' + esc(S.empresa.cidade) + '</p>' +
-      '<p contenteditable="true"><strong>' + partes[0] + ':</strong> ' + esc(S.empresa.razao) + ', CNPJ ' + esc(S.empresa.cnpj) + ', ' + esc(S.empresa.endereco) + ', ' + esc(S.empresa.cidade) + '.<br><strong>' + partes[1] + ':</strong> ' + esc(alvo.nome) + ', CPF ' + esc(alvo.cpf) + '.</p>' +
+    return '<h3>' + esc(t.titulo) + '</h3><p class="center">' + esc(S.empresa.cidade) + '</p>' +
+      '<p><strong>' + partes[0] + ':</strong> ' + esc(S.empresa.razao) + ', CNPJ ' + esc(S.empresa.cnpj) + ', ' + esc(S.empresa.endereco) + ', ' + esc(S.empresa.cidade) + '.<br><strong>' + partes[1] + ':</strong> ' + esc(pessoa.nome) + ', CPF ' + esc(pessoa.cpf) + '.</p>' +
       '<ol>' + t.clausulas.map(function (c) { return '<li contenteditable="true">' + fill(c) + '</li>'; }).join('') + '</ol>' +
-      '<p contenteditable="true">E, por estarem de acordo, as partes assinam este documento.</p><p class="center">' + esc(S.empresa.cidade.split('/')[0]) + ', ____ de ______________ de 2026.</p>' +
-      '<div class="sig"><span>' + esc(S.empresa.razao) + '</span><span>' + esc(alvo.nome) + '</span></div></article>';
-    return titleRow('Contratos', 'Base de modelos com cláusulas sugeridas para cada tipo de vaga', '<button type="button" class="btn" data-act="tpl-reset">Restaurar modelo</button><button type="button" class="btn btn-primary" data-act="print-paper">Imprimir ou salvar PDF</button>') +
-      '<div class="doc-wrap"><div class="stack"><div class="card"><ul class="list tpl-list">' + list + '</ul></div><div class="field"><label for="alvo">Preencher com os dados de</label><select id="alvo" data-in="alvo">' + opts + '</select></div></div>' + paper + '</div>';
+      '<p class="center">' + esc(S.empresa.cidade.split('/')[0]) + ', ____ de ______________ de 2026.</p><div class="sig"><span>' + esc(S.empresa.razao) + '</span><span>' + esc(pessoa.nome) + '</span></div>';
+  }
+  function verificacao(ct, pessoa, cargo) {
+    var v = [];
+    if (ct.modelo === 'experiencia') {
+      if (pessoa.tipo === 'empregado') v.push(['bad', esc(pessoa.nome) + ' já é empregada(o) desde ' + dmyy(pessoa.admissao) + '. Nova experiência para quem já trabalhou na empresa, principalmente na mesma função, é considerada inválida pelo TST.']);
+      if (diffDays(S.hoje, ct.inicio) < 0) v.push(['bad', 'O início (' + dmyy(ct.inicio) + ') já passou. O contrato precisa ser assinado antes do primeiro dia de trabalho; assinado depois, corre o risco de virar contrato por prazo indeterminado.']);
+      else v.push(['ok', 'Prazo de ' + ct.dias + ' dias, dentro do limite de 90, com prorrogação única prevista.']);
+      v.push(['info', 'Gestante e acidentado têm estabilidade mesmo no contrato de experiência (Súmulas 244, III, e 378, III, do TST). Antes de encerrar no prazo, confira essas situações.']);
+    }
+    if (ct.turno !== 'diurno' && !ct.noturno) v.push(['bad', 'Turno ' + TURNOS[ct.turno] + ' sem adicional noturno: inclua os 20% (CLT, art. 73).']);
+    if (ct.jornada === '1236') v.push(['warn', 'A escala 12x36 precisa de acordo individual escrito ou de norma coletiva (CLT, art. 59-A).']);
+    if (temPeric(cargo) && !ct.peric) v.push(['warn', 'Este cargo costuma ter periculosidade. Havendo exposição permanente ao risco, os 30% são devidos.']);
+    if (cargo.flags.indexOf('PEM') > -1) v.push(['warn', esc(ALERTAS.PEM || '')]);
+    if (temFlag(cargo, ['IN']) && !ct.insal) v.push(['warn', 'Este cargo pode ter insalubridade: confirme no laudo (PGR/LTCAT) se é devida e em qual grau.']);
+    if (ct.peric && ct.insal) v.push(['warn', 'Insalubridade e periculosidade não se acumulam: o empregado escolhe o adicional mais vantajoso (CLT, art. 193, § 2º).']);
+    if (cargo.flags.indexOf('TIP') > -1) v.push(['warn', 'Cargo proibido para menores de 18 anos (Decreto 6.481/2008, Lista TIP). Confirme a idade.']);
+    if (cargo.flags.indexOf('REG') > -1) v.push(['warn', 'Profissão regulamentada: confira o registro no conselho antes da admissão.' + (cargo.nota ? ' ' + esc(cargo.nota) : '')]);
+    return v;
+  }
+  var CHECKS = [['cct', 'Conferi o piso e as regras da convenção coletiva (CCT)'], ['aso', 'O exame admissional (ASO) será feito antes do início (NR-7)'], ['laudo', 'Conferi os adicionais no laudo (PGR/LTCAT) da empresa']];
+  function marcaDagua() { return S.plano === 'assinante' ? '' : '<div class="wm" aria-hidden="true"><span>CENTRALIZAR · VERSÃO DE AVALIAÇÃO</span><span>CENTRALIZAR · VERSÃO DE AVALIAÇÃO</span><span>CENTRALIZAR · VERSÃO DE AVALIAÇÃO</span></div>'; }
+  function contratoAtualHTML() {
+    var ct = ctEstado(), ps = pessoasContrato(), pessoa = ps.filter(function (x) { return x.id === ct.alvo; })[0] || ps[0], cargo = cargoPor(ct.cargo);
+    var t = TPL.filter(function (x) { return x.id === ct.modelo; })[0];
+    var corpo = ct.modelo === 'experiencia' ? contratoExperiencia(ct, pessoa, cargo) : contratoModelo(t, pessoa, cargo, ct);
+    return { pessoa: pessoa, cargo: cargo, ct: ct, corpo: corpo };
+  }
+  function vContratos() {
+    var x = contratoAtualHTML(), ct = x.ct, pessoa = x.pessoa, cargo = x.cargo, ver = verificacao(ct, pessoa, cargo);
+    var bloqueio = ver.some(function (i) { return i[0] === 'bad'; }), conferido = CHECKS.every(function (c) { return ct.checks[c[0]]; });
+    var setores = []; CARGOS.forEach(function (c) { if (setores.indexOf(c.setor) < 0) setores.push(c.setor); });
+    var optCargo = setores.map(function (s) { return '<optgroup label="' + esc(s) + '">' + CARGOS.filter(function (c) { return c.setor === s; }).map(function (c) { return '<option value="' + c.id + '"' + (c.id === cargo.id ? ' selected' : '') + '>' + esc(c.cargo) + ' · CBO ' + esc(c.cbo) + '</option>'; }).join('') + '</optgroup>'; }).join('');
+    var optPessoa = pessoasContrato().map(function (p) { return '<option value="' + esc(p.id) + '"' + (p.id === pessoa.id ? ' selected' : '') + '>' + esc(p.tipo === 'novo' ? 'Novo empregado (preencher depois)' : p.nome + (p.tipo === 'admissao' ? ' · em admissão' : ' · já empregado')) + '</option>'; }).join('');
+    var opt = function (obj, cur) { return Object.keys(obj).map(function (k) { return '<option value="' + k + '"' + (String(cur) === k ? ' selected' : '') + '>' + esc(Array.isArray(obj[k]) ? obj[k][0] : obj[k]) + '</option>'; }).join(''); };
+    var modelos = TPL.map(function (m) { return '<option value="' + m.id + '"' + (m.id === ct.modelo ? ' selected' : '') + '>' + esc(m.nome) + '</option>'; }).join('');
+    var exp = ct.modelo === 'experiencia';
+    var form = '<div class="card card-pad stack"><h2 class="sec">Enquadramento</h2>' +
+      '<div class="field"><label for="c-modelo">Modelo</label><select id="c-modelo" data-in="ct" data-k="modelo">' + modelos + '</select></div>' +
+      '<div class="field"><label for="c-alvo">Para quem</label><select id="c-alvo" data-in="ct" data-k="alvo">' + optPessoa + '</select></div>' +
+      '<div class="field"><label for="c-cargo">Cargo (' + CARGOS.length + ' cargos com CBO)</label><select id="c-cargo" data-in="ct" data-k="cargo">' + optCargo + '</select></div>' +
+      '<div class="form-grid">' + (exp ? '<div class="field"><label for="c-dias">Prazo da experiência</label><select id="c-dias" data-in="ct" data-k="dias">' + opt({ 30: '30 dias', 45: '45 dias', 60: '60 dias', 90: '90 dias' }, ct.dias) + '</select></div>' : '') +
+      '<div class="field"><label for="c-ini">Início</label><input id="c-ini" type="date" value="' + esc(ct.inicio) + '" data-in="ct" data-k="inicio"></div></div>' +
+      '<div class="field"><label for="c-jor">Jornada</label><select id="c-jor" data-in="ct" data-k="jornada">' + opt(JORNADAS, ct.jornada) + '</select></div>' +
+      '<div class="form-grid"><div class="field"><label for="c-tur">Turno</label><select id="c-tur" data-in="ct" data-k="turno">' + opt(TURNOS, ct.turno) + '</select></div>' +
+      '<div class="field"><label for="c-sal">Salário (R$)</label><input id="c-sal" type="number" min="0" step="0.01" value="' + esc(ct.salario) + '" data-in="ct" data-k="salario"></div></div>' +
+      '<div class="field"><label for="c-ins">Insalubridade</label><select id="c-ins" data-in="ct" data-k="insal">' + opt(INSAL, ct.insal) + '</select></div>' +
+      '<label class="check"><input type="checkbox" data-in="ct" data-k="peric"' + (ct.peric ? ' checked' : '') + '> Periculosidade (30%)</label>' +
+      '<label class="check"><input type="checkbox" data-in="ct" data-k="noturno"' + (ct.noturno ? ' checked' : '') + '> Adicional noturno (20%)</label>' +
+      (exp ? '<label class="check"><input type="checkbox" data-in="ct" data-k="art481"' + (ct.art481 ? ' checked' : '') + '> Rescisão antecipada recíproca (art. 481)</label>' : '') +
+      '<div class="field"><label for="c-cct">Convenção coletiva (sindicato)</label><input id="c-cct" maxlength="80" value="' + esc(ct.cct) + '" placeholder="Ex.: CCT 2026 do sindicato da categoria" data-in="ct" data-k="cct"></div></div>';
+    var pontos = '<div class="card card-pad stack"><h2 class="sec">Pontos trabalhistas de ' + esc(cargo.cargo) + '</h2><p class="ui-sub">CBO ' + esc(cargo.cbo) + ' · ' + esc(cargo.cboNome) + ' · ' + esc(cargo.setor) + '</p><ul class="list">' +
+      cargo.flags.map(function (f) { return '<li>' + esc(ALERTAS[f] || f) + '</li>'; }).join('') + '<li>Confira piso, benefícios e regras da convenção coletiva (CCT) do sindicato da categoria.</li>' + (cargo.nota ? '<li>' + esc(cargo.nota) + '</li>' : '') + '</ul></div>';
+    var verif = '<div class="card card-pad stack"><h2 class="sec">Verificação do contrato</h2>' + ver.map(function (i) { return '<div class="notice ' + (i[0] === 'bad' ? 'bad' : i[0] === 'ok' || i[0] === 'info' ? 'info' : '') + '"><div>' + i[1] + '</div></div>'; }).join('') +
+      CHECKS.map(function (c) { return '<label class="check"><input type="checkbox" data-in="ct-check" data-k="' + c[0] + '"' + (ct.checks[c[0]] ? ' checked' : '') + '> ' + esc(c[1]) + '</label>'; }).join('') + '</div>';
+    var plano = '<div class="seg" role="group" aria-label="Plano"><button type="button" data-act="plano" data-v="avaliacao" aria-pressed="' + (S.plano !== 'assinante') + '">Avaliação gratuita</button><button type="button" data-act="plano" data-v="assinante" aria-pressed="' + (S.plano === 'assinante') + '">Assinante</button></div>';
+    var btn = '<button type="button" class="btn btn-primary" data-act="ct-pdf"' + (conferido && !bloqueio ? '' : ' disabled') + '>' + (bloqueio ? 'Corrija os pontos em vermelho' : conferido ? 'Exportar PDF' : 'Marque a verificação para exportar') + '</button>';
+    return titleRow('Contratos', 'Escolha o enquadramento, verifique e exporte · ' + (S.plano === 'assinante' ? 'PDF sem marca d\'água' : 'no plano de avaliação o PDF sai com marca d\'água'), plano + btn) +
+      '<div class="doc-wrap ct-wrap"><div class="stack">' + form + verif + pontos + '</div>' +
+      '<article class="paper" id="paper">' + marcaDagua() + '<div class="notice sugestao"><div><strong>Sugestão de cláusulas, não é parecer jurídico</strong>Clique em qualquer cláusula para editar antes de exportar. Revise com seu advogado ou contador.</div></div>' + x.corpo + '</article></div>';
   }
 
   /* ---------- Ponto ---------- */
@@ -464,34 +585,37 @@
     vaga: function (b) { S.ui.vaga = b.dataset.id; save(); render(); },
     'crit-reg': function (b) { vagaAtual().crit.regime = b.dataset.v; save(); render(); },
     'crit-tur': function (b) { var k = vagaAtual().crit, i = k.turnos.indexOf(b.dataset.v); if (i > -1) k.turnos.splice(i, 1); else k.turnos.push(b.dataset.v); save(); render(); },
-    'copiar-link': function () { var url = location.origin + location.pathname.replace(/app\.html$/, '') + 'app.html#/vagas'; if (navigator.clipboard) navigator.clipboard.writeText(url).then(function () { toast('Link copiado. No produto, ele abre o formulário da pré-entrevista.'); }, function () { toast(url); }); else toast(url); },
-    escolher: function (b) { var c = vagaAtual().cands[+b.dataset.i]; c.escolhido = true; save(); render(); toast(first(c.n) + ' escolhido(a). Agora envie o link de documentos.'); },
-    desescolher: function (b) { var c = vagaAtual().cands[+b.dataset.i]; c.escolhido = false; save(); render(); },
-    'wa-modal': function () {
-      var g = vagaAtual(), ap = g.cands.filter(function (c) { return c.escolhido && !c.avisado; }), ok = ap.filter(function (c) { return c.contato; }), sem = ap.filter(function (c) { return !c.contato; });
-      var msg = 'Olá, {nome}! Você foi escolhido(a) para a vaga de ' + g.titulo + ' na ' + S.empresa.nome + '. Envie seus documentos por este link para começarmos a admissão. Qualquer dúvida, é só responder aqui.';
-      modal('Enviar link de documentos aos escolhidos', '<p class="ui-sub">Modelo de mensagem aprovado pela Meta (API oficial do WhatsApp Business).</p><div class="wa-msg">' + esc(msg) + '</div><div><strong>Vai para:</strong><ul class="list">' + ok.map(function (c) { return '<li><span>' + esc(c.n) + '</span><span class="num">' + esc(c.fone) + '</span></li>'; }).join('') + '</ul></div>' +
-        (sem.length ? '<div class="notice"><div>' + sem.map(function (c) { return esc(c.n); }).join(', ') + ' não autorizou contato por WhatsApp. Avise por telefone e envie o link por outro meio.</div></div>' : '') + '<p class="ui-sub">Ao enviar, a admissão de cada escolhido é aberta em Admissões.</p>',
-        '<button type="button" class="btn" data-act="fechar">Cancelar</button><button type="button" class="btn btn-primary" data-act="wa-enviar"' + (ok.length ? '' : ' disabled') + '>Enviar ' + ok.length + ' mensagem(ns)</button>');
+    'copiar-link': function () { var url = location.origin + location.pathname.replace(/app\.html$/, '') + 'triagem.html?vaga=' + vagaAtual().id; if (navigator.clipboard) navigator.clipboard.writeText(url).then(function () { toast('Link da pré-entrevista copiado. É ele que vai no anúncio da vaga ou no WhatsApp.'); }, function () { toast(url); }); else toast(url); },
+    'ent-modal': function (b) {
+      var g = vagaAtual(), i = +b.dataset.i, c = g.cands[i];
+      modal('Chamar para entrevista · ' + c.n, '<form class="stack" data-form="ent" data-i="' + i + '"><div class="form-grid"><div class="field"><label for="ed">Dia</label><input id="ed" name="d" type="date" value="' + addDays(S.hoje, 1) + '" required></div><div class="field"><label for="eh">Horário</label><input id="eh" name="h" type="time" value="10:00" required></div></div><div class="field"><label for="el">Local</label><input id="el" name="l" maxlength="120" value="' + esc(S.empresa.endereco + ', ' + S.empresa.cidade) + '" required></div>' +
+        '<div class="wa-msg">Olá, ' + esc(first(c.n)) + '! Você passou na triagem para a vaga de ' + esc(g.titulo) + ' na ' + esc(S.empresa.nome) + '. Queremos te conhecer: sua entrevista fica marcada no dia e horário acima. Pode confirmar?</div>' +
+        (c.contato ? '<p class="ui-sub">O convite vai pelo WhatsApp, com modelo de mensagem aprovado pela Meta.</p>' : '<div class="notice"><div>' + esc(c.n) + ' não autorizou contato por WhatsApp. Marque a entrevista e avise por telefone.</div></div>') +
+        '<button class="btn btn-primary" type="submit">Marcar entrevista</button></form>');
     },
-    'wa-enviar': function () {
-      var g = vagaAtual(), n = 0;
-      g.cands.forEach(function (c) {
-        if (!c.escolhido || c.avisado || !c.contato) return;
-        c.avisado = true; n++;
-        if (S.admissoes.some(function (a) { return a.nome === c.n; })) return;
+    'ent-ok': function (b) { var g = vagaAtual(), c = g.cands[+b.dataset.i]; c.etapa = 'aprovado'; save(); render(); toast(first(c.n) + ' aprovado(a) na entrevista. Agora envie o link de documentos.'); },
+    'ent-nao': function (b) { var g = vagaAtual(), c = g.cands[+b.dataset.i]; c.etapa = 'reprovado'; save(); render(); toast('Registrado: ' + first(c.n) + ' não foi aprovado(a). Nenhum documento será pedido.'); },
+    'docs-modal': function (b) {
+      var g = vagaAtual(), i = +b.dataset.i, c = g.cands[i];
+      modal('Enviar link de documentos · ' + c.n, '<div class="wa-msg">Parabéns, ' + esc(first(c.n)) + '! Você foi aprovado(a) na entrevista para a vaga de ' + esc(g.titulo) + ' na ' + esc(S.empresa.nome) + '. Envie seus documentos por este link para começarmos a admissão. Qualquer dúvida, é só responder aqui.</div><p class="ui-sub">Ao enviar, a admissão é aberta em Admissões. Depois que os documentos chegarem, o contador confere e você dá o ok final.</p>',
+        '<button type="button" class="btn" data-act="fechar">Cancelar</button><button type="button" class="btn btn-primary" data-act="docs-enviar" data-i="' + i + '">Enviar pelo WhatsApp</button>');
+    },
+    'docs-enviar': function (b) {
+      var g = vagaAtual(), c = g.cands[+b.dataset.i];
+      c.etapa = 'docs';
+      if (!S.admissoes.some(function (a) { return a.nome === c.n; })) {
         var aut = g.modelo === 'autonomo', docs = aut ? ['RG ou CNH', 'CPF', 'Cartão CNPJ do MEI', 'Chave PIX'] : ['RG ou CNH', 'CPF', 'Endereço', 'Carteira de Trabalho Digital', 'Conta para pagamento', 'Exame admissional (ASO)'];
-        S.admissoes.push({ id: 'd' + Date.now() + n, nome: c.n, funcao: g.titulo + (aut ? ' (freelancer)' : ''), modelo: g.modelo, inicio: addDays(S.hoje, 7), salario: g.salario, cpf: '[a preencher]', docs: docs.map(function (d) { return { n: d, v: '', por: '', st: 'pendente' }; }), hist: [agora() + ' · Empresa escolheu ' + first(c.n) + ' na vaga ' + g.titulo + ' e enviou o link de documentos pelo WhatsApp'] });
-      });
-      save(); closeModal(); render(); toast(n + ' link(s) de documentos na fila do WhatsApp e admissão aberta. Neste protótipo nada é enviado de verdade.');
+        S.admissoes.push({ id: 'd' + Date.now(), nome: c.n, funcao: g.titulo + (aut ? ' (freelancer)' : ''), modelo: g.modelo, cargo: g.cargo, inicio: addDays(S.hoje, 7), salario: g.salario, cpf: '[a preencher]', docs: docs.map(function (d) { return { n: d, v: '', por: '', st: 'pendente' }; }), hist: [agora() + ' · ' + first(c.n) + ' aprovado(a) na entrevista; empresa enviou o link de documentos pelo WhatsApp'] });
+      }
+      save(); closeModal(); render(); toast('Link de documentos na fila do WhatsApp e admissão aberta. Neste protótipo nada é enviado de verdade.');
     },
     adm: function (b) { S.ui.adm = b.dataset.id; save(); render(); },
     'pedir-docs': function () { var a = admAtual(); a.hist.push(agora() + ' · ' + (S.role === 'contador' ? 'Contador' : 'Empresa') + ' pediu pelo WhatsApp: ' + a.docs.filter(function (d) { return d.st !== 'ok'; }).map(function (d) { return d.n; }).join(', ')); save(); render(); toast('Pedido enviado a ' + first(a.nome) + ' (simulação).'); },
-    'aprovar-adm': function () { var a = admAtual(); a.aprovada = true; a.hist.push(agora() + ' · Empresa aprovou a admissão; contador avisado para enviar ao eSocial'); save(); render(); toast('Admissão aprovada. O contador foi avisado.'); },
-    'gerar-contrato': function (b, e) { e.preventDefault(); var a = admAtual(); S.ui.alvo = a.id; S.ui.tpl = a.modelo; save(); location.hash = '#/contratos'; },
-    tpl: function (b) { S.ui.tpl = b.dataset.id; save(); render(); },
-    'tpl-reset': function () { render(); toast('Modelo restaurado.'); },
-    'print-paper': function () { printHTML($('#paper').outerHTML); },
+    conferir: function () { var a = admAtual(); a.conferida = true; a.hist.push(agora() + ' · Contador conferiu os documentos e liberou para o ok do empregador'); save(); render(); toast('Documentos conferidos. O empregador foi avisado para dar o ok.'); },
+    'aprovar-adm': function () { var a = admAtual(); if (!a.conferida) return; a.aprovada = true; a.hist.push(agora() + ' · Empregador deu o ok; contador avisado para enviar a admissão ao eSocial'); save(); render(); toast('Ok dado. A admissão está aprovada e o contador foi avisado.'); },
+    'gerar-contrato': function (b, e) { e.preventDefault(); var a = admAtual(), ct = ctEstado(); ct.alvo = a.id; ct.modelo = a.modelo === 'autonomo' ? 'autonomo' : 'experiencia'; if (a.cargo) ct.cargo = a.cargo; ct.salario = a.salario; ct.inicio = a.inicio; ct.peric = temPeric(cargoPor(ct.cargo)); ct.checks = {}; save(); location.hash = '#/contratos'; },
+    plano: function (b) { S.plano = b.dataset.v; save(); render(); toast(S.plano === 'assinante' ? 'Simulando assinante: o PDF sai sem marca d\'água.' : 'Simulando avaliação gratuita: o PDF sai com marca d\'água.'); },
+    'ct-pdf': function () { var pp = $('#paper'); if (!pp) return; printHTML(pp.outerHTML); toast('Na janela de impressão, escolha "Salvar como PDF".'); },
     metodo: function (b) { S.ui.metodo = b.dataset.v; S.ui.faceOk = false; save(); render(); },
     face: function () { var f = $('#face'); if (f) f.textContent = 'Conferindo…'; setTimeout(function () { S.ui.faceOk = true; render(); }, 700); },
     marcar: function () {
@@ -544,6 +668,11 @@
   function onSubmit(e) {
     var f = e.target.closest('[data-form]'); if (!f) return; e.preventDefault();
     var d = new FormData(f), k = f.dataset.form;
+    if (k === 'ent') {
+      var gv = vagaAtual(), cv = gv.cands[+f.dataset.i], dd = String(d.get('d') || S.hoje);
+      cv.etapa = 'entrevista'; cv.entrevistaEm = dmy(dd) + ' ' + String(d.get('h') || '10:00').slice(0, 5); cv.local = String(d.get('l')).slice(0, 120);
+      toast(cv.contato ? 'Convite de entrevista enviado a ' + first(cv.n) + ' pelo WhatsApp (simulação).' : 'Entrevista marcada. Avise ' + first(cv.n) + ' por telefone.');
+    }
     if (k === 'cmp-novo') {
       var emp = S.role === 'empresa', q = Math.max(0.5, Math.min(9999, +d.get('q') || 1));
       S.compras.itens.push({ id: 'k' + Date.now(), prod: null, nome: String(d.get('n')).trim().slice(0, 60), qtd: q, un: String(d.get('u')).trim().slice(0, 10) || 'un', fornecedor: String(d.get('f')).slice(0, 60), custo: emp ? Math.max(0, +d.get('c') || 0) : 0, origem: emp ? 'manual' : 'pedido', por: emp ? null : ME, comprado: false });
@@ -565,7 +694,16 @@
     var t = e.target, k = t.dataset.in; if (!k) return;
     if (k === 'crit-km') { vagaAtual().crit.km = +t.value; save(); render(); var r = $('#km'); if (r) r.focus(); }
     if (k === 'crit-exp') { vagaAtual().crit.exp = +t.value; save(); render(); }
-    if (k === 'alvo') { S.ui.alvo = t.value; save(); render(); }
+    if (k === 'ct') {
+      var ct = ctEstado(), key = t.dataset.k, val = t.type === 'checkbox' ? t.checked : t.value;
+      if (key === 'dias') val = +val; if (key === 'salario') val = Math.max(0, Math.round((+val || 0) * 100) / 100); if (key === 'cct') val = String(val).slice(0, 80);
+      ct[key] = val;
+      if (key === 'alvo') { var pa = pessoasContrato().filter(function (x) { return x.id === val; })[0]; if (pa && pa.cargo) ct.cargo = pa.cargo; if (pa && pa.salario) ct.salario = pa.salario; if (pa && pa.inicio) ct.inicio = pa.inicio; }
+      if (key === 'cargo' || key === 'alvo') ct.peric = temPeric(cargoPor(ct.cargo));
+      if (key === 'turno') ct.noturno = val !== 'diurno';
+      ct.checks = {}; save(); render(); return;
+    }
+    if (k === 'ct-check') { ctEstado().checks[t.dataset.k] = t.checked; save(); render(); return; }
     if (k === 'ponto-pessoa') { S.ui.pontoPessoa = t.value; S.ui.faceOk = false; S.ui.metodo = null; save(); render(); }
     if (k === 'aut') { P(t.dataset.id).celular = t.checked; save(); render(); }
     if (k === 'etq') { S.ui.etq = S.ui.etq || {}; S.ui.etq[t.dataset.id] = t.checked; save(); render(); }
@@ -595,6 +733,7 @@
       var a = admAtual(), d = a.docs[+t.dataset.i], antes = d.v; d.v = t.value.slice(0, 160);
       if (d.v.trim()) { d.st = 'ok'; d.por = S.role === 'contador' ? 'contador' : 'empresa'; } else { d.st = 'pendente'; d.por = ''; }
       a.hist.push(agora() + ' · ' + (S.role === 'contador' ? 'Contador' : 'Empresa') + ' alterou ' + d.n + (antes ? ' (antes: ' + antes + ')' : ''));
+      if (a.conferida) { a.conferida = false; a.hist.push(agora() + ' · Conferência desfeita pela alteração; o contador precisa conferir de novo'); }
       save(); render();
     }
   }
