@@ -1,6 +1,6 @@
-# Centralizar · gestão de pessoas para pequenas e médias empresas
+# Centralizar · gestão empresarial para pequenas e médias empresas
 
-Protótipo navegável do Centralizar: um sistema único para **candidato, empresário e contador**, do currículo ao holerite.
+Protótipo navegável do Centralizar: um sistema único de gestão empresarial que junta equipe, documentos, ponto, holerite, estoque e vales, com **empresário, contador, funcionário e candidato** no mesmo lugar.
 
 - `index.html`: página de apresentação (landing page).
 - `app.html`: o painel do sistema, com dados de exemplo. Use o seletor **Ver como** no topo para alternar entre **Empresário**, **Contador** e **Funcionário**.
