@@ -225,7 +225,7 @@
   var plans = {
     semente: { price: 'R$ 79', size: 'Até 10 funcionários', items: ['Admissão digital com o contador', 'Ponto no celular autorizado', 'Atestados e advertências com ciência', 'Holerite com aprovação da empresa'] },
     broto: { price: 'R$ 189', size: 'Até 30 funcionários', items: ['Tudo do Essencial', 'Pré-entrevista com aviso no WhatsApp', 'Contratos sugeridos editáveis em PDF', 'Checklists com foto por setor', 'Vales descontados em folha'] },
-    arvore: { price: 'R$ 399', size: 'Até 80 funcionários', items: ['Tudo do Completo', 'Estoque e etiquetas com código de barras', 'Ponto em aparelho fixo com rosto ou digital', 'Várias unidades e mais de um contador'] }
+    arvore: { price: 'R$ 399', size: 'Até 80 funcionários', items: ['Tudo do Completo', 'Estoque, etiquetas e lista de compras', 'Ponto em aparelho fixo com rosto ou digital', 'Várias unidades e mais de um contador'] }
   };
   var nomesPlano = { semente: 'Essencial', broto: 'Completo', arvore: 'Total' };
   var stage = $('#plan-stage');

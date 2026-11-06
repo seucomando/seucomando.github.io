@@ -50,14 +50,20 @@ window.BROTA_SEED = {
     { id: 'v7', pessoa: 'e1', data: '2026-11-04', tipo: 'produto', desc: 'Pão de queijo congelado 1 kg', valor: 32.9, assinado: '', comp: '2026-11' }
   ],
   produtos: [
-    { id: 'p1', nome: 'Pão de queijo congelado 1 kg', cod: 'PQ-1KG-042', qtd: 38, min: 20, validade: '2027-02-05', preco: 32.9, lote: 'L2611-05' },
-    { id: 'p2', nome: 'Bolo de fubá inteiro', cod: 'BF-INT-007', qtd: 6, min: 8, validade: '2026-11-08', preco: 24, lote: 'L0511-02' },
-    { id: 'p3', nome: 'Torta salgada de frango (kg)', cod: 'TS-FRG-013', qtd: 4, min: 3, validade: '2026-11-07', preco: 58, lote: 'L0411-01' },
-    { id: 'p4', nome: 'Café torrado 500 g', cod: 'CF-500-101', qtd: 22, min: 10, validade: '2027-06-30', preco: 21.5, lote: 'L1009-14' },
-    { id: 'p5', nome: 'Farinha de trigo 25 kg (insumo)', cod: 'FT-25-001', qtd: 5, min: 6, validade: '2027-03-15', preco: null, lote: 'L2010-03' },
-    { id: 'p6', nome: 'Leite integral 1 L', cod: 'LT-1L-055', qtd: 48, min: 24, validade: '2026-12-02', preco: 5.49, lote: 'L0111-07' },
-    { id: 'p7', nome: 'Geleia artesanal de morango 300 g', cod: 'GM-300-020', qtd: 11, min: 6, validade: '2027-01-20', preco: 18.9, lote: 'L2510-09' }
+    { id: 'p1', nome: 'Pão de queijo congelado 1 kg', cod: 'PQ-1KG-042', qtd: 38, min: 20, ideal: 40, un: 'pct', validade: '2027-02-05', preco: 32.9, custo: null, fornecedor: 'Produção própria', lote: 'L2611-05' },
+    { id: 'p2', nome: 'Bolo de fubá inteiro', cod: 'BF-INT-007', qtd: 6, min: 8, ideal: 14, un: 'un', validade: '2026-11-08', preco: 24, custo: null, fornecedor: 'Produção própria', lote: 'L0511-02' },
+    { id: 'p3', nome: 'Torta salgada de frango (kg)', cod: 'TS-FRG-013', qtd: 4, min: 3, ideal: 6, un: 'kg', validade: '2026-11-07', preco: 58, custo: null, fornecedor: 'Produção própria', lote: 'L0411-01' },
+    { id: 'p4', nome: 'Café torrado 500 g', cod: 'CF-500-101', qtd: 22, min: 10, ideal: 30, un: 'pct', validade: '2027-06-30', preco: 21.5, custo: 13.9, fornecedor: 'Distribuidora Criciúma', lote: 'L1009-14' },
+    { id: 'p5', nome: 'Farinha de trigo 25 kg (insumo)', cod: 'FT-25-001', qtd: 5, min: 6, ideal: 12, un: 'saco', validade: '2027-03-15', preco: null, custo: 119, fornecedor: 'Moinho Sul', lote: 'L2010-03' },
+    { id: 'p6', nome: 'Leite integral 1 L', cod: 'LT-1L-055', qtd: 48, min: 24, ideal: 60, un: 'cx', validade: '2026-12-02', preco: 5.49, custo: 3.89, fornecedor: 'Laticínios Serra Verde', lote: 'L0111-07' },
+    { id: 'p7', nome: 'Geleia artesanal de morango 300 g', cod: 'GM-300-020', qtd: 11, min: 6, ideal: 15, un: 'pote', validade: '2027-01-20', preco: 18.9, custo: 10.5, fornecedor: 'Distribuidora Criciúma', lote: 'L2510-09' },
+    { id: 'p8', nome: 'Queijo minas padrão (insumo)', cod: 'QM-KG-031', qtd: 3, min: 5, ideal: 10, un: 'kg', validade: '2026-11-20', preco: null, custo: 38.9, fornecedor: 'Laticínios Serra Verde', lote: 'L0311-04' },
+    { id: 'p9', nome: 'Ovos (insumo)', cod: 'OV-DZ-002', qtd: 4, min: 10, ideal: 20, un: 'dz', validade: '2026-11-25', preco: null, custo: 11.5, fornecedor: 'Granja Rio Maina', lote: 'L0411-09' },
+    { id: 'p10', nome: 'Embalagem para bolo (insumo)', cod: 'EB-BOL-010', qtd: 40, min: 100, ideal: 200, un: 'un', validade: '2028-12-31', preco: null, custo: 0.85, fornecedor: 'Embalagens Sul', lote: 'L1510-01' }
   ],
+  compras: { itens: [
+    { id: 'k1', prod: null, nome: 'Papel toalha (fardo com 12)', qtd: 2, un: 'fardo', fornecedor: 'Embalagens Sul', custo: 32, origem: 'pedido', por: 'e2', comprado: false }
+  ] },
   checklists: [
     { id: 'c1', setor: 'Salão', nome: 'Abertura do salão', hora: '06:30', resp: 'e2', foto: 'parcial', itens: [
       { t: 'Ligar fornos de exposição e conferir temperatura', foto: true, feito: true, fotoEm: '06:41' },

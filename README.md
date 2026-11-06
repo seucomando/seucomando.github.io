@@ -33,6 +33,7 @@ No GitHub Pages, basta publicar a branch `main` na raiz.
 | Bater ponto pelo celular ou em aparelho fixo | Ponto e jornada | Autorização por pessoa, validação facial ou digital simulada e comprovante com NSR |
 | Checklists com foto total ou parcial | Checklists | Por setor e responsável, com regra de foto em todos os itens, só nos marcados ou sem foto |
 | Etiquetas e estoque | Estoque e etiquetas | Mínimo, validade e etiquetas com código de barras Code 39 real, prontas para imprimir |
+| Lista de compras | Lista de compras (e botão no Estoque) | Sugere o que está abaixo do mínimo com a quantidade até o estoque ideal, recebe pedidos da equipe, agrupa por fornecedor, envia o pedido pelo WhatsApp, imprime e, no recebimento, soma ao estoque |
 | Vales descontados em folha | Vales | Assinatura do funcionário obrigatória, alerta em 60% e trava em 70% do salário |
 
 ## Estrutura

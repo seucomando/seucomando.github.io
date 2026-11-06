@@ -170,6 +170,10 @@ meter::-webkit-meter-even-less-good-value { background: #B3412A; }
 .file-btn { position: relative; overflow: hidden; }
 .file-btn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 
+/* Lista de compras */
+.qtd-in { width: 76px; min-height: 32px; border: 1px solid var(--control); border-radius: 6px; padding: 0 6px; text-align: right; background: var(--surface); }
+.paper h4 { font-size: 16px; margin: 22px 0 6px; }
+
 /* Etiquetas */
 .labels { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
 .label { border: 1px dashed #A9B5AE; border-radius: 8px; padding: 12px; background: #fff; display: grid; gap: 4px; break-inside: avoid; }

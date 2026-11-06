@@ -1,7 +1,7 @@
 /* Centralizar — painel (protótipo navegável). Sem servidor: os dados de exemplo ficam só neste navegador. */
 (function () {
   'use strict';
-  var KEY = 'centralizar-prototipo-v1';
+  var KEY = 'centralizar-prototipo-v2';
   var SEED = window.BROTA_SEED, TPL = window.BROTA_CONTRATOS;
   var doc = document, view = doc.getElementById('view');
   var ME = 'e1'; // a funcionária usada na visão "Funcionário"
@@ -87,6 +87,7 @@
     holerites: { t: 'Holerites', r: 'empresa contador funcionario', f: vHolerites },
     vales: { t: 'Vales', r: 'empresa contador funcionario', f: vVales },
     estoque: { t: 'Estoque e etiquetas', r: 'empresa', f: vEstoque },
+    compras: { t: 'Lista de compras', r: 'empresa funcionario', f: vCompras },
     busca: { t: 'Busca', r: 'empresa contador funcionario', f: vBusca }
   };
   function route() { var h = location.hash.replace(/^#\/?/, '').split('?')[0]; return ROUTES[h] ? h : 'inicio'; }
@@ -101,7 +102,7 @@
       if (a.getAttribute('href') === '#/' + r) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     });
     $$('#nav [data-group]').forEach(function (g) { g.hidden = !$$('a', g).some(function (a) { return !a.hidden; }); });
-    var counts = { adm: S.admissoes.filter(function (a) { return a.docs.some(function (d) { return d.st !== 'ok'; }); }).length, orig: originaisPendentes().length, hol: S.role === 'funcionario' ? 0 : S.pessoas.length - S.holerites.aprovados.length };
+    var counts = { adm: S.admissoes.filter(function (a) { return a.docs.some(function (d) { return d.st !== 'ok'; }); }).length, orig: originaisPendentes().length, hol: S.role === 'funcionario' ? 0 : S.pessoas.length - S.holerites.aprovados.length, cmp: S.role === 'empresa' ? S.compras.itens.length : 0 };
     $$('[data-count]').forEach(function (c) { var n = counts[c.dataset.count]; c.textContent = n || ''; c.hidden = !n; });
     $('#co-name').textContent = S.empresa.nome; $('#co-mark').textContent = S.empresa.nome.charAt(0).toUpperCase();
     $('#role').value = S.role;
@@ -128,10 +129,12 @@
     S.vales.filter(function (v) { return !v.assinado; }).forEach(function (v) { pend.push([pill('warn', 'Sem assinatura'), 'Vale de R$ ' + brl(v.valor) + ' · ' + P(v.pessoa).nome, 'Não pode ser descontado sem autorização escrita', '#/vales', 'Ver vale']); });
     S.admissoes.forEach(function (a) { var f = a.docs.filter(function (d) { return d.st !== 'ok'; }).length; if (f) pend.push([pill('warn', f + ' documento(s)'), 'Admissão de ' + a.nome, a.funcao + ' · início em ' + dmy(a.inicio), '#/admissoes', 'Abrir']); });
     S.checklists.forEach(function (c) { var f = c.itens.filter(function (i) { return i.foto && !i.fotoEm; }).length; if (f) pend.push([pill('mute', f + ' foto(s)'), c.nome + ' · ' + c.setor, 'Responsável: ' + P(c.resp).nome, '#/checklists', 'Ver checklist']); });
-    S.produtos.filter(function (p) { return p.qtd < p.min; }).forEach(function (p) { pend.push([pill('bad', p.qtd + ' de ' + p.min), p.nome, 'Abaixo do estoque mínimo', '#/estoque', 'Repor']); });
+    var falta = sugestaoCompra().length;
+    if (falta) pend.push([pill('bad', falta + ' item(ns)'), 'Abaixo do estoque mínimo', 'Ainda fora da lista de compras', '#/estoque', 'Ver estoque']);
+    if (S.compras.itens.length) pend.push([pill('mute', S.compras.itens.length + ' na lista'), 'Lista de compras', 'Estimativa de R$ ' + brl(totalCompras()), '#/compras', 'Abrir lista']);
     var aguard = S.pessoas.length - S.holerites.aprovados.length, fa = faltasAbertas();
     var presentes = S.pessoas.filter(function (p) { var s = situacaoPonto(p)[1]; return s === 'Presente' || s.indexOf('Atraso') === 0; }).length;
-    var rows = pend.slice(0, 7).map(function (x) { return '<tr><td>' + esc(x[1]) + '<span class="sub">' + esc(x[2]) + '</span></td><td>' + x[0] + '</td><td class="num"><a class="btn btn-sm" href="' + x[3] + '">' + esc(x[4]) + '</a></td></tr>'; }).join('');
+    var rows = pend.slice(0, 12).map(function (x) { return '<tr><td>' + esc(x[1]) + '<span class="sub">' + esc(x[2]) + '</span></td><td>' + x[0] + '</td><td class="num"><a class="btn btn-sm" href="' + x[3] + '">' + esc(x[4]) + '</a></td></tr>'; }).join('');
     var pontoRail = S.pessoas.map(function (p) { var s = situacaoPonto(p); return s[0] === 'ok' ? '' : '<li><span>' + esc(p.nome) + '<span class="sub">' + esc(p.funcao) + '</span></span>' + pill(s[0], s[1]) + '</li>'; }).join('');
     var validade = S.produtos.filter(function (p) { return diffDays(S.hoje, p.validade) <= 3; }).map(function (p) { return '<li><span>' + esc(p.nome) + '<span class="sub">lote ' + esc(p.lote) + '</span></span>' + pill('warn', 'vence ' + dmy(p.validade)) + '</li>'; }).join('');
     var act = S.role === 'empresa' ? '<a class="btn btn-primary" href="#/holerites">Aprovar holerites de outubro</a>' : '<a class="btn btn-primary" href="#/holerites">Lançar holerites</a>';
@@ -346,7 +349,8 @@
     }).join('');
     var escolhidos = S.produtos.filter(function (p) { return sel[p.id]; });
     var prev = escolhidos.length ? '<div class="card card-pad stack"><div class="title-row"><div><h2 class="sec">Prévia das etiquetas</h2><p class="ui-sub">Código de barras padrão Code 39, lido por leitores comuns.</p></div><div class="actions"><label class="check ui-sub">Cópias de cada <input type="number" min="1" max="40" value="' + (S.ui.copias || 2) + '" data-in="copias" class="num" aria-label="Cópias de cada etiqueta"></label><button type="button" class="btn btn-primary" data-act="print-etq">Imprimir etiquetas</button></div></div><div class="labels" id="labels">' + escolhidos.map(function (p) { return labelHTML(p, 1); }).join('') + '</div></div>' : '<div class="notice info"><div>Marque os produtos na tabela para gerar as etiquetas.</div></div>';
-    return titleRow('Estoque e etiquetas', S.produtos.filter(function (p) { return p.qtd < p.min; }).length + ' produtos abaixo do mínimo') +
+    var nSug = sugestaoCompra().length;
+    return titleRow('Estoque e etiquetas', S.produtos.filter(function (p) { return p.qtd < p.min; }).length + ' produtos abaixo do mínimo', '<button type="button" class="btn btn-primary" data-act="cmp-ir">' + (nSug ? 'Pôr ' + nSug + ' na lista de compras' : 'Ver lista de compras') + '</button>') +
       '<div class="stack"><div class="card"><div class="table-box"><table class="t stack-sm"><thead><tr><th><span class="sr-only">Etiqueta</span></th><th>Produto</th><th class="hide-sm">Validade</th><th class="num">Quantidade</th><th class="num hide-sm">Mínimo</th><th>Estoque</th><th class="num hide-sm">Preço (R$)</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>' + prev + '</div>';
   }
 
@@ -371,6 +375,58 @@
     return titleRow(func ? 'Seus vales' : 'Vales', 'Produtos da loja e adiantamentos descontados em folha, sempre com autorização escrita', func ? '' : '<button type="button" class="btn btn-primary" data-act="novo-vale">Novo vale</button>') +
       '<div class="grid-main"><div class="stack"><div class="card"><div class="table-box"><table class="t stack-sm"><thead><tr><th class="num">Data</th><th>Pessoa e itens</th><th class="hide-sm">Tipo</th><th class="num">Valor (R$)</th><th>Autorização</th><th class="hide-sm">Desconto</th><th class="num">Ação</th></tr></thead><tbody>' + rows + '</tbody></table></div></div></div>' +
       '<div class="stack"><div class="notice info"><div><strong>Regra do desconto</strong>Só com autorização prévia e por escrito (CLT, art. 462; Súmula 342 do TST). O Centralizar avisa em 60% e trava novos vales quando os descontos do mês chegam a 70% do salário (OJ 18 da SDC/TST).</div></div>' + resumo + '</div></div>';
+  }
+
+  /* ---------- Lista de compras ---------- */
+  // Regra: o que está abaixo do mínimo e vem de fornecedor entra na lista com a quantidade para voltar ao estoque ideal.
+  // O que é produção própria não se compra: é repor na produção.
+  function sugestaoCompra() { return S.produtos.filter(function (p) { return p.qtd < p.min && p.fornecedor !== 'Produção própria' && !S.compras.itens.some(function (i) { return i.prod === p.id; }); }); }
+  function gerarCompras() {
+    var novos = sugestaoCompra();
+    novos.forEach(function (p) { S.compras.itens.push({ id: 'k' + Date.now() + p.id, prod: p.id, nome: p.nome.replace(' (insumo)', ''), qtd: Math.max(1, Math.ceil((p.ideal || p.min * 2) - p.qtd)), un: p.un, fornecedor: p.fornecedor, custo: p.custo || 0, origem: 'estoque', comprado: false }); });
+    return novos.length;
+  }
+  function totalCompras(lista) { return (lista || S.compras.itens).reduce(function (s, i) { return s + i.qtd * (i.custo || 0); }, 0); }
+  function fornecedores() { var f = []; S.compras.itens.forEach(function (i) { if (f.indexOf(i.fornecedor) < 0) f.push(i.fornecedor); }); return f.sort(); }
+  function origemTxt(i) {
+    if (i.origem === 'estoque') { var p = S.produtos.filter(function (x) { return x.id === i.prod; })[0]; return p ? 'Abaixo do mínimo: ' + p.qtd + ' de ' + p.min + ' ' + p.un : 'Do estoque'; }
+    if (i.origem === 'pedido') return 'Pedido por ' + (P(i.por) ? P(i.por).nome : 'equipe');
+    return 'Adicionado à mão';
+  }
+  function waTexto(forn) {
+    var itens = S.compras.itens.filter(function (i) { return i.fornecedor === forn; });
+    return 'Olá! Pedido da ' + S.empresa.nome + ':\n' + itens.map(function (i) { return '- ' + String(i.qtd).replace('.', ',') + ' ' + i.un + ' de ' + i.nome; }).join('\n') + '\nPode confirmar o valor e o prazo de entrega? Obrigado!';
+  }
+  function listaHTML() {
+    return '<article class="paper"><h3>Lista de compras</h3><p class="center">' + esc(S.empresa.nome) + ' · ' + dmyy(S.hoje) + '</p>' + fornecedores().map(function (f) {
+      var it = S.compras.itens.filter(function (i) { return i.fornecedor === f; });
+      return '<h4>' + esc(f) + '</h4><table class="t"><thead><tr><th>Item</th><th class="num">Qtd.</th><th class="num">Estimativa (R$)</th><th>Ok</th></tr></thead><tbody>' + it.map(function (i) { return '<tr><td>' + esc(i.nome) + '</td><td class="num">' + esc(String(i.qtd).replace('.', ',')) + ' ' + esc(i.un) + '</td><td class="num">' + (i.custo ? brl(i.qtd * i.custo) : '·') + '</td><td>☐</td></tr>'; }).join('') + '</tbody></table>';
+    }).join('') + '<p><strong>Total estimado: R$ ' + brl(totalCompras()) + '</strong></p></article>';
+  }
+  function vCompras() {
+    var emp = S.role === 'empresa', itens = S.compras.itens, nSug = sugestaoCompra().length, marcados = itens.filter(function (i) { return i.comprado; }).length;
+    var producao = S.produtos.filter(function (p) { return p.qtd < p.min && p.fornecedor === 'Produção própria'; }), semCusto = itens.filter(function (i) { return !i.custo; }).length;
+    var grupos = fornecedores().map(function (f) {
+      var it = itens.filter(function (i) { return i.fornecedor === f; });
+      var rows = it.map(function (i) {
+        return '<tr>' + (emp ? '<td><input type="checkbox" aria-label="Comprado: ' + esc(i.nome) + '" data-in="cmp-ok" data-id="' + esc(i.id) + '"' + (i.comprado ? ' checked' : '') + '></td>' : '') +
+          '<td><strong>' + esc(i.nome) + '</strong><span class="sub">' + esc(origemTxt(i)) + '</span></td>' +
+          '<td class="num">' + (emp ? '<input class="num qtd-in" type="number" min="0.5" max="9999" step="0.5" value="' + esc(i.qtd) + '" aria-label="Quantidade de ' + esc(i.nome) + '" data-in="cmp-qtd" data-id="' + esc(i.id) + '"> ' : esc(String(i.qtd).replace('.', ',')) + ' ') + esc(i.un) + '</td>' +
+          '<td class="num hide-sm">' + (i.custo ? brl(i.custo) : '·') + '</td><td class="num">' + (i.custo ? brl(i.qtd * i.custo) : 'a cotar') + '</td>' +
+          (emp ? '<td class="num"><button type="button" class="btn btn-sm" data-act="cmp-del" data-id="' + esc(i.id) + '" aria-label="Tirar ' + esc(i.nome) + ' da lista">Tirar</button></td>' : '') + '</tr>';
+      }).join('');
+      var wa = 'https://wa.me/?text=' + encodeURIComponent(waTexto(f));
+      return '<div class="card"><div class="card-head"><h2>' + esc(f) + '</h2><span class="actions"><span class="ui-sub num">R$ ' + brl(totalCompras(it)) + '</span>' + (emp ? '<a class="btn btn-sm" href="' + esc(wa) + '" target="_blank" rel="noopener noreferrer">Enviar pedido no WhatsApp</a>' : '') + '</span></div>' +
+        '<div class="table-box"><table class="t stack-sm"><thead><tr>' + (emp ? '<th><span class="sr-only">Comprado</span></th>' : '') + '<th>Item</th><th class="num">Quantidade</th><th class="num hide-sm">Custo un. (R$)</th><th class="num">Subtotal (R$)</th>' + (emp ? '<th><span class="sr-only">Ação</span></th>' : '') + '</tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+    }).join('');
+    var opts = ['Distribuidora Criciúma', 'Embalagens Sul', 'Granja Rio Maina', 'Laticínios Serra Verde', 'Moinho Sul', 'Mercado (compra avulsa)'].map(function (f) { return '<option>' + esc(f) + '</option>'; }).join('');
+    var form = '<div class="card card-pad"><h2 class="sec">' + (emp ? 'Adicionar item' : 'Pedir um item para a compra') + '</h2><form class="form-grid" data-form="cmp-novo"><div class="field"><label for="cn">Item</label><input id="cn" name="n" maxlength="60" required placeholder="Ex.: guardanapo"></div><div class="field"><label for="cf">Fornecedor</label><select id="cf" name="f">' + opts + '</select></div><div class="field"><label for="cq">Quantidade</label><input id="cq" name="q" type="number" min="0.5" max="9999" step="0.5" value="1" required></div><div class="field"><label for="cu">Unidade</label><input id="cu" name="u" maxlength="10" value="un" required></div>' +
+      (emp ? '<div class="field"><label for="cc">Custo unitário (R$, opcional)</label><input id="cc" name="c" type="number" min="0" max="99999" step="0.01"></div>' : '') + '<div class="field"><span class="lbl-s">&nbsp;</span><button class="btn btn-primary" type="submit">' + (emp ? 'Adicionar' : 'Enviar pedido') + '</button></div></form></div>';
+    var resumo = '<div class="card card-pad stack"><h2 class="sec">Como a lista funciona</h2><ul class="list"><li>1. O sistema sugere o que está abaixo do mínimo, já com a quantidade para voltar ao estoque ideal.</li><li>2. A equipe pede pelo app o que falta e não tem cadastro.</li><li>3. Você envia o pedido de cada fornecedor pelo WhatsApp ou imprime.</li><li>4. Quando a mercadoria chega, marque e clique em “Receber no estoque”: as quantidades sobem sozinhas.</li></ul>' +
+      '<div><div class="lbl-s">Total estimado</div><div class="clock num">R$ ' + brl(totalCompras()) + '</div>' + (semCusto ? '<p class="ui-sub">' + semCusto + ' item(ns) sem custo cadastrado, a cotar com o fornecedor.</p>' : '') + '</div></div>';
+    return titleRow('Lista de compras', itens.length + ' itens de ' + fornecedores().length + ' fornecedores', emp ? '<button type="button" class="btn" data-act="cmp-gerar"' + (nSug ? '' : ' disabled') + '>' + (nSug ? 'Sugerir ' + nSug + ' do estoque' : 'Estoque em dia') + '</button><button type="button" class="btn" data-act="cmp-print"' + (itens.length ? '' : ' disabled') + '>Imprimir ou PDF</button><button type="button" class="btn btn-primary" data-act="cmp-receber"' + (marcados ? '' : ' disabled') + '>Receber ' + (marcados || '') + ' no estoque</button>' : '') +
+      '<div class="grid-main"><div class="stack">' + (producao.length ? '<div class="notice info"><div><strong>Repor na produção, não comprar</strong>' + producao.map(function (p) { return esc(p.nome) + ' (' + p.qtd + ' de ' + p.min + ')'; }).join(', ') + (producao.length > 1 ? ' são produção própria e ficam' : ' é produção própria e fica') + ' fora da lista.</div></div>' : '') +
+      (grupos || '<div class="notice info"><div>A lista está vazia. Use “Sugerir do estoque” ou adicione um item.</div></div>') + form + '</div>' + resumo + '</div>';
   }
 
   /* ---------- Busca ---------- */
@@ -455,6 +511,16 @@
     'ck-regra': function (b) { var c = S.checklists.filter(function (x) { return x.id === (S.ui.ck || 'c1'); })[0]; c.foto = b.dataset.v; if (c.foto !== 'parcial') c.itens.forEach(function (i) { i.foto = c.foto === 'todos'; }); save(); render(); },
     qtd: function (b) { var p = S.produtos.filter(function (x) { return x.id === b.dataset.id; })[0]; p.qtd = Math.max(0, p.qtd + +b.dataset.d); save(); render(); },
     'print-etq': function () { var n = Math.max(1, Math.min(40, +(S.ui.copias || 2))); printHTML('<div class="labels">' + S.produtos.filter(function (p) { return (S.ui.etq || {})[p.id]; }).map(function (p) { return labelHTML(p, n); }).join('') + '</div>'); },
+    'cmp-ir': function () { var n = gerarCompras(); save(); location.hash = '#/compras'; if (n) toast(n + ' item(ns) abaixo do mínimo foram para a lista de compras.'); },
+    'cmp-gerar': function () { var n = gerarCompras(); save(); render(); toast(n + ' item(ns) sugerido(s) a partir do estoque mínimo.'); },
+    'cmp-del': function (b) { S.compras.itens = S.compras.itens.filter(function (i) { return i.id !== b.dataset.id; }); save(); render(); },
+    'cmp-print': function () { printHTML(listaHTML()); },
+    'cmp-receber': function () {
+      var ok = S.compras.itens.filter(function (i) { return i.comprado; }), n = 0;
+      ok.forEach(function (i) { var p = S.produtos.filter(function (x) { return x.id === i.prod; })[0]; if (p) { p.qtd = Math.round((p.qtd + i.qtd) * 100) / 100; n++; } });
+      S.compras.itens = S.compras.itens.filter(function (i) { return !i.comprado; }); save(); render();
+      toast(ok.length + ' item(ns) recebido(s). ' + (n ? n + ' atualizaram o estoque.' : 'Itens sem cadastro saíram da lista.'));
+    },
     assinar: function (b) { var v = S.vales.filter(function (x) { return x.id === b.dataset.id; })[0]; v.assinado = '2026-11-05 ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); save(); render(); toast('Autorização assinada. O vale entra na folha de novembro.'); },
     'novo-vale': function () {
       modal('Novo vale', '<form class="stack" data-form="vale"><div class="form-grid"><div class="field"><label for="vp">Funcionário</label><select id="vp" name="p">' + S.pessoas.map(function (p) { return '<option value="' + p.id + '">' + esc(p.nome) + '</option>'; }).join('') + '</select></div><div class="field"><label for="vt">Tipo</label><select id="vt" name="t"><option value="produto">Produto da loja</option><option value="adiantamento">Adiantamento</option></select></div></div><div class="field"><label for="vd">Itens ou motivo</label><input id="vd" name="d" maxlength="80" required placeholder="Ex.: 2 bolos de fubá"></div><div class="field"><label for="vv">Valor (R$)</label><input id="vv" name="v" type="number" min="0.01" max="5000" step="0.01" required></div><p class="ui-sub">O funcionário recebe no app para assinar. Sem assinatura, o vale não entra na folha.</p><button class="btn btn-primary" type="submit">Enviar para assinatura</button></form>');
@@ -464,6 +530,11 @@
   function onSubmit(e) {
     var f = e.target.closest('[data-form]'); if (!f) return; e.preventDefault();
     var d = new FormData(f), k = f.dataset.form;
+    if (k === 'cmp-novo') {
+      var emp = S.role === 'empresa', q = Math.max(0.5, Math.min(9999, +d.get('q') || 1));
+      S.compras.itens.push({ id: 'k' + Date.now(), prod: null, nome: String(d.get('n')).trim().slice(0, 60), qtd: q, un: String(d.get('u')).trim().slice(0, 10) || 'un', fornecedor: String(d.get('f')).slice(0, 60), custo: emp ? Math.max(0, +d.get('c') || 0) : 0, origem: emp ? 'manual' : 'pedido', por: emp ? null : ME, comprado: false });
+      toast(emp ? 'Item adicionado à lista.' : 'Pedido enviado. A empresa vê na lista de compras.');
+    }
     if (k === 'ck-novo') { var c = S.checklists.filter(function (x) { return x.id === (S.ui.ck || 'c1'); })[0]; c.itens.push({ t: String(d.get('t')).trim().slice(0, 90), foto: c.foto === 'todos', feito: false }); }
     if (k === 'adv') { S.advertencias.unshift({ id: 'w' + Date.now(), pessoa: d.get('p'), data: S.hoje, motivo: String(d.get('m')).trim().slice(0, 400), ciencia: 'pendente' }); toast('Advertência enviada para ciência no app.'); }
     if (k === 'recusa') { var w = S.advertencias.filter(function (x) { return x.id === f.dataset.id; })[0]; w.ciencia = 'recusa'; w.testemunhas = String(d.get('t')).trim().slice(0, 120); }
@@ -484,6 +555,11 @@
     if (k === 'ponto-pessoa') { S.ui.pontoPessoa = t.value; S.ui.faceOk = false; S.ui.metodo = null; save(); render(); }
     if (k === 'aut') { P(t.dataset.id).celular = t.checked; save(); render(); }
     if (k === 'etq') { S.ui.etq = S.ui.etq || {}; S.ui.etq[t.dataset.id] = t.checked; save(); render(); }
+    if (k === 'cmp-qtd' || k === 'cmp-ok') {
+      var it = S.compras.itens.filter(function (i) { return i.id === t.dataset.id; })[0]; if (!it) return;
+      if (k === 'cmp-qtd') it.qtd = Math.max(0.5, Math.min(9999, Math.round((+t.value || 1) * 2) / 2)); else it.comprado = t.checked;
+      save(); render(); return;
+    }
     if (k === 'copias') { S.ui.copias = Math.max(1, Math.min(40, +t.value || 1)); save(); }
     if (k === 'ck-feito' || k === 'ck-req') {
       var c = S.checklists.filter(function (x) { return x.id === (S.ui.ck || 'c1'); })[0], it = c.itens[+t.dataset.i];
