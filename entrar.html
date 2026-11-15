@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<meta name="robots" content="noindex">
+<title>Entrar · Seu Comando</title>
+<meta name="theme-color" content="#0F3D2E">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/img/icone-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="assets/css/app.css">
+<script src="assets/js/config.js" defer></script>
+<script src="assets/js/vendor/supabase.js" defer></script>
+<script src="assets/js/nuvem.js" defer></script>
+<script src="assets/js/pwa.js" defer></script>
+<script src="assets/js/entrar.js" defer></script>
+</head>
+<body class="cand-body">
+<main class="cand-page entrar">
+  <header class="cand-head">
+    <img src="assets/img/logo.svg" alt="" width="44" height="44">
+    <div><p class="ui-sub">Gestão empresarial</p><h1>Seu Comando</h1></div>
+  </header>
+
+  <p class="notice" id="e-offline" hidden>O app ainda não está ligado ao banco de dados. Enquanto isso, <a href="app.html">abra o exemplo</a>.</p>
+  <p class="notice bad" id="e-erro" tabindex="-1" hidden></p>
+  <p class="notice info" id="e-ok" tabindex="-1" hidden></p>
+
+  <section class="card card-pad stack" data-tela="entrar">
+    <h2 class="sec">Entrar</h2>
+    <div class="seg" role="tablist"><button type="button" data-quem="func" aria-pressed="true">Sou funcionário</button><button type="button" data-quem="adm" aria-pressed="false">Empresário ou contador</button></div>
+    <form class="stack" id="f-entrar" novalidate>
+      <div class="field"><label for="en-login" id="en-login-l">CPF</label><input id="en-login" name="login" autocomplete="username" inputmode="numeric" maxlength="80" required></div>
+      <div class="field"><label for="en-senha">Senha</label><input id="en-senha" name="senha" type="password" autocomplete="current-password" maxlength="72" required></div>
+      <button class="btn btn-primary" type="submit">Entrar</button>
+    </form>
+    <p class="entrar-links"><a href="#primeiro">Primeiro acesso do funcionário</a> · <a href="#recuperar">Esqueci a senha</a> · <a href="#criar">Criar conta da empresa</a></p>
+  </section>
+
+  <section class="card card-pad stack" data-tela="primeiro" hidden>
+    <h2 class="sec">Primeiro acesso do funcionário</h2>
+    <p class="ui-sub">Use o código que a empresa mandou (vale por 72 horas) e crie a sua senha. Esqueceu a senha? Peça um código novo para a empresa e faça este passo de novo.</p>
+    <form class="stack" id="f-primeiro" novalidate>
+      <div class="field"><label for="pr-cpf">CPF</label><input id="pr-cpf" name="cpf" inputmode="numeric" autocomplete="username" maxlength="14" required></div>
+      <div class="field"><label for="pr-cod">Código (ex.: ABCD-EF2345)</label><input id="pr-cod" name="codigo" maxlength="11" autocapitalize="characters" required></div>
+      <div class="field"><label for="pr-s1">Crie uma senha (mínimo 8, com letras e números)</label><input id="pr-s1" name="s1" type="password" autocomplete="new-password" maxlength="72" required></div>
+      <div class="field"><label for="pr-s2">Repita a senha</label><input id="pr-s2" name="s2" type="password" autocomplete="new-password" maxlength="72" required></div>
+      <button class="btn btn-primary" type="submit">Criar senha e entrar</button>
+    </form>
+    <p class="entrar-links"><a href="#entrar">Voltar</a></p>
+  </section>
+
+  <section class="card card-pad stack" data-tela="criar" hidden>
+    <h2 class="sec">Criar conta da empresa</h2>
+    <form class="stack" id="f-criar" novalidate>
+      <div class="field"><label for="cr-nome">Seu nome</label><input id="cr-nome" name="nome" autocomplete="name" maxlength="80" required></div>
+      <div class="field"><label for="cr-email">E-mail</label><input id="cr-email" name="email" type="email" autocomplete="email" maxlength="120" required></div>
+      <div class="field"><label for="cr-s1">Senha (mínimo 8, com letras e números)</label><input id="cr-s1" name="s1" type="password" autocomplete="new-password" maxlength="72" required></div>
+      <div class="field"><label for="cr-s2">Repita a senha</label><input id="cr-s2" name="s2" type="password" autocomplete="new-password" maxlength="72" required></div>
+      <div class="field"><label for="cr-emp">Nome da empresa</label><input id="cr-emp" name="empresa" autocomplete="organization" maxlength="80" required></div>
+      <div class="field"><label for="cr-tipo">Ramo</label><select id="cr-tipo" name="tipo"></select></div>
+      <label class="check"><input type="checkbox" name="termos" value="sim"> Li e aceito o tratamento dos dados da empresa e da equipe para a gestão (LGPD)</label>
+      <button class="btn btn-primary" type="submit">Criar conta</button>
+    </form>
+    <p class="entrar-links"><a href="#entrar">Já tenho conta</a></p>
+  </section>
+
+  <section class="card card-pad stack" data-tela="recuperar" hidden>
+    <h2 class="sec">Esqueci a senha</h2>
+    <p class="ui-sub">Empresário e contador recebem um link por e-mail. Funcionário: peça um código novo para a empresa e use "Primeiro acesso".</p>
+    <form class="stack" id="f-recuperar" novalidate>
+      <div class="field"><label for="rc-email">E-mail da conta</label><input id="rc-email" name="email" type="email" autocomplete="email" maxlength="120" required></div>
+      <button class="btn btn-primary" type="submit">Enviar link</button>
+    </form>
+    <p class="entrar-links"><a href="#entrar">Voltar</a></p>
+  </section>
+
+  <section class="card card-pad stack" data-tela="nova-senha" hidden>
+    <h2 class="sec">Nova senha</h2>
+    <form class="stack" id="f-nova" novalidate>
+      <div class="field"><label for="ns-s1">Nova senha</label><input id="ns-s1" name="s1" type="password" autocomplete="new-password" maxlength="72" required></div>
+      <div class="field"><label for="ns-s2">Repita</label><input id="ns-s2" name="s2" type="password" autocomplete="new-password" maxlength="72" required></div>
+      <button class="btn btn-primary" type="submit">Salvar senha</button>
+    </form>
+  </section>
+
+  <section class="card card-pad stack" data-tela="codigo" hidden>
+    <h2 class="sec">Tenho um código</h2>
+    <p class="ui-sub">Para contador convidado ou para quem já tem conta e foi chamado por outra empresa. Entre primeiro na sua conta.</p>
+    <form class="stack" id="f-codigo" novalidate>
+      <div class="field"><label for="cd-cod">Código</label><input id="cd-cod" name="codigo" maxlength="11" autocapitalize="characters" required></div>
+      <div class="field"><label for="cd-cpf">CPF (só para funcionário)</label><input id="cd-cpf" name="cpf" inputmode="numeric" maxlength="14"></div>
+      <button class="btn btn-primary" type="submit">Usar código</button>
+    </form>
+    <p class="entrar-links"><a href="app.html">Ir para o app</a></p>
+  </section>
+
+  <p class="ui-sub entrar-rodape">Senhas guardadas com criptografia (hash bcrypt) e conexão protegida (HTTPS). Cada empresa só acessa os próprios dados. <a href="index.html">Conhecer o Seu Comando</a></p>
+</main>
+</body>
+</html>

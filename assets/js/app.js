@@ -14,9 +14,19 @@
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
   function load() { try { var r = localStorage.getItem(KEY); if (r) return JSON.parse(r); } catch (e) { /* sem armazenamento: usa o exemplo */ } return novoExemplo(KEY.split(':')[1] || 'padaria'); }
   function trocarTipo(tp) { try { localStorage.setItem(KEYTIPO, tp); } catch (e) { /* ignora */ } KEY = KEYBASE + ':' + tp; S = load(); }
-  function novoExemplo(tipo) { var s = window.CENTRALIZAR_SEED ? window.CENTRALIZAR_SEED(tipo) : clone(SEED); s.role = 'empresa'; s.ui = {}; s.nsr = 4812; return s; }
-  function demoAgora() { return S.agoraDemo || '10:40'; } // horário fixo da situação do ponto no exemplo
-  function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* ignora */ } }
+  function novoExemplo(tipo) {
+    var s = window.CENTRALIZAR_SEED ? window.CENTRALIZAR_SEED(tipo) : clone(SEED); s.role = 'empresa'; s.ui = {}; s.nsr = 4812;
+    var g = s.pessoas[8] ? s.pessoas[8].id : null;
+    s.acessos = {}; if (g) s.acessos[g] = { papel: 'gerente', perms: ['banco', 'ponto', 'checklists', 'estoque', 'boas'] };
+    s.banco = s.pessoas.length > 4 ? [
+      { id: 'b1', pessoa: s.pessoas[0].id, min: 90, motivo: 'Ficou 1h30 a mais no inventário', por: 'empresa', porNome: 'Empresário', em: '2026-10-28 18:40' },
+      { id: 'b2', pessoa: s.pessoas[3].id, min: 120, motivo: 'Cobriu a folga de um colega', por: g || 'empresa', porNome: g ? s.pessoas[8].nome : 'Empresário', em: '2026-11-01 15:10' },
+      { id: 'b3', pessoa: s.pessoas[0].id, min: -60, motivo: 'Saída antecipada para consulta, combinada com a gerência', por: g || 'empresa', porNome: g ? s.pessoas[8].nome : 'Empresário', em: '2026-11-03 16:02' }] : [];
+    s.auditoria = [{ em: '2026-11-01 15:10', por: g ? s.pessoas[8].nome : 'Empresário', acao: 'Banco de horas', detalhe: (s.pessoas[3] || {}).nome + ' +2h00: Cobriu a folga de um colega' }];
+    return s;
+  }
+  function demoAgora() { return S.real ? new Date().toTimeString().slice(0, 5) : (S.agoraDemo || '10:40'); } // horário fixo da situação do ponto no exemplo
+  function save() { if (typeof NUVEM !== 'undefined' && NUVEM) { agendarSync(); return; } try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* ignora */ } }
   function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function brl(v) { return Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
   function dmy(iso) { if (!iso) return ''; var p = iso.split(' '), d = p[0].split('-'); return d[2] + '/' + d[1] + (p[1] ? ' ' + p[1] : ''); }
@@ -26,9 +36,10 @@
   function diffDays(a, b) { return Math.round((new Date(b + 'T12:00:00') - new Date(a + 'T12:00:00')) / 864e5); }
   function min(h) { if (!h) return null; var p = h.split(':'); return +p[0] * 60 + +p[1]; }
   function P(id) { return S.pessoas.filter(function (p) { return p.id === id; })[0]; }
+  function nomeDe(id) { var p = P(id); return p ? p.nome : 'Sem responsável'; }
   function first(n) { return n.split(' ')[0]; }
   function pill(cls, t) { return '<span class="pill ' + cls + '">' + esc(t) + '</span>'; }
-  function can(r) { return r.split(' ').indexOf(S.role) > -1; }
+  function can(r, p) { var ok = r.split(' ').indexOf(S.role) > -1; if (ok && S.role === 'gerente' && p) ok = pode(p); return ok; }
   function $(s, r) { return (r || doc).querySelector(s); }
   function $$(s, r) { return Array.prototype.slice.call((r || doc).querySelectorAll(s)); }
   function toast(t) { var old = $('.toast'); if (old) old.remove(); var d = doc.createElement('div'); d.className = 'toast'; d.setAttribute('role', 'status'); d.textContent = t; doc.body.appendChild(d); setTimeout(function () { d.remove(); }, 3200); }
@@ -87,48 +98,63 @@
 
   /* ---------- moldura ---------- */
   var ROUTES = {
-    inicio: { t: 'Início', r: 'empresa contador funcionario', f: vInicio },
+    inicio: { t: 'Início', r: 'empresa contador funcionario gerente', f: vInicio },
     vagas: { t: 'Vagas e seleção', r: 'empresa', f: vVagas },
     admissoes: { t: 'Admissões', r: 'empresa contador', f: vAdmissoes },
     contratos: { t: 'Contratos', r: 'empresa contador', f: vContratos },
-    ponto: { t: 'Ponto e jornada', r: 'empresa contador funcionario', f: vPonto },
-    ocorrencias: { t: 'Atestados e advertências', r: 'empresa contador funcionario', f: vOcorrencias },
-    checklists: { t: 'Checklists', r: 'empresa funcionario', f: vChecklists },
-    holerites: { t: 'Holerites', r: 'empresa contador funcionario', f: vHolerites },
-    vales: { t: 'Vales', r: 'empresa contador funcionario', f: vVales },
-    estoque: { t: 'Estoque e etiquetas', r: 'empresa', f: vEstoque },
-    compras: { t: 'Lista de compras', r: 'empresa funcionario', f: vCompras },
+    ponto: { t: 'Ponto e jornada', r: 'empresa contador funcionario gerente', f: vPonto },
+    ocorrencias: { t: 'Atestados e advertências', r: 'empresa contador funcionario gerente', f: vOcorrencias },
+    checklists: { t: 'Checklists', r: 'empresa funcionario gerente', f: vChecklists },
+    holerites: { t: 'Holerites', r: 'empresa contador funcionario gerente', f: vHolerites },
+    vales: { t: 'Vales', r: 'empresa contador funcionario gerente', f: vVales },
+    estoque: { t: 'Estoque e etiquetas', r: 'empresa gerente', p: 'estoque', f: vEstoque },
+    equipe: { t: 'Equipe e acessos', r: 'empresa', f: vEquipe },
+    compras: { t: 'Lista de compras', r: 'empresa funcionario gerente', f: vCompras },
     selecao: { t: 'Processos seletivos', r: 'empresa', f: vSelecao },
     clientes: { t: 'Empresas clientes', r: 'empresa', f: vClientes },
-    boas: { t: 'Boas práticas de alimentos', r: 'empresa funcionario', f: vBoas },
-    cursos: { t: 'Mini cursos', r: 'empresa funcionario', f: vCursos },
-    busca: { t: 'Busca', r: 'empresa contador funcionario', f: vBusca }
+    boas: { t: 'Boas práticas de alimentos', r: 'empresa funcionario gerente', f: vBoas },
+    cursos: { t: 'Mini cursos', r: 'empresa funcionario gerente', f: vCursos },
+    busca: { t: 'Busca', r: 'empresa contador funcionario gerente', f: vBusca }
   };
   function route() { var h = location.hash.replace(/^#\/?/, '').split('?')[0]; return ROUTES[h] ? h : 'inicio'; }
   function render() {
+    ajustaME();
     var r = route(), R = ROUTES[r];
-    if (!can(R.r)) { location.hash = '#/inicio'; return; }
-    view.innerHTML = '<div class="view">' + R.f() + '</div>';
+    if (!can(R.r, R.p)) { location.hash = '#/inicio'; return; }
+    var vazio = telaVazia(r), corpo;
+    try { corpo = vazio || R.f(); } catch (err) { if (window.console) console.error(err); corpo = titleRow(R.t, '') + vazioHTML('Nada para mostrar ainda', 'Cadastre a equipe e os dados da empresa para esta tela ganhar conteúdo.', S.role === 'empresa' ? '<a class="btn btn-primary" href="#/equipe">Ir para Equipe e acessos</a>' : ''); }
+    view.innerHTML = '<div class="view">' + corpo + '</div>';
     doc.title = R.t + ' · Seu Comando';
     $$('#nav a').forEach(function (a) {
-      var ok = a.dataset.roles.split(' ').indexOf(S.role) > -1 && !(a.hasAttribute('data-food') && !S.bp) && !(a.hasAttribute('data-rs') && !S.agencia) && !(a.hasAttribute('data-nors') && S.agencia);
+      var ok = a.dataset.roles.split(' ').indexOf(S.role) > -1 && !(S.role === 'gerente' && a.dataset.perm && !pode(a.dataset.perm)) && !(a.hasAttribute('data-food') && !S.bp) && !(a.hasAttribute('data-rs') && !S.agencia) && !(a.hasAttribute('data-nors') && S.agencia);
       a.hidden = !ok;
       if (a.getAttribute('href') === '#/' + r) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     });
     $$('#nav [data-group]').forEach(function (g) { g.hidden = !$$('a', g).some(function (a) { return !a.hidden; }); });
-    var counts = { adm: S.admissoes.filter(function (a) { return S.role === 'contador' ? passoAdm(a) === 3 : !a.aprovada; }).length, orig: originaisPendentes().length, hol: S.role === 'funcionario' ? 0 : S.pessoas.length - S.holerites.aprovados.length, cmp: S.role === 'empresa' ? S.compras.itens.length : 0 };
+    var counts = { adm: S.admissoes.filter(function (a) { return S.role === 'contador' ? passoAdm(a) === 3 : !a.aprovada; }).length, orig: originaisPendentes().length, hol: ehFunc() ? 0 : S.pessoas.length - S.holerites.aprovados.length, cmp: S.role === 'empresa' ? S.compras.itens.length : 0 };
     $$('[data-count]').forEach(function (c) { var n = counts[c.dataset.count]; c.textContent = n || ''; c.hidden = !n; });
     $('#co-name').textContent = S.empresa.nome; $('#co-mark').textContent = S.empresa.nome.charAt(0).toUpperCase();
-    $('#role').value = S.role;
+    $('#role').value = NUVEM ? (Nuvem.empresa || '') : S.role;
     $('#side').classList.remove('open'); $('#menu-btn').setAttribute('aria-expanded', 'false');
     if (R.after) R.after();
     if (r === 'ponto') tickClock();
+  }
+  function vazioHTML(t, s, acao) { return '<div class="card card-pad stack vazio"><h2 class="sec">' + esc(t) + '</h2><p>' + esc(s) + '</p>' + (acao ? '<div>' + acao + '</div>' : '') + '</div>'; }
+  function telaVazia(r) {
+    var R = ROUTES[r], emp = S.role === 'empresa';
+    if (ehFunc() && !P(ME)) return titleRow(R.t, '') + vazioHTML('Seu cadastro ainda não está ligado ao app', 'Peça para a empresa conferir o seu acesso em Equipe e acessos.', '');
+    if (!S.pessoas.length && ['inicio', 'ponto', 'holerites', 'vales', 'ocorrencias'].indexOf(r) > -1) return titleRow(R.t, S.empresa.nome) + vazioHTML('Comece cadastrando a equipe', 'Com as pessoas cadastradas, o ponto, os holerites, os vales e os atestados passam a funcionar. Depois, gere o código de acesso de cada uma para o app.', emp ? '<a class="btn btn-primary" href="#/equipe">Cadastrar a equipe</a>' : '');
+    if (r === 'vagas' && !S.vagas.length) return titleRow(R.t, '') + vazioHTML('Nenhuma vaga aberta', 'Abra uma vaga para gerar o link da pré-entrevista e receber candidatos.', '<button type="button" class="btn btn-primary" data-act="vaga-nova">Abrir vaga</button>');
+    if (r === 'selecao' && !S.vagas.length) return titleRow(R.t, '') + vazioHTML('Nenhum processo seletivo', 'Cadastre um cliente e abra o primeiro processo.', '<button type="button" class="btn btn-primary" data-act="rs-novo">Novo processo</button>');
+    if (r === 'admissoes' && !S.admissoes.length) return titleRow(R.t, '') + vazioHTML('Nenhuma admissão em andamento', 'Quando um candidato for aprovado na entrevista, a admissão aparece aqui.', '');
+    if (r === 'checklists' && !S.checklists.length) return titleRow(R.t, '') + vazioHTML('Nenhum checklist', 'Crie o primeiro checklist do seu setor.', '');
+    return '';
   }
   function titleRow(t, sub, actions) { return '<div class="title-row"><div><h1>' + esc(t) + '</h1>' + (sub ? '<p>' + sub + '</p>' : '') + '</div><div class="actions">' + (actions || '') + '</div></div>'; }
 
   /* ---------- Início ---------- */
   function vInicio() {
-    if (S.role === 'funcionario') {
+    if (ehFunc()) {
       var me = P(ME), h = holerite(ME), st = statusHolerite(ME), pend = valesDe(ME).filter(function (v) { return !v.assinado; });
       return titleRow(me.nome, esc(me.funcao) + ' · ' + esc(S.empresa.nome), '<a class="btn btn-primary" href="#/ponto">Bater ponto</a>') +
         '<div class="stack">' +
@@ -142,7 +168,7 @@
     originaisPendentes().forEach(function (a) { var venc = diffDays(S.hoje, a.prazo) < 0; pend.push([venc ? pill('bad', 'Vencido') : pill('warn', 'Até ' + dmy(a.prazo)), 'Atestado original de ' + P(a.pessoa).nome, 'Foto recebida em ' + dmy(a.foto) + '; falta o papel', '#/ocorrencias', 'Registrar entrega']); });
     S.vales.filter(function (v) { return !v.assinado; }).forEach(function (v) { pend.push([pill('warn', 'Sem assinatura'), 'Vale de R$ ' + brl(v.valor) + ' · ' + P(v.pessoa).nome, 'Não pode ser descontado sem autorização escrita', '#/vales', 'Ver vale']); });
     S.admissoes.forEach(function (a) { var f = a.docs.filter(function (d) { return d.st !== 'ok'; }).length, n = passoAdm(a); if (n === 5) return; pend.push(n === 2 ? [pill('warn', f + ' documento(s)'), 'Admissão de ' + a.nome, 'Aguardando documentos · início em ' + dmy(a.inicio), '#/admissoes', 'Abrir'] : n === 3 ? [pill('mute', 'Com o contador'), 'Admissão de ' + a.nome, 'Documentos completos, em conferência', '#/admissoes', 'Abrir'] : [pill('warn', 'Falta seu ok'), 'Admissão de ' + a.nome, 'Conferida pelo contador', '#/admissoes', 'Dar o ok']); });
-    S.checklists.forEach(function (c) { var f = c.itens.filter(function (i) { return i.foto && !i.fotoEm; }).length; if (f) pend.push([pill('mute', f + ' foto(s)'), c.nome + ' · ' + c.setor, 'Responsável: ' + P(c.resp).nome, '#/checklists', 'Ver checklist']); });
+    S.checklists.forEach(function (c) { var f = c.itens.filter(function (i) { return i.foto && !i.fotoEm; }).length; if (f) pend.push([pill('mute', f + ' foto(s)'), c.nome + ' · ' + c.setor, 'Responsável: ' + nomeDe(c.resp), '#/checklists', 'Ver checklist']); });
     var falta = sugestaoCompra().length;
     if (falta) pend.push([pill('bad', falta + ' item(ns)'), 'Abaixo do estoque mínimo', 'Ainda fora da lista de compras', '#/estoque', 'Ver estoque']);
     if (S.compras.itens.length) pend.push([pill('mute', S.compras.itens.length + ' na lista'), 'Lista de compras', 'Estimativa de R$ ' + brl(totalCompras()), '#/compras', 'Abrir lista']);
@@ -203,7 +229,7 @@
     var seg = ['clt', 'free', 'temp', 'qualquer'].map(function (r) { return '<button type="button" data-act="crit-reg" data-v="' + r + '" aria-pressed="' + (k.regime === r) + '">' + REG[r] + '</button>'; }).join('');
     var chips = Object.keys(TUR).map(function (t) { return '<button type="button" class="chip" data-act="crit-tur" data-v="' + t + '" aria-pressed="' + (k.turnos.indexOf(t) > -1) + '">' + TUR[t] + '</button>'; }).join('');
     var exps = [0, 1, 2, 3].map(function (n) { return '<option value="' + n + '"' + (k.exp === n ? ' selected' : '') + '>' + (n ? 'Pelo menos ' + n + (n === 1 ? ' ano' : ' anos') : 'Sem exigência') + '</option>'; }).join('');
-    return titleRow('Vagas e seleção', esc(g.titulo) + ' · ' + esc(g.regimeOferta), '<a class="btn" href="triagem.html?vaga=' + esc(g.id) + '&amp;t=' + esc(S.tipo || '') + '" target="_blank" rel="noopener">Ver como o candidato responde</a><button type="button" class="btn btn-primary" data-act="copiar-link">Copiar link da pré-entrevista</button>') +
+    return titleRow('Vagas e seleção', esc(g.titulo) + ' · ' + esc(g.regimeOferta), '<button type="button" class="btn" data-act="vaga-nova">Nova vaga</button><a class="btn" href="triagem.html?vaga=' + esc(g.id) + (NUVEM ? '&amp;e=' + esc(S.empresa.codigo || '') : '&amp;t=' + esc(S.tipo || '')) + '" target="_blank" rel="noopener">Ver como o candidato responde</a><button type="button" class="btn btn-primary" data-act="copiar-link">Copiar link da pré-entrevista</button>') +
       '<div class="tabs" role="tablist">' + tabs + '</div>' +
       '<div class="grid-main"><div class="stack">' + recebidosHTML() + funil + '<div class="card"><div class="card-head"><h2>Candidatos</h2><span class="ui-sub">Triagem, entrevista e documentos, nessa ordem</span></div><div class="table-box"><table class="t stack-sm"><thead><tr><th>Candidato</th><th>Quer trabalhar como</th><th class="hide-sm">Turnos</th><th class="num hide-sm">Distância</th><th class="num hide-sm">Experiência</th><th>Triagem</th><th>Etapa</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>' +
       '<div class="notice info"><div><strong>Como a seleção anda</strong>A triagem só descarta quem não se encaixa nos seus critérios. Quem passa é chamado para entrevista; só quem você aprova na entrevista recebe o link de documentos. Depois, o contador confere e você dá o ok final em Admissões.</div></div></div>' +
@@ -219,7 +245,7 @@
   }
 
   /* ---------- Admissões ---------- */
-  function admAtual() { var id = S.ui.adm || S.admissoes[0].id; return S.admissoes.filter(function (a) { return a.id === id; })[0]; }
+  function admAtual() { var id = S.ui.adm || (S.admissoes[0] || {}).id; return S.admissoes.filter(function (a) { return a.id === id; })[0]; }
   var PASSOS = ['Triagem', 'Entrevista', 'Documentos', 'Conferência do contador', 'Ok do empregador'];
   function passoAdm(a) { var tudo = a.docs.every(function (d) { return d.st === 'ok'; }); return a.aprovada ? 5 : a.conferida ? 4 : tudo ? 3 : 2; }
   function situacaoAdm(a) { var n = passoAdm(a); return n === 5 ? ['ok', 'Admissão aprovada'] : n === 4 ? ['warn', 'Aguardando o ok do empregador'] : n === 3 ? ['mute', 'Com o contador'] : ['warn', 'Aguardando documentos']; }
@@ -385,8 +411,23 @@
   }
 
   /* ---------- Recrutamento e seleção (agência) e integração com as empresas clientes ---------- */
-  function integ() { try { var r = JSON.parse(localStorage.getItem(KEYINT) || 'null'); if (r && Array.isArray(r.envios)) return r; } catch (e) { /* sem armazenamento */ } return { envios: [] }; }
-  function salvaInteg(x) { try { localStorage.setItem(KEYINT, JSON.stringify(x)); } catch (e) { /* ignora */ } }
+  var ENVIOS = null; // modo conectado: envios entre recrutadora e empresas vêm do banco
+  function carregarEnvios() { if (!NUVEM || ehFunc()) return Promise.resolve(); return Nuvem.envios(S.empresa.codigo || '').then(function (rows) { ENVIOS = (rows || []).map(function (r) { var d = r.dados || {}; return { id: r.id, para: r.para_codigo, de: r.de_nome, processo: d.processo, titulo: d.titulo, cargo: d.cargo, salario: d.salario, cand: d.cand, em: String(r.criado_em || '').slice(0, 16).replace('T', ' '), status: r.status, motivo: r.motivo, decididoEm: r.decidido_em }; }); }).catch(function () { /* mantém o que tinha */ }); }
+  function integ() { if (NUVEM) return { envios: (ENVIOS || []).concat(S.importados || []).map(function (e) { return JSON.parse(JSON.stringify(e)); }) };
+    try { var r = JSON.parse(localStorage.getItem(KEYINT) || 'null'); if (r && Array.isArray(r.envios)) return r; } catch (e) { /* sem armazenamento */ } return { envios: [] }; }
+  function salvaInteg(x) {
+    if (NUVEM) {
+      var cache = {}; (ENVIOS || []).forEach(function (e) { cache[e.id] = e; });
+      S.importados = x.envios.filter(function (e) { return e.origem === 'arquivo'; });
+      x.envios.forEach(function (e) {
+        if (e.origem === 'arquivo') return;
+        var antigo = cache[e.id];
+        if (!antigo && e.para !== S.empresa.codigo) { ENVIOS = (ENVIOS || []).concat([e]); Nuvem.enviar(S.empresa.nome, e.para, { processo: e.processo, titulo: e.titulo, cargo: e.cargo, salario: e.salario, cand: e.cand }, e.id).catch(function () { toast('Não foi possível enviar ao cliente agora. Tente de novo.'); }); }
+        else if (antigo && e.para === S.empresa.codigo && antigo.status === 'enviado' && e.status !== 'enviado') { antigo.status = e.status; antigo.motivo = e.motivo; Nuvem.decidir(e.id, e.status, e.motivo).catch(function () { toast('Não foi possível registrar a decisão agora.'); }); }
+      });
+      save(); return;
+    }
+    try { localStorage.setItem(KEYINT, JSON.stringify(x)); } catch (e) { /* ignora */ } }
   function envioPor(id) { return integ().envios.filter(function (e) { return e.id === id; })[0]; }
   function semearInteg() { if (!S.envSeed) return; var x = integ(); S.envSeed.forEach(function (e) { if (!x.envios.some(function (y) { return y.id === e.id; })) x.envios.push(e); }); salvaInteg(x); delete S.envSeed; save(); }
   function clientePor(id) { return (S.clientes || []).filter(function (k) { return k.id === id; })[0] || { nome: 'Cliente', integ: 'externo' }; }
@@ -428,7 +469,7 @@
     var acao = '<div class="card card-pad stack"><h2 class="sec">Lista curta · ' + curta.length + '</h2>' + (curta.length ? '<ul class="list">' + curta.map(function (c) { return '<li><span>' + esc(c.n) + '<span class="sub">' + (c.compartilhar === false ? 'não autorizou compartilhar: não segue para o cliente' : 'nota ' + (c.nota || '–') + ' de 5') + '</span></span>' + estrelas(c.nota) + '</li>'; }).join('') + '</ul>' : '<p class="ui-sub">Entreviste e marque quem vai para a lista curta.</p>') +
       '<button type="button" class="btn btn-primary" data-act="rs-enviar"' + (podem.length ? '' : ' disabled') + '>' + (ok ? 'Encaminhar ' + podem.length + ' para o painel do cliente' : 'Gerar pasta para o cliente (' + podem.length + ')') + '</button>' +
       (ok ? '' : '<button type="button" class="btn" data-act="rs-dossie"' + (podem.length ? '' : ' disabled') + '>Só o dossiê em PDF</button>') + '</div>';
-    var link = 'triagem.html?vaga=' + esc(g.id) + '&amp;t=' + esc(S.tipo || '');
+    var link = 'triagem.html?vaga=' + esc(g.id) + (NUVEM ? '&amp;e=' + esc(S.empresa.codigo || '') : '&amp;t=' + esc(S.tipo || ''));
     return titleRow('Processos seletivos', esc(g.titulo) + ' para ' + esc(cl.nome) + ' · ' + g.qtd + (g.qtd === 1 ? ' vaga' : ' vagas') + ' · ' + esc(g.regimeOferta), '<a class="btn" href="' + link + '" target="_blank" rel="noopener">Ver como o candidato responde</a><button type="button" class="btn" data-act="rs-novo">Novo processo</button><button type="button" class="btn btn-primary" data-act="copiar-link">Copiar link da pré-entrevista</button>') +
       '<div class="tabs" role="tablist">' + tabs + '</div><div class="grid-main"><div class="stack">' + funil +
       '<div class="card"><div class="card-head"><h2>Candidatos</h2><span class="ui-sub">Triagem, entrevista, lista curta e validação do cliente</span></div><div class="table-box"><table class="t stack-sm"><thead><tr><th>Candidato</th><th class="num hide-sm">Experiência</th><th>Triagem</th><th class="rs-etapa">Etapa</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>' +
@@ -522,6 +563,7 @@
   function tempOk(r) { var e = equipPor(r.eq); return (LIMT[e.tipo] || LIMT.frio).ok(r.t); }
   function fmtT(v) { return String(v).replace('.', ',') + ' °C'; }
   function statusDoc(d) {
+    if (!d.venc && d.meses && !d.ult) return ['warn', 'Não informado', ''];
     var prox = d.venc || (d.meses ? addMonths(d.ult, d.meses) : ''); if (!prox) return ['ok', 'Em dia', ''];
     var n = diffDays(S.hoje, prox);
     return n < 0 ? ['bad', 'Vencido', prox] : n <= 15 ? ['warn', 'Vence em ' + n + (n === 1 ? ' dia' : ' dias'), prox] : ['ok', 'Em dia', prox];
@@ -628,11 +670,271 @@
       '<div class="notice info"><div><strong>O que os cursos comprovam</strong>Os certificados registram a capacitação periódica dos manipuladores (RDC 216/2004, item 4.6.7). O curso do responsável pelas atividades de manipulação (item 4.12.2) e regras próprias do município continuam valendo.</div></div>';
   }
 
+  /* ---------- Modo conectado (login e banco de dados) ---------- */
+  var NUVEM = !!(window.Nuvem && Nuvem.ativa) && !/[?&]exemplo=1/.test(location.search);
+  var SNAP = null, MEMBROS = [], VINCULOS = [], PUBLICADO = {}, tSync = null, tPend = null;
+  var LISTAS = ['atestados', 'advertencias', 'vales', 'banco'];
+  function semUI(s) { var c = clone(s); delete c.ui; delete c.role; delete c.nuvemPessoa; return c; }
+  function pessoaEm(D, id) { return (D.pessoas || []).filter(function (p) { return p.id === id; })[0]; }
+  function porId(l) { var m = {}; (l || []).forEach(function (x) { if (x && x.id) m[x.id] = x; }); return m; }
+  function igual(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
+  function limpa(v) { var s = JSON.stringify(v || {}); if (s.length > 20000) throw new Error('grande'); return JSON.parse(s); }
+  // Funcionário e gerente não gravam o documento da empresa: enviam só o que fizeram (ponto, atestado, curso...).
+  function diffOps(a, b) {
+    var ops = [];
+    Object.keys(b.ponto || {}).forEach(function (pid) { (b.ponto[pid] || []).forEach(function (v, i) { if (v !== (((a.ponto || {})[pid]) || [])[i]) ops.push({ k: 'ponto', p: pid, i: i, v: v }); }); });
+    LISTAS.forEach(function (n) { var A = porId(a[n]); (b[n] || []).forEach(function (x) { if (!x || !x.id) return; var o = A[x.id]; if (!o) ops.push({ k: 'add', l: n, v: x }); else Object.keys(x).forEach(function (c) { if (!igual(x[c], o[c])) ops.push({ k: 'set', l: n, id: x.id, c: c, v: x[c] }); }); }); });
+    ((b.bp || {}).temps || []).slice(((a.bp || {}).temps || []).length).forEach(function (x) { ops.push({ k: 'add', l: 'temps', v: x }); });
+    var CA = porId((a.compras || {}).itens); ((b.compras || {}).itens || []).forEach(function (x) { var o = CA[x.id]; if (!o) ops.push({ k: 'add', l: 'compras', v: x }); else Object.keys(x).forEach(function (c) { if (!igual(x[c], o[c])) ops.push({ k: 'set', l: 'compras', id: x.id, c: c, v: x[c] }); }); });
+    var CK = porId(a.checklists); (b.checklists || []).forEach(function (c) { var o = CK[c.id]; if (!o) return; (c.itens || []).forEach(function (it, j) { var oi = (o.itens || [])[j] || {}; ['feito', 'fotoEm', 'por'].forEach(function (f) { if (it[f] !== oi[f]) ops.push({ k: 'ck', id: c.id, j: j, c: f, v: it[f] }); }); }); });
+    var tb = (b.treinos || {})[ME] || {}, ta = (a.treinos || {})[ME] || {}; Object.keys(tb).forEach(function (cid) { if (!igual(tb[cid], ta[cid])) ops.push({ k: 'treino', id: cid, v: tb[cid] }); });
+    return ops;
+  }
+  // A empresa aplica o que chegou, conferindo se cada coisa é permitida a quem fez. Ponto: vale a hora do servidor.
+  function aplicarOps(D, ops, pid, papel, perms, quando, local) {
+    var tem = function (p) { return papel === 'gerente' && (perms || []).indexOf(p) > -1; }, n = 0, rej = 0, eu = pessoaEm(D, pid) || {};
+    var hora = quando ? new Date(quando).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }) : '';
+    var dataHora = quando ? new Date(quando).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }).slice(0, 17).replace(',', '') : agora();
+    (Array.isArray(ops) ? ops : []).slice(0, 200).forEach(function (o) {
+      var ok = false;
+      try {
+        if (o.k === 'ponto' && (o.p === pid || tem('ponto')) && o.i >= 0 && o.i < 4 && typeof o.v === 'string' && o.v) {
+          D.ponto = D.ponto || {}; var m = D.ponto[o.p] || (D.ponto[o.p] = ['', '', '', '']); if (!m[o.i]) { m[o.i] = local ? o.v : (hora || o.v); ok = true; }
+        } else if (o.k === 'add' && o.v && typeof o.v === 'object') {
+          var v = limpa(o.v);
+          if (o.l === 'atestados' && v.pessoa === pid) { D.atestados.push(v); ok = true; }
+          else if (o.l === 'banco' && tem('banco') && typeof v.min === 'number' && Math.abs(v.min) <= 2640 && pessoaEm(D, v.pessoa)) {
+            v.por = pid; v.porNome = eu.nome || 'Gerente'; if (!local) v.em = dataHora; D.banco = D.banco || []; D.banco.push(v);
+            if (!local) { D.auditoria = D.auditoria || []; D.auditoria.unshift({ em: dataHora, por: v.porNome, acao: 'Banco de horas', detalhe: (pessoaEm(D, v.pessoa) || {}).nome + ' ' + fmtMin(v.min) + ': ' + String(v.motivo || '').slice(0, 120) }); }
+            ok = true;
+          } else if (o.l === 'temps' && D.bp && (v.por === pid || tem('boas')) && typeof v.t === 'number') { D.bp.temps.push(v); ok = true; }
+          else if (o.l === 'compras' && (v.por === pid || tem('estoque'))) { D.compras = D.compras || { itens: [] }; D.compras.itens.push(v); ok = true; }
+        } else if (o.k === 'set') {
+          var lista = o.l === 'compras' ? (D.compras || {}).itens : D[o.l], item = (lista || []).filter(function (x) { return x.id === o.id; })[0];
+          var regra = { atestados: ['foto', 'ciencia'], advertencias: ['ciencia', 'cienciaEm', 'recusa'], vales: ['assinado'], compras: ['qtd', 'comprado', 'obs'] }[o.l] || [];
+          if (item && regra.indexOf(o.c) > -1 && (o.l === 'compras' ? (item.por === pid || tem('estoque')) : item.pessoa === pid)) { item[o.c] = limpa({ v: o.v }).v; ok = true; }
+        } else if (o.k === 'ck') {
+          var ck = (D.checklists || []).filter(function (x) { return x.id === o.id; })[0];
+          if (ck && ck.itens[o.j] && ['feito', 'fotoEm', 'por'].indexOf(o.c) > -1 && (ck.resp === pid || ck.setor === eu.setor || tem('checklists'))) { ck.itens[o.j][o.c] = limpa({ v: o.v }).v; ok = true; }
+        } else if (o.k === 'treino' && o.v && +o.v.nota >= 0 && +o.v.nota <= 100) {
+          D.treinos = D.treinos || {}; (D.treinos[pid] = D.treinos[pid] || {})[String(o.id).slice(0, 30)] = { nota: +o.v.nota, em: String(o.v.em || '').slice(0, 10) }; ok = true;
+        }
+      } catch (e) { ok = false; }
+      if (ok) n++; else rej++;
+    });
+    return rej ? (n ? 'parcial' : 'rejeitado') : 'ok';
+  }
+  // O que cada funcionário (ou gerente) recebe: só os próprios dados, mais o que a permissão libera.
+  function subsetPara(D, pid, papel, perms) {
+    var tem = function (p) { return papel === 'gerente' && (perms || []).indexOf(p) > -1; }, eu = pessoaEm(D, pid); if (!eu) return null;
+    var dono = function (x) { return x && x.pessoa === pid; }, equipe = tem('ponto') || tem('banco') || tem('checklists');
+    var pub = function (p) { return p.id === pid ? p : { id: p.id, nome: p.nome, funcao: p.funcao, setor: p.setor, escala: p.escala, celular: p.celular }; };
+    var so = function (obj) { var o = {}; o[pid] = (obj || {})[pid]; return o; };
+    var e = D.empresa || {};
+    return {
+      empresa: { nome: e.nome, razao: e.razao, cnpj: e.cnpj, cidade: e.cidade, endereco: e.endereco, codigo: e.codigo }, tipo: D.tipo, plano: D.plano, hoje: D.hoje, real: true, agencia: D.agencia,
+      pessoas: equipe ? (D.pessoas || []).map(pub) : [eu], ponto: tem('ponto') ? D.ponto : so(D.ponto), marcacoesMetodo: tem('ponto') ? D.marcacoesMetodo : so(D.marcacoesMetodo),
+      atestados: (D.atestados || []).filter(dono), advertencias: (D.advertencias || []).filter(dono), faltas: (D.faltas || []).filter(dono), horasExtras: so(D.horasExtras),
+      holerites: D.holerites, vales: (D.vales || []).filter(dono),
+      produtos: tem('estoque') ? D.produtos : (D.produtos || []).map(function (p) { return { id: p.id, nome: p.nome, un: p.un, qtd: p.qtd, min: p.min, ideal: p.ideal, validade: p.validade, lote: p.lote, cod: p.cod, fornecedor: p.fornecedor }; }),
+      compras: { itens: ((D.compras || {}).itens || []).filter(function (i) { return tem('estoque') || i.por === pid; }) },
+      checklists: (D.checklists || []).filter(function (c) { return tem('checklists') || c.resp === pid || c.setor === eu.setor; }),
+      vagas: [], admissoes: [], clientes: [], treinos: so(D.treinos), banco: (D.banco || []).filter(function (b) { return tem('banco') || dono(b); }),
+      bp: D.bp ? { ativo: D.bp.ativo, equip: D.bp.equip, temps: (D.bp.temps || []).slice(-60), docs: [] } : undefined,
+      acessos: (function () { var a = {}; a[pid] = { papel: papel, perms: perms || [] }; return a; })(), auditoria: []
+    };
+  }
+  // Publica a parte de cada pessoa com acesso ao app (mesmo antes do primeiro acesso: o banco só entrega a ela).
+  function publicarDocs(forcar, soPessoa) {
+    var docs = []; (S.pessoas || []).forEach(function (p) {
+      var a = acessoDe(p.id); if (a.papel === 'nenhum' || (soPessoa && p.id !== soPessoa)) return;
+      var sub = subsetPara(S, p.id, a.papel, a.perms); if (!sub) return;
+      var j = JSON.stringify(sub); if (!forcar && PUBLICADO[p.id] === j) return; PUBLICADO[p.id] = j; docs.push({ pessoa_id: p.id, dados: sub });
+    });
+    return Nuvem.publicar(docs).catch(function () { docs.forEach(function (d) { delete PUBLICADO[d.pessoa_id]; }); });
+  }
+  function agendarSync() { clearTimeout(tSync); tSync = setTimeout(sincronizar, 600); }
+  function sincronizar() {
+    if (!Nuvem.empresa || !SNAP) return;
+    if (ehFunc()) {
+      var ops = diffOps(SNAP, S); if (!ops.length) return;
+      var antes = clone(S);
+      Nuvem.enviarOps(ops).then(function () { SNAP = antes; }, function () { toast('Sem conexão: o registro fica guardado e é enviado assim que a internet voltar.'); setTimeout(agendarSync, 8000); });
+      return;
+    }
+    var dados = semUI(S);
+    Nuvem.salvar(dados).then(function () { SNAP = clone(S); publicarDocs(); }, function (e) {
+      if (e.codigo === 'conflito_versao') { toast('Outra pessoa salvou alterações ao mesmo tempo. Atualizei a tela com a versão mais nova.'); carregarNuvem(); }
+      else { toast('Sem conexão: tentando salvar de novo…'); setTimeout(agendarSync, 8000); }
+    });
+  }
+  var CAMPOS_TRIAGEM = { n: 80, fone: 20, email: 80, bairro: 60, regime: 10, fds: 10, inicio: 10, transporte: 10, pretensao: 12, ultima: 120, jaTrabalhou: 10, escolaridade: 4, sit1: 400, sit2: 300 };
+  function candidatoDe(d) {
+    var c = { novo: true, em: new Date().toISOString() };
+    Object.keys(CAMPOS_TRIAGEM).forEach(function (k) { if (d[k] != null) c[k] = String(d[k]).slice(0, CAMPOS_TRIAGEM[k]); });
+    c.km = Math.max(0, Math.min(99, +d.km || 0)); c.exp = Math.max(0, Math.min(40, +d.exp || 0));
+    c.turnos = (Array.isArray(d.turnos) ? d.turnos : []).filter(function (t) { return ['manha', 'tarde', 'noite', 'fds'].indexOf(t) > -1; });
+    c.reqs = {}; Object.keys(d.reqs || {}).slice(0, 20).forEach(function (k) { c.reqs[String(k).slice(0, 20)] = d.reqs[k] === 'sim' ? 'sim' : 'nao'; });
+    c.contato = !!d.contato; if (d.compartilhar !== undefined) c.compartilhar = !!d.compartilhar;
+    return c;
+  }
+  function processarPendencias() {
+    if (ehFunc()) return Promise.resolve();
+    var mudou = false;
+    return Nuvem.eventosPendentes().then(function (evs) {
+      return evs.reduce(function (p, ev) {
+        return p.then(function () {
+          // quem fez (conta ligada à pessoa) e o que o dono permitiu a essa pessoa em Equipe e acessos
+          var m = MEMBROS.filter(function (x) { return x.user_id === ev.user_id && x.pessoa_id === ev.pessoa_id; })[0], ac = acessoDe(ev.pessoa_id);
+          var res = m && ac.papel !== 'nenhum' ? aplicarOps(S, ev.ops, ev.pessoa_id, ac.papel, ac.perms, ev.criado_em, false) : 'rejeitado';
+          if (res !== 'rejeitado') mudou = true; return Nuvem.marcarEvento(ev.id, res);
+        });
+      }, Promise.resolve());
+    }).then(function () { return Nuvem.candidaturas(); }).then(function (cs) {
+      return cs.reduce(function (p, c) {
+        return p.then(function () { var v = S.vagas.filter(function (x) { return x.id === c.vaga_id; })[0]; if (v) { v.cands.push(candidatoDe(c.dados || {})); mudou = true; } return Nuvem.marcarCandidatura(c.id); });
+      }, Promise.resolve());
+    }).then(function () { return carregarEnvios(); }).then(function () { if (mudou) sincronizar(); if (mudou || /selecao|vagas/.test(location.hash)) render(); }).catch(function () { /* tenta no próximo ciclo */ });
+  }
+  // O que o dono definiu em Equipe e acessos vale também no banco (ex.: quem virou gerente antes do primeiro acesso).
+  function sincronizarAcessos() {
+    if (S.role !== 'empresa') return;
+    MEMBROS.forEach(function (m) {
+      if (['funcionario', 'gerente'].indexOf(m.papel) < 0 || !m.pessoa_id) return;
+      var a = acessoDe(m.pessoa_id), alvo = a.papel === 'nenhum' ? 'nenhum' : a.papel, perms = alvo === 'gerente' ? a.perms : [];
+      if (alvo === m.papel && igual((m.permissoes || []).slice().sort(), perms.slice().sort())) return;
+      Nuvem.alterarAcesso(m.pessoa_id, alvo, perms, (P(m.pessoa_id) || {}).nome).then(function () { m.papel = alvo; m.permissoes = perms; publicarDocs(true); }).catch(function () { /* tenta na próxima abertura */ });
+    });
+  }
+  function telaNuvem(html) { view.innerHTML = '<div class="view">' + html + '</div>'; $$('#nav a').forEach(function (a) { a.hidden = true; }); $$('#nav [data-group]').forEach(function (g) { g.hidden = true; }); }
+  function carregarNuvem() {
+    return Nuvem.carregar().then(function (d) {
+      if (!d) { telaNuvem(titleRow('Bem-vindo(a)', '') + vazioHTML('Seu acesso está quase pronto', 'A empresa precisa abrir o app uma vez para liberar os seus dados. Tente de novo em alguns minutos.', '<button type="button" class="btn" data-act="recarregar">Tentar de novo</button>')); return; }
+      S = d; S.ui = S.ui || {}; S.real = true; S.hoje = hojeISO(); S.nsr = S.nsr || 1; S.role = Nuvem.papel;
+      S.nuvemPessoa = ['funcionario', 'gerente'].indexOf(Nuvem.papel) > -1 ? Nuvem.pessoa : null;
+      if (S.nuvemPessoa) {
+        // o que o dono definiu (publicado junto) vale para a tela; o servidor confere de novo ao aplicar
+        S.acessos = S.acessos || {}; var ac = S.acessos[S.nuvemPessoa] || { papel: Nuvem.papel, perms: Nuvem.perms || [] };
+        S.acessos[S.nuvemPessoa] = ac; S.role = ac.papel === 'gerente' ? 'gerente' : 'funcionario'; Nuvem.papel = S.role; Nuvem.perms = ac.perms || [];
+      }
+      ['pessoas', 'atestados', 'advertencias', 'faltas', 'vales', 'produtos', 'checklists', 'vagas', 'admissoes', 'banco', 'auditoria'].forEach(function (k) { if (!Array.isArray(S[k])) S[k] = []; });
+      ['ponto', 'marcacoesMetodo', 'horasExtras', 'treinos', 'acessos'].forEach(function (k) { if (!S[k] || typeof S[k] !== 'object') S[k] = {}; });
+      S.compras = S.compras || { itens: [] }; S.holerites = S.holerites || { competencia: hojeISO().slice(0, 7), status: 'aguardando', lancadoEm: '', aprovados: [] }; S.empresa = S.empresa || { nome: 'Empresa' };
+      if (ehFunc()) return Nuvem.meusEventosPendentes().then(function (evs) { evs.forEach(function (ev) { aplicarOps(S, ev.ops, S.nuvemPessoa, Nuvem.papel, Nuvem.perms, ev.criado_em, true); }); SNAP = clone(S); render(); });
+      return Nuvem.membros().then(function (ms) { MEMBROS = ms || []; return carregarEnvios(); }).then(function () { SNAP = clone(S); render(); sincronizarAcessos(); return processarPendencias(); }).then(function () { publicarDocs(true); clearInterval(tPend); tPend = setInterval(processarPendencias, 45000); });
+    });
+  }
+  function criarEmpresaNuvem(nome, tipo) {
+    var dados = semUI(novoEmBranco(tipo, nome));
+    telaNuvem('<p class="ui-sub">Criando a empresa…</p>');
+    return Nuvem.criarEmpresa(nome, tipo, dados).then(function (id) { try { localStorage.removeItem('seucomando-nova-empresa'); } catch (e) { /* ignora */ } return Nuvem.vinculos().then(function (vs) { VINCULOS = vs; Nuvem.escolher(vs.filter(function (v) { return v.empresa_id === id; })[0] || vs[0]); return carregarNuvem(); }); });
+  }
+  function semEmpresa() {
+    var p = null; try { p = JSON.parse(localStorage.getItem('seucomando-nova-empresa') || 'null'); } catch (e) { /* ignora */ }
+    if (p && p.nome) return criarEmpresaNuvem(String(p.nome).slice(0, 80), String(p.tipo || 'padaria'));
+    var ops = Object.keys(window.CENTRALIZAR_TIPOS || {}).map(function (t) { return '<option value="' + t + '">' + esc(window.CENTRALIZAR_TIPOS[t]) + '</option>'; }).join('');
+    telaNuvem(titleRow('Bem-vindo(a) ao Seu Comando', '') + '<div class="grid-2"><form class="card card-pad stack" data-form="nuvem-empresa"><h2 class="sec">Criar a minha empresa</h2><div class="field"><label for="ne-n">Nome da empresa</label><input id="ne-n" name="n" maxlength="80" required></div><div class="field"><label for="ne-t">Ramo</label><select id="ne-t" name="t">' + ops + '</select></div><button class="btn btn-primary" type="submit">Criar</button></form>' +
+      '<div class="card card-pad stack"><h2 class="sec">Fui convidado</h2><p>Contador ou funcionário que recebeu um código: use em "Tenho um código".</p><a class="btn" href="entrar.html#codigo">Tenho um código</a></div></div>');
+  }
+  function bootNuvem() {
+    var rl = $('.role'); if (rl) { rl.querySelector('span').textContent = 'Empresa'; rl.hidden = true; }
+    var foot = $('.side-foot'); if (foot) foot.innerHTML = 'Conectado ao banco de dados. <button type="button" class="link-btn" data-act="sair">Sair</button>';
+    telaNuvem('<p class="ui-sub">Carregando…</p>');
+    Nuvem.sessao().then(function (s) {
+      if (!s) { location.href = 'entrar.html'; return; }
+      return Nuvem.vinculos().then(function (vs) {
+        VINCULOS = vs || []; if (!VINCULOS.length) return semEmpresa();
+        var salvo = null; try { salvo = localStorage.getItem('seucomando-empresa'); } catch (e) { /* ignora */ }
+        Nuvem.escolher(VINCULOS.filter(function (v) { return v.empresa_id === salvo; })[0] || VINCULOS[0]);
+        if (VINCULOS.length > 1 && rl) { var sel = $('#role'); sel.innerHTML = VINCULOS.map(function (v) { return '<option value="' + esc(v.empresa_id) + '">' + esc(v.nome || ({ empresa: 'Minha empresa', contador: 'Cliente', gerente: 'Empresa', funcionario: 'Empresa' }[v.papel])) + ' · ' + esc(v.papel) + '</option>'; }).join(''); rl.hidden = false; }
+        return carregarNuvem();
+      });
+    }).catch(function (e) { telaNuvem(vazioHTML('Não foi possível conectar', (e && e.message) || 'Verifique a internet e tente de novo.', '<button type="button" class="btn" data-act="recarregar">Tentar de novo</button>')); });
+  }
+
+  /* ---------- Equipe, acessos, banco de horas ---------- */
+  var PERMS = { banco: 'Lançar no banco de horas da equipe', ponto: 'Ver e marcar o ponto da equipe', checklists: 'Checklists de todos os setores', estoque: 'Estoque e lista de compras', boas: 'Boas práticas de alimentos' };
+  function acessoDe(pid) { var a = (S.acessos || {})[pid]; return a ? { papel: a.papel || 'funcionario', perms: a.perms || [] } : { papel: 'funcionario', perms: [] }; }
+  function pode(perm) { if (S.role === 'empresa') return true; if (S.role !== 'gerente') return false; return acessoDe(ME).perms.indexOf(perm) > -1; }
+  function ehFunc() { return S.role === 'funcionario' || S.role === 'gerente'; }
+  function ajustaME() {
+    if (S.nuvemPessoa) { ME = S.nuvemPessoa; return; }
+    if (S.role === 'gerente') { var g = Object.keys(S.acessos || {}).filter(function (k) { return S.acessos[k].papel === 'gerente'; })[0]; ME = g || (S.pessoas[8] && S.pessoas[8].id) || ME; }
+    else if (S.role === 'funcionario') ME = (S.pessoas[0] && S.pessoas[0].id) || 'e1';
+  }
+  function quemSou() { return S.role === 'empresa' ? 'Empresário' : S.role === 'contador' ? 'Contador' : (P(ME) ? P(ME).nome : 'Funcionário'); }
+  function auditar(acao, detalhe) { S.auditoria = S.auditoria || []; S.auditoria.unshift({ em: agora(), por: quemSou(), acao: acao, detalhe: detalhe }); if (NUVEM && !ehFunc()) Nuvem.registrar(acao, detalhe, quemSou()); if (S.auditoria.length > 500) S.auditoria.length = 500; }
+  function fmtMin(m) { var s = m < 0 ? '-' : '+', a = Math.abs(m); return s + Math.floor(a / 60) + 'h' + ('0' + a % 60).slice(-2); }
+  function saldoBanco(pid) { return (S.banco || []).filter(function (b) { return b.pessoa === pid; }).reduce(function (t, b) { return t + b.min; }, 0); }
+  function bancoHTML() {
+    var gere = pode('banco'), lista = (S.banco || []).filter(function (b) { return gere || b.pessoa === ME; });
+    var estornados = {}; (S.banco || []).forEach(function (b) { if (b.estorno) estornados[b.estorno] = b; });
+    var saldo = gere ? '<div class="table-box"><table class="t"><thead><tr><th>Pessoa</th><th class="num">Saldo</th></tr></thead><tbody>' + S.pessoas.map(function (p) { var s = saldoBanco(p.id); return '<tr><td>' + esc(p.nome) + '</td><td class="num">' + (s ? pill(s > 0 ? 'ok' : 'warn', fmtMin(s)) : '<span class="faint">0h00</span>') + '</td></tr>'; }).join('') + '</tbody></table></div>' :
+      '<p>Seu saldo: <strong class="num">' + fmtMin(saldoBanco(ME)) + '</strong></p>';
+    var form = gere ? '<form class="stack" data-form="banco"><h3 class="lbl-s">Lançar crédito ou débito</h3><div class="form-grid"><div class="field"><label for="bh-p">Pessoa</label><select id="bh-p" name="p">' + S.pessoas.map(function (p) { return '<option value="' + p.id + '">' + esc(p.nome) + '</option>'; }).join('') + '</select></div>' +
+      '<div class="field"><label for="bh-t">Tipo</label><select id="bh-t" name="t"><option value="1">Crédito (hora extra a compensar)</option><option value="-1">Débito (folga ou saída antecipada)</option></select></div>' +
+      '<div class="field"><label for="bh-h">Horas</label><input id="bh-h" name="h" type="number" min="0" max="44" value="1"></div><div class="field"><label for="bh-m">Minutos</label><input id="bh-m" name="m" type="number" min="0" max="59" value="0"></div></div>' +
+      '<div class="field"><label for="bh-x">Motivo (obrigatório)</label><input id="bh-x" name="x" maxlength="120" placeholder="Ex.: ficou 1h a mais no inventário de 04/11" required></div><button class="btn btn-primary" type="submit">Lançar</button></form>' : '';
+    var hist = lista.slice().reverse().slice(0, 30).map(function (b) {
+      var e = estornados[b.id];
+      return '<li><span><strong class="num">' + fmtMin(b.min) + '</strong> · ' + esc(P(b.pessoa) ? P(b.pessoa).nome : '') + (b.estorno ? ' ' + pill('mute', 'Estorno') : '') + (e ? ' ' + pill('warn', 'Estornado') : '') + '<span class="sub">' + esc(b.motivo) + ' · lançado por ' + esc(b.porNome) + ' em ' + esc(b.em) + '</span></span>' +
+        (gere && !b.estorno && !e ? '<button type="button" class="btn btn-sm" data-act="banco-estornar" data-id="' + esc(b.id) + '">Estornar</button>' : '') + '</li>';
+    }).join('');
+    return '<div class="card card-pad stack" id="banco"><h2 class="sec">Banco de horas</h2>' + saldo + form +
+      '<h3 class="lbl-s">Lançamentos</h3>' + (hist ? '<ul class="list">' + hist + '</ul>' : '<p class="ui-sub">Nenhum lançamento.</p>') +
+      '<p class="ui-sub">Todo lançamento fica registrado com quem fez, data e hora, e não pode ser apagado: para corrigir, use "Estornar", que cria um lançamento contrário. Banco de horas por acordo individual escrito: compensação em até 6 meses (CLT, art. 59, § 5º); por convenção ou acordo coletivo, em até 1 ano (art. 59, § 2º).</p></div>';
+  }
+  function vEquipe() {
+    var rows = S.pessoas.map(function (p) {
+      var a = acessoDe(p.id), papel = a.papel === 'nenhum' ? pill('mute', 'Sem acesso') : a.papel === 'gerente' ? pill('ok', 'Gerente') : pill('mute', 'Funcionário');
+      return '<tr><td><strong>' + esc(p.nome) + '</strong><span class="sub">' + esc(p.funcao || '') + ' · ' + esc(p.setor || '') + '</span></td><td class="num hide-sm">' + brl(p.salario || 0) + '</td><td class="num hide-sm">' + esc(p.escala || '') + '</td><td>' + papel + (a.papel === 'gerente' && a.perms.length ? '<span class="sub">' + a.perms.map(function (k) { return esc(PERMS[k] || k); }).join('; ') + '</span>' : '') + '</td>' +
+        '<td><span class="actions"><button type="button" class="btn btn-sm" data-act="pessoa-editar" data-id="' + p.id + '">Editar</button><button type="button" class="btn btn-sm" data-act="acesso-editar" data-id="' + p.id + '">Acesso</button></span></td></tr>';
+    }).join('');
+    var e = S.empresa;
+    var emp = '<form class="card card-pad stack" data-form="empresa-dados"><h2 class="sec">Dados da empresa</h2><div class="field"><label for="ed-n">Nome</label><input id="ed-n" name="n" maxlength="80" value="' + esc(e.nome) + '" required></div><div class="field"><label for="ed-r">Razão social</label><input id="ed-r" name="r" maxlength="120" value="' + esc(e.razao || '') + '"></div>' +
+      '<div class="form-grid"><div class="field"><label for="ed-c">CNPJ</label><input id="ed-c" name="c" maxlength="18" inputmode="numeric" value="' + esc(e.cnpj || '') + '"></div><div class="field"><label for="ed-ci">Cidade/UF</label><input id="ed-ci" name="ci" maxlength="60" value="' + esc(e.cidade || '') + '"></div></div>' +
+      '<div class="field"><label for="ed-e">Endereço</label><input id="ed-e" name="e" maxlength="140" value="' + esc(e.endereco || '') + '"></div><button class="btn" type="submit">Salvar dados da empresa</button></form>';
+    var aud = (S.auditoria || []).slice(0, 25).map(function (x) { return '<li><span>' + esc(x.acao) + '<span class="sub">' + esc(x.detalhe) + ' · ' + esc(x.por) + ' · ' + esc(x.em) + '</span></span></li>'; }).join('');
+    return titleRow('Equipe e acessos', 'Cadastro das pessoas, o que cada uma pode fazer no app e o registro de alterações', '<button type="button" class="btn" data-act="convite-contador">Convidar contador</button><button type="button" class="btn btn-primary" data-act="pessoa-editar">Cadastrar pessoa</button>') +
+      '<div class="grid-main"><div class="stack"><div class="card"><div class="table-box"><table class="t"><thead><tr><th>Pessoa</th><th class="num hide-sm">Salário</th><th class="num hide-sm">Entrada</th><th>Acesso ao app</th><th></th></tr></thead><tbody>' + (rows || '<tr><td colspan="5">Nenhuma pessoa cadastrada ainda.</td></tr>') + '</tbody></table></div></div>' +
+      '<div class="card"><div class="card-head"><h2>Registro de alterações</h2><span class="ui-sub">Acessos, permissões e banco de horas</span></div>' + (aud ? '<ul class="list">' + aud + '</ul>' : '<p class="card-pad ui-sub">Nenhuma alteração registrada.</p>') + '</div></div>' +
+      '<div class="stack">' + emp + '<div class="notice info"><div><strong>Gerente</strong>Um funcionário pode virar gerente e receber permissões, como lançar no banco de horas da equipe. Tudo que ele faz fica registrado com nome, data e hora.</div></div></div></div>';
+  }
+  function pessoaForm(p) {
+    p = p || {}; var cgs = CARGOS.map(function (c) { return '<option value="' + c.id + '"' + (c.id === p.cargo ? ' selected' : '') + '>' + esc(c.cargo) + ' · CBO ' + esc(c.cbo) + '</option>'; }).join('');
+    var f = function (id, l, n, v, extra) { return '<div class="field"><label for="' + id + '">' + l + '</label><input id="' + id + '" name="' + n + '" value="' + esc(v == null ? '' : v) + '"' + (extra || '') + '></div>'; };
+    return '<form class="stack" data-form="pessoa" data-id="' + esc(p.id || '') + '">' + f('pe-n', 'Nome completo', 'n', p.nome, ' maxlength="80" required') +
+      '<div class="form-grid">' + f('pe-c', 'CPF (para o login no app)', 'c', p.cpf && p.cpf.indexOf('[') < 0 ? p.cpf : '', ' maxlength="14" inputmode="numeric"') + f('pe-t', 'WhatsApp', 't', p.fone, ' maxlength="20" inputmode="tel"') + '</div>' +
+      '<div class="form-grid">' + f('pe-f', 'Função na empresa', 'f', p.funcao, ' maxlength="60" required') + f('pe-s', 'Setor', 's', p.setor, ' maxlength="40"') + '</div>' +
+      '<div class="field"><label for="pe-g">Cargo (base com CBO, usado no contrato)</label><select id="pe-g" name="g">' + cgs + '</select></div>' +
+      '<div class="form-grid">' + f('pe-sa', 'Salário (R$)', 'sa', p.salario, ' type="number" min="0" step="0.01"') + f('pe-e', 'Entrada (escala)', 'e', p.escala || '08:00', ' type="time"') + f('pe-a', 'Admissão', 'a', p.admissao || S.hoje, ' type="date"') + '</div>' +
+      '<button class="btn btn-primary" type="submit">' + (p.id ? 'Salvar' : 'Cadastrar') + '</button></form>';
+  }
+  function cpfValido(c) {
+    c = String(c || '').replace(/\D/g, ''); if (c.length !== 11 || /^(\d)\1+$/.test(c)) return false;
+    var s = 0, i; for (i = 0; i < 9; i++) s += +c[i] * (10 - i); var d1 = (s * 10) % 11 % 10; if (d1 !== +c[9]) return false;
+    s = 0; for (i = 0; i < 10; i++) s += +c[i] * (11 - i); return (s * 10) % 11 % 10 === +c[10];
+  }
+  function fmtCPF(c) { c = String(c).replace(/\D/g, ''); return c.slice(0, 3) + '.' + c.slice(3, 6) + '.' + c.slice(6, 9) + '-' + c.slice(9); }
+  function hojeISO() { var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+  function novoEmBranco(tipo, nome) {
+    var s = novoExemplo(tipo);
+    s.empresa = { nome: nome || 'Minha empresa', razao: nome || '', cnpj: '', cidade: '', endereco: '', codigo: s.empresa.codigo };
+    s.pessoas = []; s.ponto = {}; s.marcacoesMetodo = {}; s.atestados = []; s.advertencias = []; s.faltas = []; s.horasExtras = {};
+    s.holerites = { competencia: hojeISO().slice(0, 7), status: 'aguardando', lancadoEm: '', aprovados: [] };
+    s.vales = []; s.produtos = []; s.compras = { itens: [] }; s.vagas = []; s.admissoes = []; s.treinos = {}; s.banco = []; s.acessos = {}; s.auditoria = [];
+    s.checklists = (s.checklists || []).map(function (c) { return { id: c.id, setor: c.setor, nome: c.nome, hora: c.hora, resp: '', foto: c.foto, itens: c.itens.map(function (i) { return { t: i.t, foto: i.foto, feito: false }; }) }; });
+    if (s.bp) { s.bp.temps = []; s.bp.docs.forEach(function (d) { d.ult = ''; if (d.venc) d.venc = ''; }); }
+    if (s.agencia) { s.clientes = []; } delete s.envSeed;
+    s.hoje = hojeISO(); s.agoraDemo = null; s.real = true; s.plano = 'avaliacao';
+    return s;
+  }
+
   /* ---------- Ponto ---------- */
   var METODO = { celular: 'Celular autorizado', 'fixo-rosto': 'Aparelho fixo · rosto', 'fixo-digital': 'Aparelho fixo · digital' };
   function vPonto() {
-    var func = S.role === 'funcionario';
-    var quem = func ? P(ME) : P(S.ui.pontoPessoa || 'e3');
+    var func = ehFunc() && !pode('ponto');
+    var quem = func ? P(ME) : (P(S.ui.pontoPessoa) || P('e3') || S.pessoas[0]);
     var metodo = S.ui.metodo || (quem.celular ? 'celular' : 'fixo');
     var bloqueado = metodo === 'celular' && !quem.celular;
     var opts = S.pessoas.map(function (p) { return '<option value="' + p.id + '"' + (p.id === quem.id ? ' selected' : '') + '>' + esc(p.nome) + '</option>'; }).join('');
@@ -648,7 +950,7 @@
       '<p class="ui-sub">Ponto por programa (REP-P) segundo a Portaria MTP 671/2021. A imagem do rosto não é guardada; só o resultado da conferência.</p></div>';
     if (func) {
       var hist = ['Entrada', 'Saída intervalo', 'Volta', 'Saída'].map(function (n, i) { return '<li><span>' + n + '</span><span class="num">' + esc(m[i] || '·') + '</span></li>'; }).join('');
-      return titleRow('Ponto', 'Escala de hoje: entrada às ' + esc(quem.escala)) + '<div class="grid-2">' + painel + '<div><h2 class="sec">Suas marcações de hoje</h2><div class="card"><ul class="list">' + hist + '</ul></div></div></div>';
+      return titleRow('Ponto', 'Escala de hoje: entrada às ' + esc(quem.escala)) + '<div class="grid-2">' + painel + '<div class="stack"><h2 class="sec">Suas marcações de hoje</h2><div class="card"><ul class="list">' + hist + '</ul></div>' + bancoHTML() + '</div></div>';
     }
     var rows = S.pessoas.map(function (p) {
       var mk = S.ponto[p.id] || ['', '', '', ''], s = situacaoPonto(p);
@@ -657,14 +959,14 @@
     var aut = S.pessoas.map(function (p) { return '<li><label class="check"><input type="checkbox" data-in="aut" data-id="' + p.id + '"' + (p.celular ? ' checked' : '') + (S.role === 'empresa' ? '' : ' disabled') + '> ' + esc(p.nome) + '</label><span class="sub">' + (p.celular ? 'celular ou fixo' : 'só fixo') + '</span></li>'; }).join('');
     return titleRow('Ponto e jornada', 'Quinta-feira, 05/11 · situação às ' + demoAgora() + ' · tolerância de 10 minutos por dia (CLT, art. 58, § 1º)', '<button type="button" class="btn" data-act="export-afd">Exportar arquivo para a fiscalização (AFD)</button>') +
       '<div class="grid-main"><div class="card"><div class="table-box"><table class="t stack-sm"><thead><tr><th>Pessoa</th><th class="num">Escala</th><th class="num hide-sm">Entrada</th><th class="num hide-sm">Intervalo</th><th class="num hide-sm">Volta</th><th class="num hide-sm">Saída</th><th class="hide-sm">Como marcou</th><th>Situação</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>' +
-      '<div class="stack">' + painel + '<div><h2 class="sec">Quem pode marcar pelo celular</h2><div class="card"><ul class="list">' + aut + '</ul></div></div></div></div>';
+      '<div class="stack">' + painel + (S.role === 'gerente' ? '' : '<div><h2 class="sec">Quem pode marcar pelo celular</h2><div class="card"><ul class="list">' + aut + '</ul></div></div>') + '</div></div>' + bancoHTML();
   }
   var clockTimer;
   function tickClock() { clearInterval(clockTimer); var f = function () { var c = $('#clock'); if (!c) { clearInterval(clockTimer); return; } c.textContent = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }); }; f(); clockTimer = setInterval(f, 1000); }
 
   /* ---------- Atestados e advertências ---------- */
   function vOcorrencias() {
-    var tab = S.ui.oc || 'atestados', func = S.role === 'funcionario';
+    var tab = S.ui.oc || 'atestados', func = ehFunc();
     var tabs = '<div class="tabs" role="tablist"><button type="button" role="tab" data-act="oc" data-v="atestados" aria-selected="' + (tab === 'atestados') + '">Atestados</button><button type="button" role="tab" data-act="oc" data-v="advertencias" aria-selected="' + (tab === 'advertencias') + '">Advertências</button></div>';
     var aviso = '<div class="notice"><div><strong>O atestado só vale com o original em papel</strong>A foto enviada pelo app serve para a empresa saber da ausência na hora. O funcionário precisa entregar o atestado original fisicamente ao RH em até 48 horas; até lá, a falta fica como não abonada.</div></div>';
     if (tab === 'atestados') {
@@ -699,7 +1001,7 @@
   }
   function vHolerites() {
     var comp = 'outubro de 2026';
-    if (S.role === 'funcionario') {
+    if (ehFunc()) {
       var st = statusHolerite(ME);
       return titleRow('Seus holerites', 'A empresa aprova antes de liberar para você') + '<div class="card"><ul class="list">' +
         '<li><span>Outubro de 2026<span class="sub">' + (st === 'liberado' ? 'Liberado pela empresa' : 'Lançado pelo contador; aguardando aprovação da empresa') + '</span></span>' + (st === 'liberado' ? '<button type="button" class="btn btn-sm btn-primary" data-act="slip" data-id="' + ME + '">Ver e baixar</button>' : pill('warn', 'Em aprovação')) + '</li>' +
@@ -724,7 +1026,7 @@
   /* ---------- Checklists ---------- */
   var FOTO = { todos: 'Foto em todos os itens', parcial: 'Só nos itens marcados', nenhum: 'Sem foto' };
   function vChecklists() {
-    var func = S.role === 'funcionario', c = S.checklists.filter(function (x) { return x.id === (S.ui.ck || 'c1'); })[0];
+    var func = ehFunc() && !pode('checklists'), c = S.checklists.filter(function (x) { return x.id === (S.ui.ck || 'c1'); })[0];
     var tabs = S.checklists.map(function (x) { return '<button type="button" role="tab" data-act="ck" data-id="' + x.id + '" aria-selected="' + (x.id === c.id) + '">' + esc(x.setor) + '</button>'; }).join('');
     var feitos = c.itens.filter(function (i) { return i.feito; }).length, fotosReq = c.itens.filter(function (i) { return i.foto; }).length, fotos = c.itens.filter(function (i) { return i.foto && i.fotoEm; }).length;
     var itens = c.itens.map(function (it, i) {
@@ -734,7 +1036,7 @@
     }).join('');
     var regra = func ? '' : '<div class="field"><span class="lbl-s">Fotos de cumprimento</span><div class="seg">' + Object.keys(FOTO).map(function (k) { return '<button type="button" data-act="ck-regra" data-v="' + k + '" aria-pressed="' + (c.foto === k) + '">' + FOTO[k] + '</button>'; }).join('') + '</div></div>';
     return titleRow('Checklists', 'Rotinas por setor e por pessoa, com foto do que foi feito') + '<div class="tabs" role="tablist">' + tabs + '</div>' +
-      '<div class="grid-main"><div class="card"><div class="card-head"><h2>' + esc(c.nome) + ' · ' + esc(c.hora) + '</h2><span class="ui-sub">' + esc(P(c.resp).nome) + '</span></div>' + itens +
+      '<div class="grid-main"><div class="card"><div class="card-head"><h2>' + esc(c.nome) + ' · ' + esc(c.hora) + '</h2><span class="ui-sub">' + esc(nomeDe(c.resp)) + '</span></div>' + itens +
       (func ? '' : '<form class="ck-item" data-form="ck-novo"><span></span><div class="field"><label class="sr-only" for="novo-item">Novo item</label><input id="novo-item" name="t" maxlength="90" placeholder="Novo item do checklist" required></div><button class="btn btn-sm" type="submit">Adicionar</button></form>') + '</div>' +
       '<div class="stack"><div class="card card-pad stack"><h2 class="sec">Andamento</h2><div><div class="num"><strong>' + feitos + ' de ' + c.itens.length + '</strong> itens feitos</div><progress max="' + c.itens.length + '" value="' + feitos + '">' + feitos + '</progress></div><div><div class="num"><strong>' + fotos + ' de ' + fotosReq + '</strong> fotos enviadas</div><progress max="' + (fotosReq || 1) + '" value="' + fotos + '">' + fotos + '</progress></div>' + regra + '</div></div></div>';
   }
@@ -751,13 +1053,13 @@
     var escolhidos = S.produtos.filter(function (p) { return sel[p.id]; });
     var prev = escolhidos.length ? '<div class="card card-pad stack"><div class="title-row"><div><h2 class="sec">Prévia das etiquetas</h2><p class="ui-sub">Código de barras padrão Code 39, lido por leitores comuns.</p></div><div class="actions"><label class="check ui-sub">Cópias de cada <input type="number" min="1" max="40" value="' + (S.ui.copias || 2) + '" data-in="copias" class="num" aria-label="Cópias de cada etiqueta"></label><button type="button" class="btn btn-primary" data-act="print-etq">Imprimir etiquetas</button></div></div><div class="labels" id="labels">' + escolhidos.map(function (p) { return labelHTML(p, 1); }).join('') + '</div></div>' : '<div class="notice info"><div>Marque os produtos na tabela para gerar as etiquetas.</div></div>';
     var nSug = sugestaoCompra().length;
-    return titleRow('Estoque e etiquetas', S.produtos.filter(function (p) { return p.qtd < p.min; }).length + ' produtos abaixo do mínimo', '<button type="button" class="btn btn-primary" data-act="cmp-ir">' + (nSug ? 'Pôr ' + nSug + ' na lista de compras' : 'Ver lista de compras') + '</button>') +
+    return titleRow('Estoque e etiquetas', S.produtos.filter(function (p) { return p.qtd < p.min; }).length + ' produtos abaixo do mínimo', '<button type="button" class="btn" data-act="prod-novo">Cadastrar produto</button><button type="button" class="btn btn-primary" data-act="cmp-ir">' + (nSug ? 'Pôr ' + nSug + ' na lista de compras' : 'Ver lista de compras') + '</button>') +
       '<div class="stack"><div class="card"><div class="table-box"><table class="t stack-sm"><thead><tr><th><span class="sr-only">Etiqueta</span></th><th>Produto</th><th class="hide-sm">Validade</th><th class="num">Quantidade</th><th class="num hide-sm">Mínimo</th><th>Estoque</th><th class="num hide-sm">Preço (R$)</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>' + prev + '</div>';
   }
 
   /* ---------- Vales ---------- */
   function vVales() {
-    var func = S.role === 'funcionario';
+    var func = ehFunc();
     var lista = S.vales.filter(function (v) { return !func || v.pessoa === ME; }).slice().sort(function (a, b) { return a.data < b.data ? 1 : -1; });
     var rows = lista.map(function (v) {
       var aut = v.assinado ? pill('ok', 'Assinado ' + dmy(v.assinado)) : pill('warn', 'Aguardando assinatura');
@@ -921,7 +1223,7 @@
     vaga: function (b) { S.ui.vaga = b.dataset.id; save(); render(); },
     'crit-reg': function (b) { vagaAtual().crit.regime = b.dataset.v; save(); render(); },
     'crit-tur': function (b) { var k = vagaAtual().crit, i = k.turnos.indexOf(b.dataset.v); if (i > -1) k.turnos.splice(i, 1); else k.turnos.push(b.dataset.v); save(); render(); },
-    'copiar-link': function () { var url = location.origin + location.pathname.replace(/app\.html$/, '') + 'triagem.html?vaga=' + vagaAtual().id + '&t=' + encodeURIComponent(S.tipo || ''); if (navigator.clipboard) navigator.clipboard.writeText(url).then(function () { toast('Link da pré-entrevista copiado. É ele que vai no anúncio da vaga ou no WhatsApp.'); }, function () { toast(url); }); else toast(url); },
+    'copiar-link': function () { var url = location.origin + location.pathname.replace(/app\.html$/, '') + 'triagem.html?vaga=' + vagaAtual().id + (NUVEM ? '&e=' + encodeURIComponent(S.empresa.codigo || '') : '&t=' + encodeURIComponent(S.tipo || '')); if (navigator.clipboard) navigator.clipboard.writeText(url).then(function () { toast('Link da pré-entrevista copiado. É ele que vai no anúncio da vaga ou no WhatsApp.'); }, function () { toast(url); }); else toast(url); },
     'cand-ver': function (b) {
       var g = vagaAtual(), c = g.cands[+b.dataset.i], R = window.CENTRALIZAR_ROTULOS || {}, cg = cargoPor(g.cargo), m = avalia(c, g.crit);
       var lin = function (l, v) { return v ? '<li><span class="sub">' + esc(l) + '</span><span>' + esc(v) + '</span></li>' : ''; };
@@ -969,7 +1271,7 @@
     metodo: function (b) { S.ui.metodo = b.dataset.v; S.ui.faceOk = false; save(); render(); },
     face: function () { var f = $('#face'); if (f) f.textContent = 'Conferindo…'; setTimeout(function () { S.ui.faceOk = true; render(); }, 700); },
     marcar: function () {
-      var p = S.role === 'funcionario' ? P(ME) : P(S.ui.pontoPessoa || 'e3'), m = S.ponto[p.id] || (S.ponto[p.id] = ['', '', '', '']), i = m.indexOf('');
+      var p = ehFunc() && !pode('ponto') ? P(ME) : (P(S.ui.pontoPessoa) || P('e3') || S.pessoas[0]), m = S.ponto[p.id] || (S.ponto[p.id] = ['', '', '', '']), i = m.indexOf('');
       if (i < 0) return;
       var hora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); m[i] = hora; S.nsr++;
       var met = S.ui.metodo === 'celular' || (!S.ui.metodo && p.celular) ? 'celular' : 'fixo-rosto';
@@ -1032,7 +1334,7 @@
       var g = vagaAtual(), cl = clientePor(g.cliente), x = integ(), n = 0;
       g.cands.forEach(function (c, i) {
         if (c.etapa !== 'curta' || c.compartilhar === false) return;
-        var id = 'env-' + g.id + '-' + Date.now() + '-' + i;
+        var id = NUVEM && window.crypto && crypto.randomUUID ? crypto.randomUUID() : 'env-' + g.id + '-' + Date.now() + '-' + i;
         x.envios.push({ id: id, para: cl.codigo, de: S.empresa.nome, processo: g.id, titulo: g.titulo, cargo: g.cargo, salario: g.salario, em: agora(), status: 'enviado', cand: resumoCand(c) });
         c.etapa = 'enviado'; c.envio = id; n++;
       });
@@ -1061,6 +1363,50 @@
       var e = envioPor(b.dataset.id); if (!e) return;
       modal('Recusar · ' + (e.cand || {}).n, '<form class="stack" data-form="rec-nao" data-id="' + esc(e.id) + '"><div class="field"><label for="rm">Motivo (vai para a recrutadora)</label><select id="rm" name="m"><option>Perfil diferente do pedido</option><option>Experiência insuficiente para a função</option><option>Disponibilidade de horário incompatível</option><option>Vaga já preenchida</option><option>Pretensão acima do orçamento</option></select></div><button class="btn btn-primary" type="submit">Recusar</button></form>');
     },
+    sair: function () { Nuvem.sair().then(function () { location.href = 'entrar.html'; }); },
+    recarregar: function () { location.reload(); },
+    'pessoa-editar': function (b) { var p = b.dataset.id ? P(b.dataset.id) : null; modal(p ? 'Editar · ' + p.nome : 'Cadastrar pessoa', pessoaForm(p)); },
+    'acesso-editar': function (b) {
+      var p = P(b.dataset.id), a = acessoDe(p.id);
+      var op = function (v, l, s) { return '<label class="check"><input type="radio" name="papel" value="' + v + '"' + (a.papel === v ? ' checked' : '') + '> <span><strong>' + l + '</strong><span class="sub">' + s + '</span></span></label>'; };
+      modal('Acesso ao app · ' + p.nome, '<form class="stack" data-form="acesso" data-id="' + p.id + '"><fieldset class="field cand-set"><legend>O que essa pessoa é no app</legend>' +
+        op('nenhum', 'Sem acesso', 'Não entra no app') + op('funcionario', 'Funcionário', 'Bate ponto, envia atestado, vê holerite, vales, checklists e cursos') + op('gerente', 'Gerente', 'Tudo do funcionário e mais as permissões marcadas abaixo') + '</fieldset>' +
+        '<fieldset class="field cand-set"><legend>Permissões do gerente</legend>' + Object.keys(PERMS).map(function (k) { return '<label class="check"><input type="checkbox" name="perm" value="' + k + '"' + (a.perms.indexOf(k) > -1 ? ' checked' : '') + '> ' + esc(PERMS[k]) + '</label>'; }).join('') + '</fieldset>' +
+        '<div class="actions"><button class="btn btn-primary" type="submit">Salvar acesso</button>' + (a.papel !== 'nenhum' ? '<button type="button" class="btn" data-act="gerar-acesso" data-id="' + p.id + '">Gerar código de primeiro acesso</button>' : '') + '</div>' +
+        '<p class="ui-sub">A mudança fica no registro de alterações, com quem fez, data e hora.</p></form>');
+    },
+    'gerar-acesso': function (b) {
+      var p = P(b.dataset.id); if (!p) return;
+      if (!cpfValido(p.cpf)) { toast('Cadastre um CPF válido para ' + first(p.nome) + ' antes de gerar o acesso (Equipe > Editar).'); return; }
+      var mostra = function (cod) {
+        var link = location.href.split('#')[0].replace(/app\.html.*$/, 'entrar.html') + '#primeiro';
+        var msg = 'Olá, ' + first(p.nome) + '! Seu acesso ao app da ' + S.empresa.nome + ': entre em ' + link + ', escolha "Primeiro acesso" e use seu CPF e o código ' + cod + '. O código vale por 72 horas.';
+        if (NUVEM) publicarDocs(true, p.id);
+        modal('Código de primeiro acesso', '<p>Envie para ' + esc(first(p.nome)) + ' (vale por 72 horas e só uma vez):</p><p class="codigo num">' + esc(cod) + '</p><div class="notice info"><div><strong>Mensagem pronta para o WhatsApp</strong>' + esc(msg) + '</div></div>' + (NUVEM ? '' : '<p class="ui-sub">Exemplo: o código só funciona com o app conectado ao banco de dados.</p>'));
+        auditar('Código de acesso gerado', p.nome); save();
+      };
+      if (NUVEM) Nuvem.criarConvite(acessoDe(p.id).papel === 'gerente' ? 'gerente' : 'funcionario', p.id, p.cpf, p.nome).then(mostra, function (e) { toast('Não foi possível gerar o código: ' + (e && e.message || 'erro')); });
+      else mostra('DEMO-' + Math.random().toString(36).slice(2, 8).toUpperCase());
+    },
+    'convite-contador': function () { modal('Convidar contador', '<form class="stack" data-form="convite-contador"><div class="field"><label for="cc-n">Nome do contador ou escritório</label><input id="cc-n" name="n" maxlength="80" required></div><button class="btn btn-primary" type="submit">Gerar código</button><p class="ui-sub">O contador cria a conta com e-mail e senha e depois digita o código.</p></form>'); },
+    'banco-estornar': function (b) {
+      var o = (S.banco || []).filter(function (x) { return x.id === b.dataset.id; })[0]; if (!o || !pode('banco')) return;
+      S.banco.push({ id: 'b' + Date.now(), pessoa: o.pessoa, min: -o.min, motivo: 'Estorno do lançamento de ' + o.em + ' (' + o.motivo + ')', por: S.role === 'empresa' ? 'empresa' : ME, porNome: quemSou(), em: agora(), estorno: o.id });
+      auditar('Banco de horas: estorno', (P(o.pessoa) || {}).nome + ' ' + fmtMin(-o.min)); save(); render(); toast('Estorno lançado. O lançamento original continua no histórico.');
+    },
+    'vaga-nova': function () {
+      var cgs = CARGOS.map(function (c) { return '<option value="' + c.id + '">' + esc(c.cargo) + ' · CBO ' + esc(c.cbo) + '</option>'; }).join('');
+      modal('Nova vaga', '<form class="stack" data-form="vaga-nova"><div class="field"><label for="vn-t">Título</label><input id="vn-t" name="t" maxlength="60" required></div><div class="field"><label for="vn-g">Cargo (base com CBO)</label><select id="vn-g" name="g">' + cgs + '</select></div>' +
+        '<div class="form-grid"><div class="field"><label for="vn-m">Contratação</label><select id="vn-m" name="m"><option value="experiencia">CLT · experiência de 45 dias</option><option value="indeterminado">CLT · prazo indeterminado</option><option value="intermitente">Intermitente</option><option value="autonomo">Freelancer (autônomo)</option></select></div><div class="field"><label for="vn-s">Salário ou diária (R$)</label><input id="vn-s" name="s" type="number" min="0" step="0.01" required></div></div><button class="btn btn-primary" type="submit">Abrir vaga</button></form>');
+    },
+    'prod-novo': function () {
+      var f = function (id, l, n, extra) { return '<div class="field"><label for="' + id + '">' + l + '</label><input id="' + id + '" name="' + n + '"' + (extra || '') + '></div>'; };
+      modal('Cadastrar produto', '<form class="stack" data-form="prod-novo">' + f('pn-n', 'Nome', 'n', ' maxlength="80" required') + '<div class="form-grid">' + f('pn-c', 'Código', 'c', ' maxlength="20"') + f('pn-u', 'Unidade', 'u', ' maxlength="10" value="un"') + '</div>' +
+        '<div class="form-grid">' + f('pn-q', 'Quantidade', 'q', ' type="number" min="0" value="0"') + f('pn-mi', 'Mínimo', 'mi', ' type="number" min="0" value="0"') + f('pn-i', 'Ideal', 'i', ' type="number" min="0" value="0"') + '</div>' +
+        '<div class="form-grid">' + f('pn-v', 'Validade', 'v', ' type="date"') + f('pn-p', 'Preço de venda (R$)', 'p', ' type="number" min="0" step="0.01"') + f('pn-cu', 'Custo (R$)', 'cu', ' type="number" min="0" step="0.01"') + '</div>' +
+        '<div class="form-grid">' + f('pn-fo', 'Fornecedor', 'fo', ' maxlength="60"') + f('pn-l', 'Lote', 'l', ' maxlength="20"') + '</div><button class="btn btn-primary" type="submit">Cadastrar</button></form>');
+    },
+    'em-branco': function () { modal('Começar em branco', '<form class="stack" data-form="em-branco"><p>Apaga os dados de exemplo deste navegador e abre a empresa vazia, para cadastrar a sua equipe.</p><div class="field"><label for="eb-n">Nome da empresa</label><input id="eb-n" name="n" maxlength="80" value="' + esc(S.empresa.nome) + '" required></div><button class="btn btn-primary" type="submit">Começar em branco</button></form>'); },
     'ct-extra-del': function (b) { var c = ctEstado(), i = +b.dataset.i; if (c.extras[i]) { c.extras.splice(i, 1); c.checks = {}; save(); render(); toast('Cláusula removida do contrato.'); } },
     'cmp-print': function () { printHTML(listaHTML(), 'Lista de compras ' + S.empresa.nome); },
     'cmp-receber': function () {
@@ -1100,10 +1446,67 @@
       var x2 = integ(), e2 = x2.envios.filter(function (y) { return y.id === f.dataset.id; })[0]; if (!e2) return;
       e2.status = 'recusado'; e2.motivo = String(d.get('m') || '').slice(0, 80); e2.decididoEm = agora(); salvaInteg(x2); closeModal(); render(); toast('Recusa registrada e enviada para a recrutadora.'); return;
     }
+    if (k === 'nuvem-empresa') { var nn = String(d.get('n') || '').trim().slice(0, 80); if (nn.length < 2) return; criarEmpresaNuvem(nn, String(d.get('t') || 'padaria')).catch(function (e) { toast(e.message); }); return; }
+    if (k === 'pessoa') {
+      var nm = String(d.get('n') || '').trim().replace(/\s+/g, ' ').slice(0, 80), cpf = String(d.get('c') || '').replace(/\D/g, '');
+      if (nm.split(' ').length < 2) { toast('Informe o nome completo.'); return; }
+      if (cpf && !cpfValido(cpf)) { toast('CPF inválido.'); return; }
+      var pid = f.dataset.id, pe = pid ? P(pid) : null, novo = !pe;
+      if (novo) { pe = { id: 'p' + Date.now().toString(36), celular: false }; S.pessoas.push(pe); S.ponto[pe.id] = ['', '', '', '']; }
+      pe.nome = nm; pe.cpf = cpf ? fmtCPF(cpf) : ''; pe.fone = String(d.get('t') || '').trim().slice(0, 20); pe.funcao = String(d.get('f') || '').trim().slice(0, 60); pe.setor = String(d.get('s') || '').trim().slice(0, 40) || 'Geral';
+      pe.cargo = cargoPor(String(d.get('g'))).id; pe.salario = Math.max(0, +d.get('sa') || 0); pe.escala = /^\d\d:\d\d$/.test(d.get('e')) ? d.get('e') : '08:00'; pe.admissao = String(d.get('a') || S.hoje).slice(0, 10);
+      auditar(novo ? 'Pessoa cadastrada' : 'Cadastro alterado', nm); save(); closeModal(); render(); toast(novo ? nm.split(' ')[0] + ' cadastrado(a). Em "Acesso", gere o código do app.' : 'Cadastro salvo.'); return;
+    }
+    if (k === 'acesso') {
+      var pa = P(f.dataset.id); if (!pa) return;
+      var papel = String(d.get('papel') || 'funcionario'), perms = papel === 'gerente' ? d.getAll('perm').filter(function (x) { return PERMS[x]; }) : [];
+      if (['nenhum', 'funcionario', 'gerente'].indexOf(papel) < 0) return;
+      var antes = acessoDe(pa.id); S.acessos = S.acessos || {}; S.acessos[pa.id] = { papel: papel, perms: perms };
+      auditar('Acesso alterado', pa.nome + ': ' + (antes.papel === 'gerente' ? 'Gerente' : antes.papel === 'nenhum' ? 'Sem acesso' : 'Funcionário') + ' → ' + (papel === 'gerente' ? 'Gerente' : papel === 'nenhum' ? 'Sem acesso' : 'Funcionário') + (perms.length ? ' (' + perms.map(function (x) { return PERMS[x]; }).join('; ') + ')' : ''));
+      if (NUVEM) Nuvem.alterarAcesso(pa.id, papel, perms, pa.nome).then(function () { return Nuvem.membros(); }).then(function (ms) { MEMBROS = ms || []; publicarDocs(true); }).catch(function () { toast('O acesso foi salvo, mas a conta dessa pessoa ainda não está ligada ao app.'); });
+      save(); closeModal(); render(); toast('Acesso salvo e registrado.'); return;
+    }
+    if (k === 'banco') {
+      if (!pode('banco')) return;
+      var bp = P(String(d.get('p'))), mins = (Math.max(0, +d.get('h') || 0) * 60 + Math.max(0, Math.min(59, +d.get('m') || 0))) * (d.get('t') === '-1' ? -1 : 1), mot = String(d.get('x') || '').trim().slice(0, 120);
+      if (!bp || !mins) { toast('Informe a pessoa e as horas.'); return; }
+      if (mot.length < 5) { toast('Descreva o motivo do lançamento.'); return; }
+      S.banco = S.banco || []; S.banco.push({ id: 'b' + Date.now(), pessoa: bp.id, min: mins, motivo: mot, por: S.role === 'empresa' ? 'empresa' : ME, porNome: quemSou(), em: agora() });
+      auditar('Banco de horas', bp.nome + ' ' + fmtMin(mins) + ': ' + mot); save(); render(); toast('Lançado no banco de horas de ' + first(bp.nome) + ' (' + fmtMin(mins) + ').'); return;
+    }
+    if (k === 'empresa-dados') {
+      var en = String(d.get('n') || '').trim().slice(0, 80); if (en.length < 2) return;
+      S.empresa.nome = en; S.empresa.razao = String(d.get('r') || '').trim().slice(0, 120); S.empresa.cnpj = String(d.get('c') || '').trim().slice(0, 18); S.empresa.cidade = String(d.get('ci') || '').trim().slice(0, 60); S.empresa.endereco = String(d.get('e') || '').trim().slice(0, 140);
+      auditar('Dados da empresa alterados', en); save(); render(); toast('Dados da empresa salvos.'); return;
+    }
+    if (k === 'convite-contador') {
+      var cn = String(d.get('n') || '').trim().slice(0, 80); if (!cn) return;
+      var mostraC = function (cod) { modal('Código do contador', '<p>Envie para ' + esc(cn) + ':</p><p class="codigo num">' + esc(cod) + '</p><p class="ui-sub">O contador cria a conta em "Entrar" com e-mail e senha e, já logado, digita o código em "Tenho um código". Vale por 72 horas.</p>'); auditar('Contador convidado', cn); save(); };
+      if (NUVEM) Nuvem.criarConvite('contador', null, null, cn).then(mostraC, function (e) { toast('Não foi possível gerar o código: ' + (e && e.message || 'erro')); });
+      else mostraC('DEMO-' + Math.random().toString(36).slice(2, 8).toUpperCase());
+      return;
+    }
+    if (k === 'vaga-nova') {
+      var vt = String(d.get('t') || '').trim().slice(0, 60), vm = String(d.get('m')), vc = cargoPor(String(d.get('g'))); if (!vt) return;
+      var rot = { experiencia: 'CLT · experiência de 45 dias', indeterminado: 'CLT · prazo indeterminado', intermitente: 'CLT · intermitente', autonomo: 'Freelancer · por diária' };
+      var vid = 'g' + Date.now().toString(36);
+      S.vagas.push({ id: vid, titulo: vt, cargo: vc.id, modelo: rot[vm] ? vm : 'experiencia', regimeOferta: rot[vm] || rot.experiencia, salario: Math.max(0, +d.get('s') || 0), aberta: true, crit: { regime: vm === 'autonomo' ? 'free' : 'clt', turnos: [], km: 15, exp: 0 }, cands: [] });
+      S.ui.vaga = vid; save(); closeModal(); render(); toast('Vaga aberta. Copie o link da pré-entrevista e divulgue.'); return;
+    }
+    if (k === 'prod-novo') {
+      var pn = String(d.get('n') || '').trim().slice(0, 80); if (!pn) return;
+      var num = function (x) { var v = d.get(x); return v === '' || v === null ? null : Math.max(0, +v || 0); };
+      S.produtos.push({ id: 'pr' + Date.now().toString(36), nome: pn, cod: String(d.get('c') || '').trim().slice(0, 20) || 'P-' + (S.produtos.length + 1), un: String(d.get('u') || 'un').trim().slice(0, 10), qtd: num('q') || 0, min: num('mi') || 0, ideal: num('i') || 0, validade: String(d.get('v') || '') || '2099-12-31', preco: num('p'), custo: num('cu'), fornecedor: String(d.get('fo') || '').trim().slice(0, 60) || 'Sem fornecedor', lote: String(d.get('l') || '').trim().slice(0, 20) });
+      save(); closeModal(); render(); toast('Produto cadastrado.'); return;
+    }
+    if (k === 'em-branco') {
+      var bn = String(d.get('n') || '').trim().slice(0, 80) || 'Minha empresa', tp0 = S.tipo || 'padaria';
+      S = novoEmBranco(tp0, bn); S.role = 'empresa'; S.ui = {}; S.nsr = 1; save(); closeModal(); location.hash = '#/equipe'; render(); toast('Empresa em branco criada. Comece cadastrando a equipe.'); return;
+    }
     if (k === 'temp') {
       var eqp = String(d.get('eq')), tv = parseFloat(String(d.get('t') || '').replace(',', '.')), ac = String(d.get('a') || '').trim().slice(0, 140);
       if (!S.bp || !S.bp.equip.some(function (e) { return e.id === eqp; }) || !isFinite(tv) || tv < -40 || tv > 300) { toast('Informe uma temperatura válida.'); return; }
-      var reg = { eq: eqp, data: S.hoje, hora: new Date().toTimeString().slice(0, 5), t: Math.round(tv * 10) / 10, por: S.role === 'funcionario' ? ME : null, acao: ac };
+      var reg = { eq: eqp, data: S.hoje, hora: new Date().toTimeString().slice(0, 5), t: Math.round(tv * 10) / 10, por: ehFunc() ? ME : null, acao: ac };
       if (!tempOk(reg) && !ac) { toast('Fora da faixa: descreva a ação corretiva antes de registrar.'); var fa = $('#bt-a'); if (fa) fa.focus(); return; }
       S.bp.temps.push(reg); save(); render(); toast(tempOk(reg) ? 'Temperatura registrada.' : 'Registrado fora da faixa, com a ação corretiva. A gerência foi avisada.'); return;
     }
@@ -1112,7 +1515,7 @@
       var ac2 = 0, erros = [];
       cq.quiz.forEach(function (qq, i) { if (+d.get('q' + i) === qq[2]) ac2++; else erros.push([qq[0], qq[1][qq[2]]]); });
       var aprovado = ac2 >= 3;
-      if (aprovado && S.role === 'funcionario') { S.treinos = S.treinos || {}; S.treinos[ME] = S.treinos[ME] || {}; S.treinos[ME][cq.id] = { nota: Math.round(ac2 / cq.quiz.length * 100), em: S.hoje }; }
+      if (aprovado && ehFunc()) { S.treinos = S.treinos || {}; S.treinos[ME] = S.treinos[ME] || {}; S.treinos[ME][cq.id] = { nota: Math.round(ac2 / cq.quiz.length * 100), em: S.hoje }; }
       S.ui.cursoRes = { acertos: ac2, total: cq.quiz.length, ok: aprovado, erros: erros }; save(); render(); window.scrollTo(0, 0); return;
     }
     if (k === 'ct-extra') {
@@ -1209,16 +1612,21 @@
     }
   }
   view.addEventListener('click', onClick);
+  $('.side-foot').addEventListener('click', function (e) { if (e.target.closest('[data-act]')) onClick(e); });
   view.addEventListener('change', onInput);
   view.addEventListener('submit', onSubmit);
   view.addEventListener('input', function (e) { if (e.target.dataset.in === 'crit-km') { var o = e.target.previousElementSibling; if (o) o.innerHTML = 'Distância máxima: <strong>' + (+e.target.value) + ' km</strong>'; } });
   doc.addEventListener('keydown', function (e) { if (e.key === 'Escape') { if ($('.docview')) fecharDoc(); else closeModal(); } });
 
-  $('#role').addEventListener('change', function (e) { S.role = e.target.value; S.ui.recibo = null; S.ui.faceOk = false; save(); render(); toast('Agora você vê o sistema como ' + e.target.options[e.target.selectedIndex].text.toLowerCase() + '.'); });
+  var btBranco = $('#em-branco'); if (btBranco) btBranco.addEventListener('click', function () { A['em-branco'](); });
+  $('#role').addEventListener('change', function (e) { if (NUVEM) return; S.role = e.target.value; S.ui.recibo = null; S.ui.faceOk = false; save(); render(); toast('Agora você vê o sistema como ' + e.target.options[e.target.selectedIndex].text.toLowerCase() + '.'); });
   $('#menu-btn').addEventListener('click', function () { var s = $('#side'), o = s.classList.toggle('open'); this.setAttribute('aria-expanded', String(o)); });
   $('#reset').addEventListener('click', function () { try { localStorage.removeItem(KEY); } catch (e) { /* ignora */ } var nome = S.empresa.nome, razao = S.empresa.razao, tp = S.tipo; S = novoExemplo(tp || 'padaria'); S.empresa.nome = nome; S.empresa.razao = razao; semearInteg(); save(); render(); toast('Dados de exemplo restaurados.'); });
   var dl = $('#q-list'); dl.innerHTML = S.pessoas.map(function (p) { return '<option value="' + esc(p.nome) + '">'; }).join('') + S.produtos.map(function (p) { return '<option value="' + esc(p.nome) + '">'; }).join('');
   $('#q').addEventListener('change', function (e) { var v = e.target.value.trim(); if (!v) return; S.ui.q = v.slice(0, 60); save(); if (location.hash === '#/busca') render(); else location.hash = '#/busca'; });
   window.addEventListener('hashchange', function () { var o = $('.overlay'); if (o) o.remove(); fecharDoc(); render(); view.focus({ preventScroll: true }); window.scrollTo(0, 0); });
-  render();
+  if (NUVEM) {
+    $('#role').addEventListener('change', function (e) { if (!VINCULOS.length) return; var v = VINCULOS.filter(function (x) { return x.empresa_id === e.target.value; })[0]; if (v) { Nuvem.escolher(v); carregarNuvem(); } }, true);
+    bootNuvem();
+  } else render();
 })();

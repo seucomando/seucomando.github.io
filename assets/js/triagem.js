@@ -10,6 +10,17 @@
   function save(s) { try { localStorage.setItem(KEY, JSON.stringify(s)); return true; } catch (e) { return false; } }
   function el(tag, attrs, text) { var e = doc.createElement(tag); Object.keys(attrs || {}).forEach(function (k) { e.setAttribute(k, attrs[k]); }); if (text) e.textContent = text; return e; }
   var S = load();
+  var prm = {}; try { new URLSearchParams(location.search).forEach(function (v, k) { prm[k] = v; }); } catch (e) { /* ignora */ }
+  var NUVEM = !!(window.Nuvem && Nuvem.ativa && prm.e);
+  if (NUVEM) {
+    doc.getElementById('triagem').hidden = true;
+    Nuvem.vagaPublica(prm.e, prm.vaga || '').then(function (r) {
+      if (!r || !r.vaga) { doc.getElementById('t-vaga').textContent = 'Esta vaga não está mais aberta'; return; }
+      S = { empresa: { nome: r.empresa || 'Empresa' }, vagas: [{ id: r.vaga.id, titulo: r.vaga.titulo || 'Vaga', cargo: r.vaga.cargo, regimeOferta: r.vaga.regimeOferta || '', cliente: r.cliente ? 'k' : undefined, cands: [] }], clientes: r.cliente ? [{ id: 'k', nome: r.cliente }] : [] };
+      doc.getElementById('triagem').hidden = false; iniciar();
+    }, function () { doc.getElementById('t-vaga').textContent = 'Não foi possível abrir a pré-entrevista. Tente de novo.'; });
+  } else iniciar();
+  function iniciar() {
   var id = '';
   try { id = new URLSearchParams(location.search).get('vaga') || ''; } catch (e) { /* ignora */ }
   var vaga = S.vagas.filter(function (v) { return v.id === id; })[0] || S.vagas[0];
@@ -55,17 +66,21 @@
     if (faltando.length) { erro.hidden = false; erro.textContent = 'Falta preencher: ' + faltando.join(', ') + '.'; erro.focus(); return; }
     erro.hidden = true;
     var rq = {}; reqs.forEach(function (r) { rq[r.k] = d.get('req_' + r.k) === 'sim' ? 'sim' : 'nao'; });
-    vaga.cands.push({
+    var cand = ({
       n: nome, fone: fone, email: txt(d, 'email', 80), bairro: txt(d, 'bairro', 60),
       regime: String(d.get('regime')), turnos: turnos.filter(function (t) { return ['manha', 'tarde', 'noite', 'fds'].indexOf(t) > -1; }),
       fds: String(d.get('fds')), inicio: String(d.get('inicio')), km: +d.get('km'), transporte: String(d.get('transporte')), pretensao: String(d.get('pretensao')),
       exp: +d.get('exp'), ultima: txt(d, 'ultima', 120), jaTrabalhou: String(d.get('jaTrabalhou')), escolaridade: String(d.get('escolaridade')),
       reqs: rq, sit1: txt(d, 'sit1', 400), sit2: txt(d, 'sit2', 300), contato: d.get('contato') === 'sim', compartilhar: cliente ? d.get('compartilhar') === 'sim' : undefined, novo: true, em: new Date().toISOString()
     });
-    save(S);
-    form.hidden = true;
+    var fim = function () {
+      form.hidden = true;
     var ok = doc.getElementById('t-ok'); ok.hidden = false;
     doc.getElementById('t-ok-tit').textContent = 'Pronto, ' + nome.split(' ')[0] + '! Recebemos suas respostas.';
     ok.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+    if (NUVEM) { var bt = form.querySelector('button[type=submit]'); bt.disabled = true; Nuvem.enviarCandidatura(prm.e, vaga.id, cand).then(fim, function (er) { bt.disabled = false; erro.hidden = false; erro.textContent = (er && er.message) || 'Não foi possível enviar. Tente de novo.'; erro.focus(); }); }
+    else { vaga.cands.push(cand); save(S); fim(); }
   });
+  }
 })();

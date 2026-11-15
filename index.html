@@ -3,25 +3,28 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <title>Seu Comando · gestão empresarial</title>
 <meta name="description" content="Gestão empresarial para pequenas e médias empresas: pré-entrevista com WhatsApp, admissão com o contador, contratos sugeridos, ponto, atestados, holerite aprovado pela empresa, checklists, estoque e vales num lugar só.">
 <meta name="theme-color" content="#0F3D2E">
 <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/img/icone-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Inter:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="assets/css/site.css">
 <script src="assets/js/code39.js" defer></script>
 <script src="assets/js/site.js" defer></script>
+<script src="assets/js/pwa.js" defer></script>
 </head>
 <body>
 <a class="skip" href="#conteudo">Pular para o conteúdo</a>
 
 <header class="hero" id="topo">
   <div class="wrap nav">
-    <a class="wordmark" href="#topo" aria-label="Seu Comando, início"><img src="assets/img/logo.svg" alt="" width="36" height="36">seu comando</a>
+    <a class="wordmark" href="#topo" aria-label="Seu Comando, início"><img src="assets/img/logo.svg" alt="" width="36" height="36">Seu Comando</a>
     <ul class="nav-links">
       <li><a href="#pre-entrevista">Pré-entrevista</a></li>
       <li><a href="#holerite">Como funciona</a></li>

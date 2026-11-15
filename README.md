@@ -44,6 +44,14 @@ No GitHub Pages, basta publicar a branch `main` na raiz.
 | Exemplo coerente com o ramo | "Abra seu painel" na landing | 13 ramos (padaria, hamburgueria, restaurante, mercado, loja, oficina, metalúrgica, confecção, construtora, salão, clínica, escritório e agência de R&S), cada um com equipe, cargos, produtos, checklists, vagas e horários próprios |
 | Recrutamento e seleção | Processos seletivos e Empresas clientes (ramo "agência") e `recrutamento.html` | Processo por cliente e função, triagem pelo link, entrevista com nota e parecer, lista curta só com quem autorizou compartilhar (LGPD, art. 7º, § 5º) e envio ao cliente: integrado (cai em Vagas do cliente para aprovar ou recusar, e a decisão volta) ou pasta .zip com dossiê PDF, CSV e arquivo de dados que outra empresa com o Seu Comando importa |
 
+## Login, banco de dados e app instalável
+
+- **Login e senha:** empresário e contador com e-mail; funcionário e gerente com CPF e senha (primeiro acesso por código de 72 horas). Senhas no Supabase Auth, com hash bcrypt.
+- **Banco de dados:** Supabase (PostgreSQL, região São Paulo) com regras por empresa e por papel (RLS). Tabelas, regras e funções em `supabase/schema.sql`, testadas num Postgres em memória.
+- **Papéis:** empresário, contador, gerente (com permissões escolhidas pelo dono, como banco de horas) e funcionário. Mudanças de acesso e lançamentos de banco de horas ficam registrados.
+- **App:** instalável no celular e no computador (PWA), abre sem internet e avisa "Nova versão disponível" quando sai atualização.
+- **Como ligar:** siga `SETUP-SUPABASE.md`. Sem configuração, o app roda só com o exemplo local.
+
 ## Estrutura
 
 ```
@@ -63,6 +71,12 @@ assets/js/cursos.js   mini cursos de boas práticas
 assets/js/vendor/     html2pdf.js 0.10.2 (MIT), usado para gerar os PDFs no navegador
 recrutamento.html     página para agências de recrutamento e seleção
 triagem.html          pré-entrevista que o candidato responde
+entrar.html           login, primeiro acesso, criar conta e recuperar senha
+manifest.webmanifest  dados do app instalável
+sw.js                 service worker (instalação, uso sem internet e atualização)
+assets/js/config.js   endereço e chave pública do Supabase
+assets/js/nuvem.js    conexão com o banco
+supabase/             schema.sql e a função de primeiro acesso do funcionário
 assets/js/code39.js   gerador de código de barras
 assets/img/           logo e favicon
 SECURITY.md           análise de segurança e requisitos para a versão real
