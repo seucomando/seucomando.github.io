@@ -8,8 +8,8 @@
 | Login | E-mail com confirmação; senha mínima de 8 caracteres com letras e números |
 | Função `acesso-funcionario` | Publicada, com "Verify JWT" desligado (a própria função confere CPF e código) |
 | Chave do site | `assets/js/config.js` usa a chave **publishable** (pública por natureza) |
-| Site | GitHub Pages: `https://rafadolivei123.github.io/seu-comando/` (temporário até o domínio sair) |
-| Endereços liberados no login | GitHub Pages, `seucomando.com.br` e `www.seucomando.com.br` |
+| Site | GitHub Pages: `https://seucomando.github.io/` (temporário até o domínio sair) |
+| Endereços liberados no login | `seucomando.github.io`, `seucomando.com.br` e `www.seucomando.com.br` |
 | E-mails de confirmação | **Pendente:** SMTP próprio (veja o item 4) |
 
 ## 1. Como o site decide entre exemplo e uso real
@@ -24,7 +24,7 @@
 4. Contador: **Convidar contador** gera um código; ele cria a conta com e-mail e usa **Tenho um código**.
 
 ## 3. Publicar uma versão nova
-1. Altere os arquivos, aumente `VERSAO` em `sw.js` e envie para a branch `main` do repositório `rafadolivei123/seu-comando`.
+1. Altere os arquivos, aumente `VERSAO` em `sw.js` e envie para a branch `main` do repositório `seucomando/seucomando.github.io` (organização seucomando no GitHub).
 2. O GitHub Pages publica em cerca de 1 minuto. Quem já instalou o app vê "Nova versão do Seu Comando disponível".
 3. Mudou o banco? Rode `supabase/schema.sql` de novo no SQL Editor: ele não apaga dados.
 
@@ -36,7 +36,7 @@ O serviço de e-mail que vem com o Supabase só entrega para quem faz parte da e
 
 ## 5. Quando o domínio seucomando.com.br sair
 1. Repositório > **Settings > Pages > Custom domain**: `seucomando.com.br` (o GitHub cria o arquivo CNAME) e marque **Enforce HTTPS**.
-2. No registro do domínio, aponte o domínio para o GitHub Pages (registros A para 185.199.108.153, .109.153, .110.153 e .111.153, e CNAME `www` para `rafadolivei123.github.io`).
+2. No registro do domínio, aponte o domínio para o GitHub Pages (registros A para 185.199.108.153, .109.153, .110.153 e .111.153, e CNAME `www` para `seucomando.github.io`).
 3. Supabase > **Authentication > URL Configuration**: troque o *Site URL* para `https://seucomando.com.br` (os endereços do domínio já estão liberados).
 4. Supabase > **Edge Functions > Secrets**: crie `ORIGEM_PERMITIDA` = `https://seucomando.com.br`. Enquanto não existir, a função aceita chamadas de qualquer site, o que é seguro porque ela só funciona com CPF e código válidos.
 

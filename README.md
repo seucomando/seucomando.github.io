@@ -2,7 +2,7 @@
 
 Protótipo navegável do Seu Comando: um sistema único de gestão empresarial que junta equipe, documentos, ponto, holerite, estoque e vales, com **empresário, contador, funcionário e candidato** no mesmo lugar.
 
-Endereço provisório (até o domínio seucomando.com.br sair): **https://rafadolivei123.github.io/seu-comando/**
+Endereço provisório (até o domínio seucomando.com.br sair): **https://seucomando.github.io/**
 
 - `index.html`: página de apresentação (landing page). `recrutamento.html`: página para agências de recrutamento.
 - `entrar.html`: login (empresa e contador com e-mail; funcionário e gerente com CPF), criar conta, primeiro acesso e recuperar senha.
