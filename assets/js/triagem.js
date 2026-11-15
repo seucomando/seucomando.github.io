@@ -14,6 +14,7 @@
   var NUVEM = !!(window.Nuvem && Nuvem.ativa && prm.e);
   if (NUVEM) {
     doc.getElementById('triagem').hidden = true;
+    doc.querySelectorAll('[data-so-exemplo]').forEach(function (el) { el.remove(); });
     Nuvem.vagaPublica(prm.e, prm.vaga || '').then(function (r) {
       if (!r || !r.vaga) { doc.getElementById('t-vaga').textContent = 'Esta vaga não está mais aberta'; return; }
       S = { empresa: { nome: r.empresa || 'Empresa' }, vagas: [{ id: r.vaga.id, titulo: r.vaga.titulo || 'Vaga', cargo: r.vaga.cargo, regimeOferta: r.vaga.regimeOferta || '', cliente: r.cliente ? 'k' : undefined, cands: [] }], clientes: r.cliente ? [{ id: 'k', nome: r.cliente }] : [] };

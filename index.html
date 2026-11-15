@@ -33,7 +33,7 @@
       <li><a href="recrutamento.html">Para recrutadoras</a></li>
       <li><a href="#duvidas">Dúvidas</a></li>
     </ul>
-    <a class="btn btn-broto" href="app.html">Ver o sistema</a>
+    <div class="nav-acoes"><a class="nav-entrar" href="entrar.html">Entrar</a><a class="btn btn-broto" href="app.html?exemplo=1">Ver o sistema</a></div>
   </div>
 
   <div class="wrap hero-grid" id="conteudo">
@@ -41,7 +41,7 @@
       <h1><span class="line"><span>Sua empresa</span></span><span class="line"><span>no seu comando.</span></span></h1>
       <p class="hero-lead fade-up">Equipe, documentos, ponto, holerite, estoque e vales num sistema só, com empresário, contador e funcionário vendo a mesma informação.</p>
       <div class="hero-actions fade-up">
-        <a class="btn btn-broto" href="app.html">Abrir o protótipo</a>
+        <a class="btn btn-broto" href="app.html?exemplo=1">Abrir o exemplo</a>
         <a class="link" href="#holerite">Ver como funciona</a>
       </div>
     </div>
@@ -303,6 +303,7 @@
       <div class="dialog" data-ui role="dialog" aria-labelledby="dlg-title">
         <div class="ui-head"><div class="ui-title" id="dlg-title">Criar sua empresa no Seu Comando</div></div>
         <form id="start" action="app.html" method="get">
+          <input type="hidden" name="exemplo" value="1">
           <div class="field">
             <label class="ui-label" for="empresa">Nome da empresa</label>
             <input id="empresa" name="empresa" type="text" value="Padaria Sol" maxlength="60" autocomplete="organization" required>
@@ -342,6 +343,7 @@
             <input type="hidden" name="porte" id="porte-in" value="10">
           </div>
           <button class="ui-btn" type="submit">Abrir o painel</button>
+          <p class="ui-sub dialog-nota">Para usar com a sua equipe de verdade, com login e senha: <a href="entrar.html#criar">criar conta da empresa</a>.</p>
         </form>
       </div>
     </div>
@@ -351,7 +353,7 @@
 <footer class="foot">
   <div class="wrap">
     <span>Seu Comando · gestão empresarial</span>
-    <nav aria-label="Rodapé"><a href="app.html">Protótipo</a><a href="#documentos">Documentos</a><a href="#precos">Preços</a><a href="recrutamento.html">Para recrutadoras</a><a href="#duvidas">Dúvidas</a></nav>
+    <nav aria-label="Rodapé"><a href="entrar.html">Entrar</a><a href="app.html?exemplo=1">Exemplo</a><a href="#documentos">Documentos</a><a href="#precos">Preços</a><a href="recrutamento.html">Para recrutadoras</a><a href="#duvidas">Dúvidas</a></nav>
     <span class="right">2026 · versão de demonstração</span>
   </div>
 </footer>

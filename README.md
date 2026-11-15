@@ -2,11 +2,15 @@
 
 Protótipo navegável do Seu Comando: um sistema único de gestão empresarial que junta equipe, documentos, ponto, holerite, estoque e vales, com **empresário, contador, funcionário e candidato** no mesmo lugar.
 
-- `index.html`: página de apresentação (landing page).
-- `triagem.html`: a pré-entrevista que o candidato responde pelo link da vaga, só com perguntas e sem documentos. A resposta aparece no painel.
-- `app.html`: o painel do sistema, com dados de exemplo. Use o seletor **Ver como** no topo para alternar entre **Empresário**, **Contador** e **Funcionário**.
+Endereço provisório (até o domínio seucomando.com.br sair): **https://rafadolivei123.github.io/seu-comando/**
 
-Os dados são fictícios e ficam só no navegador de quem abre (localStorage). Nada é enviado a servidor algum.
+- `index.html`: página de apresentação (landing page). `recrutamento.html`: página para agências de recrutamento.
+- `entrar.html`: login (empresa e contador com e-mail; funcionário e gerente com CPF), criar conta, primeiro acesso e recuperar senha.
+- `app.html`: o app de verdade, com dados no banco (Supabase). Pede login.
+- `app.html?exemplo=1`: o protótipo com dados fictícios, que ficam só no navegador. Use o seletor **Ver como** no topo para alternar entre **Empresário**, **Contador**, **Gerente** e **Funcionário**.
+- `triagem.html`: a pré-entrevista que o candidato responde pelo link da vaga, só com perguntas e sem documentos.
+
+Configuração do banco, publicação e próximos passos: [SETUP-SUPABASE.md](SETUP-SUPABASE.md).
 
 ## Como rodar
 
@@ -17,7 +21,7 @@ python3 -m http.server 8000
 # abra http://localhost:8000
 ```
 
-No GitHub Pages, basta publicar a branch `main` na raiz.
+Publicação: GitHub Pages a partir da branch `main`, na raiz. A cada versão, aumente `VERSAO` em `sw.js`.
 
 ## O que cada requisito virou no protótipo
 

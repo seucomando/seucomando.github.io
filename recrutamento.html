@@ -27,7 +27,7 @@
       <li><a href="#preco">Preço</a></li>
       <li><a href="index.html">Para empresas</a></li>
     </ul>
-    <a class="btn btn-broto" href="#comecar">Abrir o painel</a>
+    <div class="nav-acoes"><a class="nav-entrar" href="entrar.html">Entrar</a><a class="btn btn-broto" href="#comecar">Abrir o painel</a></div>
   </div>
 
   <div class="wrap hero-grid" id="conteudo">
@@ -35,7 +35,7 @@
       <h1>Muitos candidatos. Uma lista curta.</h1>
       <p class="hero-lead">Para agências de recrutamento e seleção: um processo por cliente e por função, pré-entrevista com link, parecer da entrevista e envio ao cliente para validação. Se ele usa o Seu Comando, os candidatos chegam direto no painel dele; se não usa, sai uma pasta pronta para encaminhar.</p>
       <div class="hero-actions">
-        <a class="btn btn-broto" href="app.html?empresa=Talentos%20Sul%20Recrutamento&amp;tipo=recrutamento#/selecao">Ver o painel da recrutadora</a>
+        <a class="btn btn-broto" href="app.html?exemplo=1&amp;empresa=Talentos%20Sul%20Recrutamento&amp;tipo=recrutamento#/selecao">Ver o painel da recrutadora</a>
         <a class="link" href="#como">Ver como funciona</a>
       </div>
     </div>
@@ -134,12 +134,14 @@
     <div class="dialog" data-ui role="dialog" aria-labelledby="dlg-title">
       <div class="ui-head"><div class="ui-title" id="dlg-title">Criar sua recrutadora no Seu Comando</div></div>
       <form action="app.html" method="get">
+        <input type="hidden" name="exemplo" value="1">
         <div class="field">
           <label class="ui-label" for="empresa">Nome da agência</label>
           <input id="empresa" name="empresa" type="text" value="Talentos Sul Recrutamento" maxlength="60" autocomplete="organization" required>
         </div>
         <input type="hidden" name="tipo" value="recrutamento">
         <button class="ui-btn" type="submit">Abrir o painel</button>
+        <p class="ui-sub dialog-nota">Para usar com os seus clientes de verdade, com login e senha: <a href="entrar.html#criar">criar conta da agência</a>.</p>
       </form>
     </div>
   </div>
@@ -148,7 +150,7 @@
 <footer class="foot">
   <div class="wrap">
     <p>Seu Comando · gestão empresarial</p>
-    <nav aria-label="Rodapé"><a href="index.html">Para empresas</a><a href="app.html?empresa=Talentos%20Sul%20Recrutamento&amp;tipo=recrutamento#/selecao">Protótipo da recrutadora</a></nav>
+    <nav aria-label="Rodapé"><a href="index.html">Para empresas</a><a href="app.html?exemplo=1&amp;empresa=Talentos%20Sul%20Recrutamento&amp;tipo=recrutamento#/selecao">Protótipo da recrutadora</a></nav>
   </div>
 </footer>
 </body>

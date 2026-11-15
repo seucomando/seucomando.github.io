@@ -74,6 +74,11 @@ p { margin: 0; }
 .nav-links a { text-decoration: none; color: var(--on-dark-muted); transition: color .15s; }
 .nav-links a:hover { color: #fff; }
 .nav .btn { min-height: 44px; font-size: 15px; padding: 0 20px; }
+.nav-acoes { display: flex; align-items: center; gap: 20px; }
+.nav-entrar { color: #fff; font-weight: 600; font-size: 16px; text-decoration: none; min-height: 44px; display: inline-flex; align-items: center; }
+.nav-entrar:hover { text-decoration: underline; text-underline-offset: 4px; }
+.dialog .dialog-nota { margin: 0; line-height: 1.5; }
+.dialog .dialog-nota a { color: var(--folha); font-weight: 600; }
 
 .hero-grid { flex: 1; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: clamp(32px, 4vw, 72px); align-items: start; padding-block: clamp(32px, 6vh, 72px) clamp(48px, 8vh, 96px); }
 .hero-copy { display: flex; flex-direction: column; gap: 32px; padding-top: 2vh; }

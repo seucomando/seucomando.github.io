@@ -8,6 +8,7 @@
   var SEED = window.BROTA_SEED, TPL = window.BROTA_CONTRATOS;
   var doc = document, view = doc.getElementById('view');
   var ME = 'e1'; // a funcionária usada na visão "Funcionário"
+  var EXEMPLO = /[?&]exemplo=1(&|$)/.test(location.search); // ?exemplo=1: protótipo com dados fictícios, mesmo com o banco ligado
   var S = load();
 
   /* ---------- utilidades ---------- */
@@ -55,7 +56,7 @@
       if (tp && TP[tp] && tp !== S.tipo) trocarTipo(tp);
       if (n) S.empresa.nome = n;
       semearInteg();
-      if (n || tp) { if (n) S.empresa.razao = n + (/ltda|me$|eireli|s\.?a\.?$/i.test(n) ? '' : ' Ltda'); save(); history.replaceState(null, '', location.pathname + location.hash); }
+      if (n || tp) { if (n) S.empresa.razao = n + (/ltda|me$|eireli|s\.?a\.?$/i.test(n) ? '' : ' Ltda'); save(); history.replaceState(null, '', location.pathname + (EXEMPLO ? '?exemplo=1' : '') + location.hash); }
     } catch (e) { /* ignora */ }
   })();
 
@@ -481,7 +482,7 @@
     var lin = (S.clientes || []).map(function (k) {
       var procs = S.vagas.filter(function (v) { return v.cliente === k.id; });
       return '<li><span><strong>' + esc(k.nome) + '</strong> ' + (k.integ === 'centralizar' ? pill('ok', 'Integrado · ' + k.codigo) : pill('mute', 'Externo')) + '<span class="sub">' + esc(k.cidade || '') + ' · ' + esc(k.contato || '') + ' · ' + procs.length + (procs.length === 1 ? ' processo' : ' processos') + '</span></span>' +
-        (k.integ === 'centralizar' ? '<a class="btn btn-sm" href="app.html?empresa=' + encodeURIComponent(k.nome) + '&amp;tipo=' + esc(tipoDoCodigo(k.codigo)) + '#/vagas">Abrir o painel do cliente (exemplo)</a>' : '') + '</li>';
+        (k.integ === 'centralizar' ? '<a class="btn btn-sm" href="app.html?exemplo=1&amp;empresa=' + encodeURIComponent(k.nome) + '&amp;tipo=' + esc(tipoDoCodigo(k.codigo)) + '#/vagas">Abrir o painel do cliente (exemplo)</a>' : '') + '</li>';
     }).join('');
     var opts = Object.keys(window.CENTRALIZAR_TIPOS || {}).filter(function (t) { return t !== 'recrutamento'; }).map(function (t) { return '<option value="' + esc(window.CENTRALIZAR_CODIGO(t)) + '">' + esc(window.CENTRALIZAR_TIPOS[t]) + ' · ' + esc(window.CENTRALIZAR_CODIGO(t)) + '</option>'; }).join('');
     return titleRow('Empresas clientes', 'Para quem a agência recruta', '') +
@@ -671,7 +672,7 @@
   }
 
   /* ---------- Modo conectado (login e banco de dados) ---------- */
-  var NUVEM = !!(window.Nuvem && Nuvem.ativa) && !/[?&]exemplo=1/.test(location.search);
+  var NUVEM = !!(window.Nuvem && Nuvem.ativa) && !EXEMPLO;
   var SNAP = null, MEMBROS = [], VINCULOS = [], PUBLICADO = {}, tSync = null, tPend = null;
   var LISTAS = ['atestados', 'advertencias', 'vales', 'banco'];
   function semUI(s) { var c = clone(s); delete c.ui; delete c.role; delete c.nuvemPessoa; return c; }

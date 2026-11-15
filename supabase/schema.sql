@@ -325,6 +325,15 @@ language sql stable security definer set search_path = public, auth as $$
 $$;
 revoke all on function public.usuario_por_email(text) from public, anon, authenticated;
 
+-- Acesso às tabelas pela API (as regras de RLS acima decidem as linhas). Visitante sem login (anon) não lê tabela nenhuma.
+grant usage on schema public to anon, authenticated;
+grant select, insert, update, delete on public.empresas, public.membros, public.convites, public.docs_funcionario, public.candidaturas, public.envios, public.auditoria to authenticated;
+grant select, insert on public.eventos to authenticated;
+grant update (aplicado_em, resultado) on public.eventos to authenticated;
+grant usage, select on all sequences in schema public to authenticated;
+grant all on all tables in schema public to service_role;
+grant usage, select on all sequences in schema public to service_role;
+
 -- Permissões das funções
 revoke all on function public.criar_empresa(text, text, jsonb), public.salvar_dados(uuid, jsonb, integer), public.criar_convite(uuid, text, text, text, text),
   public.aceitar_convite(text, text), public.decidir_envio(uuid, text, text), public.vaga_publica(text, text), public.enviar_candidatura(text, text, jsonb),
@@ -333,3 +342,4 @@ grant execute on function public.criar_empresa(text, text, jsonb), public.salvar
   public.aceitar_convite(text, text), public.decidir_envio(uuid, text, text), public.alterar_acesso(uuid, text, text, text[], text), public.registrar(uuid, text, text, text) to authenticated;
 grant execute on function public.conferir_convite(text, text), public.usuario_por_email(text) to service_role;
 grant execute on function public.vaga_publica(text, text), public.enviar_candidatura(text, text, jsonb) to anon, authenticated;
+revoke execute on function public.criar_empresa(text, text, jsonb), public.salvar_dados(uuid, jsonb, integer), public.criar_convite(uuid, text, text, text, text), public.aceitar_convite(text, text), public.decidir_envio(uuid, text, text), public.alterar_acesso(uuid, text, text, text[], text), public.registrar(uuid, text, text, text) from anon;
