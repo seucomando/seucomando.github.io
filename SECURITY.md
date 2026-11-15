@@ -1,4 +1,4 @@
-# Segurança do Centralizar
+# Segurança do Seu Comando
 
 ## 1. O que existe hoje (protótipo estático)
 

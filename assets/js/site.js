@@ -1,4 +1,4 @@
-/* Centralizar — landing page. Sem dependências; nada é enviado para fora do navegador. */
+/* Seu Comando — landing page. Sem dependências; nada é enviado para fora do navegador. */
 (function () {
   'use strict';
   var doc = document;
@@ -154,7 +154,7 @@
   /* ---------- Documentos gerados ---------- */
   var docs = {
     contrato: { cls: '', html: '<h4>Contrato de experiência</h4><p class="muted">Contrato de trabalho por prazo determinado, na modalidade de experiência</p>' +
-      '<span class="tag">Cláusulas sugeridas pelo Centralizar. Revise antes de assinar.</span>' +
+      '<span class="tag">Cláusulas sugeridas pelo Seu Comando. Revise antes de assinar.</span>' +
       '<p><strong>Empregadora:</strong> Padaria Sol Ltda, CNPJ [00.000.000/0001-00], Criciúma/SC.<br><strong>Empregada:</strong> Ana Beatriz Souza, CPF [000.000.000-00].</p>' +
       '<ol><li>A empregada exercerá a função de atendente de balcão, com as atividades descritas na vaga.</li>' +
       '<li>O prazo é de 45 dias, de 03/11/2026 a 17/12/2026, prorrogável uma única vez até o limite de 90 dias (CLT, arts. 445, parágrafo único, e 451).</li>' +

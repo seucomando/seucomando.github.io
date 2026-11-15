@@ -1,4 +1,4 @@
-/* Centralizar — perguntas da pré-entrevista (triagem). Compartilhado entre a página do candidato e o painel.
+/* Seu Comando — perguntas da pré-entrevista (triagem). Compartilhado entre a página do candidato e o painel.
    Regra: só perguntas ligadas à vaga. Idade aparece apenas quando a lei exige maioridade para a função. */
 (function (g) {
   'use strict';

@@ -1,4 +1,4 @@
-/* Centralizar — mais ramos de negócio para o exemplo e o perfil da agência de recrutamento e seleção.
+/* Seu Comando — mais ramos de negócio para o exemplo e o perfil da agência de recrutamento e seleção.
    Formato compacto: equipe [função, cargo (id da base CBO), setor, salário, entrada], produtos, checklists e vagas. */
 (function (g) {
   'use strict';

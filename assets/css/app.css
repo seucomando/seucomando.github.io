@@ -1,4 +1,4 @@
-/* Centralizar — painel (protótipo). Estilo "escada de acento": verde cheio só em marcas pequenas, tons claros nas áreas. */
+/* Seu Comando — painel (protótipo). Estilo "escada de acento": verde cheio só em marcas pequenas, tons claros nas áreas. */
 :root {
   --ground: #F6F8F5; --surface: #FFFFFF; --raised: #FAFBF9; --active: #E6F4EA;
   --border: #E2E8E3; --rule: #EDF1ED; --control: #C9D4CD;

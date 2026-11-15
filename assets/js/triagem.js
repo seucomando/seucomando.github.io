@@ -1,4 +1,4 @@
-/* Centralizar — pré-entrevista (triagem) que o candidato responde pelo link. Só perguntas; nenhum documento. */
+/* Seu Comando — pré-entrevista (triagem) que o candidato responde pelo link. Só perguntas; nenhum documento. */
 (function () {
   'use strict';
   var KEYTIPO = 'centralizar-tipo-atual', TIPOS = window.CENTRALIZAR_TIPOS || {}, tp = '';

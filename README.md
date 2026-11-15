@@ -1,6 +1,6 @@
-# Centralizar · gestão empresarial para pequenas e médias empresas
+# Seu Comando · gestão empresarial para pequenas e médias empresas
 
-Protótipo navegável do Centralizar: um sistema único de gestão empresarial que junta equipe, documentos, ponto, holerite, estoque e vales, com **empresário, contador, funcionário e candidato** no mesmo lugar.
+Protótipo navegável do Seu Comando: um sistema único de gestão empresarial que junta equipe, documentos, ponto, holerite, estoque e vales, com **empresário, contador, funcionário e candidato** no mesmo lugar.
 
 - `index.html`: página de apresentação (landing page).
 - `triagem.html`: a pré-entrevista que o candidato responde pelo link da vaga, só com perguntas e sem documentos. A resposta aparece no painel.
@@ -42,7 +42,7 @@ No GitHub Pages, basta publicar a branch `main` na raiz.
 | Boas práticas de alimentos (adicional) | Boas práticas | Registro de temperaturas com ação corretiva obrigatória fora da faixa, planilha em PDF, prazos da vigilância sanitária (manual, POPs, caixa-d'água, pragas, ASO, alvará) e validade dos produtos (RDC Anvisa 216/2004) |
 | Mini cursos para a equipe | Mini cursos | 7 cursos curtos (higiene, contaminação cruzada, temperaturas, recebimento e etiquetas, limpeza, alergênicos, segurança na cozinha) com teste e certificado em PDF, que comprova a capacitação exigida pela RDC 216 (item 4.6.7) |
 | Exemplo coerente com o ramo | "Abra seu painel" na landing | 13 ramos (padaria, hamburgueria, restaurante, mercado, loja, oficina, metalúrgica, confecção, construtora, salão, clínica, escritório e agência de R&S), cada um com equipe, cargos, produtos, checklists, vagas e horários próprios |
-| Recrutamento e seleção | Processos seletivos e Empresas clientes (ramo "agência") e `recrutamento.html` | Processo por cliente e função, triagem pelo link, entrevista com nota e parecer, lista curta só com quem autorizou compartilhar (LGPD, art. 7º, § 5º) e envio ao cliente: integrado (cai em Vagas do cliente para aprovar ou recusar, e a decisão volta) ou pasta .zip com dossiê PDF, CSV e arquivo de dados que outra empresa com o Centralizar importa |
+| Recrutamento e seleção | Processos seletivos e Empresas clientes (ramo "agência") e `recrutamento.html` | Processo por cliente e função, triagem pelo link, entrevista com nota e parecer, lista curta só com quem autorizou compartilhar (LGPD, art. 7º, § 5º) e envio ao cliente: integrado (cai em Vagas do cliente para aprovar ou recusar, e a decisão volta) ou pasta .zip com dossiê PDF, CSV e arquivo de dados que outra empresa com o Seu Comando importa |
 
 ## Estrutura
 

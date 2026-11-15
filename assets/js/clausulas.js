@@ -1,4 +1,4 @@
-/* Centralizar — motor de cláusulas do contrato de trabalho.
+/* Seu Comando — motor de cláusulas do contrato de trabalho.
    Monta o contrato em camadas: base protetiva (todo contrato), cláusulas pelos marcadores de risco do cargo,
    cláusulas do setor e as atribuições do cargo. Tudo o que vem do usuário passa por esc(). */
 (function (g) {
@@ -196,7 +196,7 @@
 
     add('DO REGULAMENTO INTERNO E DAS COMUNICAÇÕES ELETRÔNICAS', [
       'A(O) EMPREGADA(O) declara ter recebido e conhecer o regulamento interno da EMPREGADORA, na versão vigente nesta data, que integra este contrato. Alterações posteriores não reduzirão vantagens já incorporadas ao contrato (Súmula 51, I, do TST).',
-      'Comunicados, holerites, escalas, advertências, avaliações, ciências e assinaturas poderão ser feitos pelo aplicativo Centralizar, com acesso pessoal e intransferível. As partes reconhecem a validade da assinatura e da ciência eletrônicas assim realizadas, com registro de data, hora, versão do documento e identificação do signatário (MP 2.200-2/2001, art. 10, § 2º).',
+      'Comunicados, holerites, escalas, advertências, avaliações, ciências e assinaturas poderão ser feitos pelo aplicativo Seu Comando, com acesso pessoal e intransferível. As partes reconhecem a validade da assinatura e da ciência eletrônicas assim realizadas, com registro de data, hora, versão do documento e identificação do signatário (MP 2.200-2/2001, art. 10, § 2º).',
       'A(O) EMPREGADA(O) manterá atualizados telefone, endereço e conta bancária no aplicativo.'
     ]);
 

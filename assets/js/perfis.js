@@ -1,4 +1,4 @@
-/* Centralizar — perfis de exemplo por tipo de negócio. A equipe, os produtos, os checklists, as vagas e os horários
+/* Seu Comando — perfis de exemplo por tipo de negócio. A equipe, os produtos, os checklists, as vagas e os horários
    precisam fazer sentido com a empresa escolhida na landing. Cada perfil sobrepõe o exemplo base (data.js). */
 (function (g) {
   'use strict';

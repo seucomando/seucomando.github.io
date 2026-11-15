@@ -1,4 +1,4 @@
-/* Centralizar — painel (protótipo navegável). Sem servidor: os dados de exemplo ficam só neste navegador. */
+/* Seu Comando — painel (protótipo navegável). Sem servidor: os dados de exemplo ficam só neste navegador. */
 (function () {
   'use strict';
   var KEYBASE = 'centralizar-prototipo-v8', KEYTIPO = 'centralizar-tipo-atual';
@@ -109,7 +109,7 @@
     var r = route(), R = ROUTES[r];
     if (!can(R.r)) { location.hash = '#/inicio'; return; }
     view.innerHTML = '<div class="view">' + R.f() + '</div>';
-    doc.title = R.t + ' · Centralizar';
+    doc.title = R.t + ' · Seu Comando';
     $$('#nav a').forEach(function (a) {
       var ok = a.dataset.roles.split(' ').indexOf(S.role) > -1 && !(a.hasAttribute('data-food') && !S.bp) && !(a.hasAttribute('data-rs') && !S.agencia) && !(a.hasAttribute('data-nors') && S.agencia);
       a.hidden = !ok;
@@ -325,7 +325,7 @@
     return v;
   }
   var CHECKS = [['cct', 'Conferi o piso e as regras da convenção coletiva (CCT)'], ['aso', 'O exame admissional (ASO) será feito antes do início (NR-7)'], ['laudo', 'Conferi os adicionais no laudo (PGR/LTCAT) da empresa']];
-  function marcaDagua() { return S.plano === 'assinante' ? '' : '<div class="wm" aria-hidden="true"><span>CENTRALIZAR · VERSÃO DE AVALIAÇÃO</span><span>CENTRALIZAR · VERSÃO DE AVALIAÇÃO</span><span>CENTRALIZAR · VERSÃO DE AVALIAÇÃO</span></div>'; }
+  function marcaDagua() { return S.plano === 'assinante' ? '' : '<div class="wm" aria-hidden="true"><span>SEU COMANDO · VERSÃO DE AVALIAÇÃO</span><span>SEU COMANDO · VERSÃO DE AVALIAÇÃO</span><span>SEU COMANDO · VERSÃO DE AVALIAÇÃO</span></div>'; }
   function contratoAtualHTML() {
     var ct = ctEstado(), ps = pessoasContrato(), pessoa = ps.filter(function (x) { return x.id === ct.alvo; })[0] || ps[0], cargo = cargoPor(ct.cargo);
     var t = TPL.filter(function (x) { return x.id === ct.modelo; })[0];
@@ -421,7 +421,7 @@
     var chips = Object.keys(TUR).map(function (t) { return '<button type="button" class="chip" data-act="crit-tur" data-v="' + t + '" aria-pressed="' + (k.turnos.indexOf(t) > -1) + '">' + TUR[t] + '</button>'; }).join('');
     var exps = [0, 1, 2, 3].map(function (n) { return '<option value="' + n + '"' + (k.exp === n ? ' selected' : '') + '>' + (n ? 'Pelo menos ' + n + (n === 1 ? ' ano' : ' anos') : 'Sem exigência') + '</option>'; }).join('');
     var cliCard = '<div class="card card-pad stack"><h2 class="sec">Cliente</h2><p><strong>' + esc(cl.nome) + '</strong><span class="sub">' + esc(cl.cidade || '') + ' · ' + esc(cl.contato || '') + '</span></p>' +
-      (ok ? '<div class="notice info"><div><strong>Integrado ao Centralizar · ' + esc(cl.codigo) + '</strong>Os candidatos encaminhados caem em Vagas, no painel do cliente, para aprovar ou recusar. A decisão volta para cá.</div></div>' : '<div class="notice"><div><strong>Cliente externo</strong>Sem o sistema: a lista curta sai numa pasta (.zip) com dossiê em PDF, planilha e arquivo de dados que outra empresa com o Centralizar importa.</div></div>') +
+      (ok ? '<div class="notice info"><div><strong>Integrado ao Seu Comando · ' + esc(cl.codigo) + '</strong>Os candidatos encaminhados caem em Vagas, no painel do cliente, para aprovar ou recusar. A decisão volta para cá.</div></div>' : '<div class="notice"><div><strong>Cliente externo</strong>Sem o sistema: a lista curta sai numa pasta (.zip) com dossiê em PDF, planilha e arquivo de dados que outra empresa com o Seu Comando importa.</div></div>') +
       '<a class="link-btn" href="#/clientes">Ver todos os clientes</a></div>';
     var crit = '<div class="card card-pad stack"><h2 class="sec">Critérios do cliente para a triagem</h2><div class="field"><span class="lbl-s">Regime da vaga</span><div class="seg">' + seg + '</div></div><div class="field"><span class="lbl-s">Turnos obrigatórios</span><div class="chips">' + chips + '</div></div>' +
       '<div class="field"><label for="km">Distância máxima: <strong>' + k.km + ' km</strong></label><input id="km" type="range" min="1" max="30" value="' + k.km + '" data-in="crit-km"></div><div class="field"><label for="exp">Experiência na função</label><select id="exp" data-in="crit-exp">' + exps + '</select></div></div>';
@@ -445,9 +445,9 @@
     var opts = Object.keys(window.CENTRALIZAR_TIPOS || {}).filter(function (t) { return t !== 'recrutamento'; }).map(function (t) { return '<option value="' + esc(window.CENTRALIZAR_CODIGO(t)) + '">' + esc(window.CENTRALIZAR_TIPOS[t]) + ' · ' + esc(window.CENTRALIZAR_CODIGO(t)) + '</option>'; }).join('');
     return titleRow('Empresas clientes', 'Para quem a agência recruta', '') +
       '<div class="grid-main"><div class="stack"><div class="card"><ul class="list">' + lin + '</ul></div>' +
-      '<div class="notice info"><div><strong>Dois jeitos de entregar os candidatos</strong>Cliente com o Centralizar: informe o código de conexão que aparece em Vagas, no painel dele; os candidatos chegam lá para validação e a resposta volta sozinha. Cliente externo: a agência gera uma pasta (.zip) com dossiê em PDF, planilha CSV e o arquivo de dados, e envia por e-mail ou WhatsApp.</div></div></div>' +
+      '<div class="notice info"><div><strong>Dois jeitos de entregar os candidatos</strong>Cliente com o Seu Comando: informe o código de conexão que aparece em Vagas, no painel dele; os candidatos chegam lá para validação e a resposta volta sozinha. Cliente externo: a agência gera uma pasta (.zip) com dossiê em PDF, planilha CSV e o arquivo de dados, e envia por e-mail ou WhatsApp.</div></div></div>' +
       '<div class="stack"><form class="card card-pad stack" data-form="cliente"><h2 class="sec">Novo cliente</h2><div class="field"><label for="kn">Empresa</label><input id="kn" name="n" maxlength="80" required></div><div class="field"><label for="kc">Contato</label><input id="kc" name="c" maxlength="80" placeholder="Nome e WhatsApp ou e-mail do RH"></div>' +
-      '<div class="field"><label for="ki">Integração</label><select id="ki" name="i"><option value="externo">Externo (sem o sistema): pasta .zip</option><option value="centralizar">Usa o Centralizar: enviar pelo código</option></select></div><div class="field"><label for="kk">Código de conexão (se usa o Centralizar)</label><select id="kk" name="k"><option value="">Sem código</option>' + opts + '</select></div><button class="btn btn-primary" type="submit">Cadastrar cliente</button></form></div></div>';
+      '<div class="field"><label for="ki">Integração</label><select id="ki" name="i"><option value="externo">Externo (sem o sistema): pasta .zip</option><option value="centralizar">Usa o Seu Comando: enviar pelo código</option></select></div><div class="field"><label for="kk">Código de conexão (se usa o Seu Comando)</label><select id="kk" name="k"><option value="">Sem código</option>' + opts + '</select></div><button class="btn btn-primary" type="submit">Cadastrar cliente</button></form></div></div>';
   }
   function tipoDoCodigo(cod) { var t = ''; Object.keys(window.CENTRALIZAR_TIPOS || {}).forEach(function (x) { if (window.CENTRALIZAR_CODIGO(x) === cod) t = x; }); return t; }
   function recebidosHTML() {
@@ -502,9 +502,9 @@
       return pdf.arrayBuffer().then(function (buf) {
         var enc = new TextEncoder(), R = window.CENTRALIZAR_ROTULOS || {};
         var csv = '﻿' + ['Nome;WhatsApp;Bairro;Contratação;Turnos;Experiência (anos);Escolaridade;Pretensão;Pode começar;Nota;Parecer'].concat(lista.map(function (c) { return [c.n, c.fone, c.bairro, REG[c.regime], (c.turnos || []).map(function (t) { return TUR[t]; }).join(', '), c.exp, (R.escolaridade || {})[c.escolaridade], (R.pretensao || {})[c.pretensao], (R.inicio || {})[c.inicio], c.nota, c.parecer].map(celulaCSV).join(';'); })).join('\r\n');
-        var json = JSON.stringify({ formato: 'centralizar-candidatos', versao: 1, de: S.empresa.nome, gerado: S.hoje, vaga: { titulo: g.titulo, cargo: g.cargo, salario: g.salario, regimeOferta: g.regimeOferta }, candidatos: lista.map(resumoCand) }, null, 2);
-        var leia = 'Pasta de candidatos enviada por ' + S.empresa.nome + ' para ' + cl.nome + ' em ' + dmyy(S.hoje) + '.\r\n\r\n- Dossie (PDF): resumo e parecer de cada candidato.\r\n- candidatos.csv: abre no Excel ou no Google Planilhas.\r\n- candidatos.centralizar.json: quem usa o Centralizar importa em Vagas > Recebidos de recrutadoras.\r\n\r\nLGPD: os candidatos autorizaram o compartilhamento só para esta vaga (art. 7º, § 5º). Não repasse a terceiros e apague os dados de quem não for contratado.\r\n';
-        var zip = zipar([{ nome: 'Dossie ' + base + '.pdf', dados: new Uint8Array(buf) }, { nome: 'candidatos.csv', dados: enc.encode(csv) }, { nome: 'candidatos.centralizar.json', dados: enc.encode(json) }, { nome: 'LEIA-ME.txt', dados: enc.encode(leia) }]);
+        var json = JSON.stringify({ formato: 'seucomando-candidatos', versao: 1, de: S.empresa.nome, gerado: S.hoje, vaga: { titulo: g.titulo, cargo: g.cargo, salario: g.salario, regimeOferta: g.regimeOferta }, candidatos: lista.map(resumoCand) }, null, 2);
+        var leia = 'Pasta de candidatos enviada por ' + S.empresa.nome + ' para ' + cl.nome + ' em ' + dmyy(S.hoje) + '.\r\n\r\n- Dossie (PDF): resumo e parecer de cada candidato.\r\n- candidatos.csv: abre no Excel ou no Google Planilhas.\r\n- candidatos.seucomando.json: quem usa o Seu Comando importa em Vagas > Recebidos de recrutadoras.\r\n\r\nLGPD: os candidatos autorizaram o compartilhamento só para esta vaga (art. 7º, § 5º). Não repasse a terceiros e apague os dados de quem não for contratado.\r\n';
+        var zip = zipar([{ nome: 'Dossie ' + base + '.pdf', dados: new Uint8Array(buf) }, { nome: 'candidatos.csv', dados: enc.encode(csv) }, { nome: 'candidatos.seucomando.json', dados: enc.encode(json) }, { nome: 'LEIA-ME.txt', dados: enc.encode(leia) }]);
         return salvarArquivo(base + '.zip', zip).then(marcar);
       });
     }, function () { toast('Não foi possível gerar o dossiê.'); });
@@ -677,7 +677,7 @@
       }).join('');
       return titleRow('Atestados e advertências', func ? 'Seus atestados' : 'Ciência imediata pela foto, validade com o original', func ? '<span class="btn btn-primary file-btn">Enviar foto do atestado<input type="file" accept="image/*" capture="environment" data-in="novo-atestado" aria-label="Enviar foto do atestado"></span>' : '') + tabs + '<div class="stack">' + aviso +
         '<div class="card"><div class="table-box"><table class="t stack-sm"><thead><tr><th>Pessoa</th><th class="num">Período</th><th class="hide-sm">Ciência</th><th>Original físico</th><th class="num">Ação</th></tr></thead><tbody>' + (rows || '<tr><td>Nenhum atestado.</td></tr>') + '</tbody></table></div></div>' +
-        '<p class="ui-sub">O diagnóstico (CID) só consta do atestado a pedido do paciente (Resolução CFM 1.658/2002, art. 5º). O Centralizar não pede esse campo.</p></div>';
+        '<p class="ui-sub">O diagnóstico (CID) só consta do atestado a pedido do paciente (Resolução CFM 1.658/2002, art. 5º). O Seu Comando não pede esse campo.</p></div>';
     }
     var adv = S.advertencias.filter(function (w) { return !func || w.pessoa === ME; });
     var rowsW = adv.map(function (w) {
@@ -775,7 +775,7 @@
     }
     return titleRow(func ? 'Seus vales' : 'Vales', 'Produtos da loja e adiantamentos descontados em folha, sempre com autorização escrita', func ? '' : '<button type="button" class="btn btn-primary" data-act="novo-vale">Novo vale</button>') +
       '<div class="grid-main"><div class="stack"><div class="card"><div class="table-box"><table class="t stack-sm"><thead><tr><th class="num">Data</th><th>Pessoa e itens</th><th class="hide-sm">Tipo</th><th class="num">Valor (R$)</th><th>Autorização</th><th class="hide-sm">Desconto</th><th class="num">Ação</th></tr></thead><tbody>' + rows + '</tbody></table></div></div></div>' +
-      '<div class="stack"><div class="notice info"><div><strong>Regra do desconto</strong>Só com autorização prévia e por escrito (CLT, art. 462; Súmula 342 do TST). O Centralizar avisa em 60% e trava novos vales quando os descontos do mês chegam a 70% do salário (OJ 18 da SDC/TST).</div></div>' + resumo + '</div></div>';
+      '<div class="stack"><div class="notice info"><div><strong>Regra do desconto</strong>Só com autorização prévia e por escrito (CLT, art. 462; Súmula 342 do TST). O Seu Comando avisa em 60% e trava novos vales quando os descontos do mês chegam a 70% do salário (OJ 18 da SDC/TST).</div></div>' + resumo + '</div></div>';
   }
 
   /* ---------- Lista de compras ---------- */
@@ -858,7 +858,7 @@
   }
   // Prévia do documento: abre o arquivo em folha A4 na tela; "Baixar PDF" gera o PDF no navegador.
   function printHTML(html, nome) {
-    nome = String(nome || 'Documento Centralizar').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w ]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 90);
+    nome = String(nome || 'Documento Seu Comando').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w ]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 90);
     fecharDoc();
     var o = doc.createElement('div'); o.className = 'docview'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', 'Prévia do documento');
     o.innerHTML = '<div class="docbar"><div><strong>Prévia do documento</strong><span class="ui-sub">' + esc(nome) + '.pdf' + (S.plano === 'assinante' ? '' : ' · plano de avaliação: sai com marca d\'água') + '</span></div><div class="actions"><button type="button" class="btn btn-primary" data-docact="pdf">Baixar PDF</button><button type="button" class="btn" data-docact="imprimir">Imprimir</button><button type="button" class="btn" data-docact="fechar">Fechar</button></div></div><div class="docscroll"><div class="sheet-a4" id="doc-sheet">' + html + '</div></div>';
@@ -887,11 +887,11 @@
       var n = pdf.internal.getNumberOfPages();
       for (var i = 1; i <= n; i++) {
         pdf.setPage(i); pdf.setFontSize(8); pdf.setTextColor(110, 120, 115);
-        pdf.text('Centralizar · ' + S.empresa.nome + ' · página ' + i + ' de ' + n, 105, 290, { align: 'center' });
+        pdf.text('Seu Comando · ' + S.empresa.nome + ' · página ' + i + ' de ' + n, 105, 290, { align: 'center' });
         if (marca) {
           pdf.saveGraphicsState(); if (pdf.GState) pdf.setGState(new pdf.GState({ opacity: 0.13 }));
           pdf.setFontSize(30); pdf.setTextColor(15, 61, 46);
-          [90, 160, 230].forEach(function (y) { pdf.text('CENTRALIZAR · VERSÃO DE AVALIAÇÃO', 105, y, { align: 'center', angle: 32 }); });
+          [90, 160, 230].forEach(function (y) { pdf.text('SEU COMANDO · VERSÃO DE AVALIAÇÃO', 105, y, { align: 'center', angle: 32 }); });
           pdf.restoreGraphicsState();
         }
       }
@@ -978,7 +978,7 @@
       S.ui.faceOk = false; save(); render(); toast('Marcação registrada. Comprovante gerado.');
     },
     'export-afd': function () {
-      var linhas = ['Centralizar · AFD de exemplo (formato simplificado, não oficial)', 'Empresa: ' + S.empresa.razao + ' ' + S.empresa.cnpj];
+      var linhas = ['Seu Comando · AFD de exemplo (formato simplificado, não oficial)', 'Empresa: ' + S.empresa.razao + ' ' + S.empresa.cnpj];
       S.pessoas.forEach(function (p) { (S.ponto[p.id] || []).forEach(function (h) { if (h) linhas.push(['000000000', '05112026', h.replace(':', ''), p.cpf].join(';')); }); });
       var blob = new Blob([linhas.join('\r\n')], { type: 'text/plain;charset=utf-8' }), a = doc.createElement('a');
       a.href = URL.createObjectURL(blob); a.download = 'AFD-exemplo.txt'; doc.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
@@ -1162,8 +1162,8 @@
       var arq = t.files && t.files[0]; if (!arq) return;
       if (arq.size > 2 * 1024 * 1024) { toast('Arquivo grande demais (limite de 2 MB).'); return; }
       arq.text().then(function (txt) {
-        var j; try { j = JSON.parse(txt); } catch (er) { toast('Arquivo inválido: não é a pasta de candidatos do Centralizar.'); return; }
-        if (!j || j.formato !== 'centralizar-candidatos' || !Array.isArray(j.candidatos)) { toast('Arquivo inválido: não é a pasta de candidatos do Centralizar.'); return; }
+        var j; try { j = JSON.parse(txt); } catch (er) { toast('Arquivo inválido: não é a pasta de candidatos do Seu Comando.'); return; }
+        if (!j || ['seucomando-candidatos', 'centralizar-candidatos'].indexOf(j.formato) < 0 || !Array.isArray(j.candidatos)) { toast('Arquivo inválido: não é a pasta de candidatos do Seu Comando.'); return; }
         var x3 = integ(), vg = j.vaga || {}, s = function (v, n) { return String(v == null ? '' : v).slice(0, n); }, cg = cargoPor(s(vg.cargo, 80));
         j.candidatos.slice(0, 50).forEach(function (c, i) {
           var cand = { n: s(c.n, 80), fone: s(c.fone, 20), bairro: s(c.bairro, 60), regime: REG[c.regime] ? c.regime : 'tanto', turnos: (Array.isArray(c.turnos) ? c.turnos : []).filter(function (x) { return TUR[x]; }), km: Math.max(0, +c.km || 0), exp: Math.max(0, Math.min(40, +c.exp || 0)), ultima: s(c.ultima, 120), escolaridade: s(c.escolaridade, 4), pretensao: s(c.pretensao, 12), inicio: s(c.inicio, 12), nota: Math.max(0, Math.min(5, +c.nota || 0)), parecer: s(c.parecer, 400) };

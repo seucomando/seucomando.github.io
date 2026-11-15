@@ -1,4 +1,4 @@
-/* Centralizar — mini cursos para equipes de alimentação. Conteúdo baseado na RDC Anvisa 216/2004 (boas práticas
+/* Seu Comando — mini cursos para equipes de alimentação. Conteúdo baseado na RDC Anvisa 216/2004 (boas práticas
    para serviços de alimentação), na RDC 727/2022 (alergênicos) e nas NRs 6, 12 e 17. Cada curso: aulas curtas,
    teste de 4 questões (aprovação com 3 acertos) e certificado que comprova a capacitação (RDC 216, item 4.6.7). */
 (function (g) {
@@ -40,7 +40,7 @@
     { id: 'recebimento', titulo: 'Recebimento, armazenamento e etiquetas', min: 8, base: 'RDC 216/2004, itens 4.7 e 4.9.1', aulas: [
       ['Ao receber', 'Confira na hora da entrega: embalagem inteira, validade, rótulo e a temperatura dos refrigerados e congelados. O que estiver fora do padrão é recusado ou separado, e o responsável é avisado.'],
       ['Guardar', 'Sobre estrados, paletes ou prateleiras, nunca no chão, afastado da parede e longe dos produtos de limpeza. Primeiro que vence, primeiro que sai (PVPS): o lote com validade mais curta fica na frente.'],
-      ['Etiquetar', 'Alimento preparado ou fracionado leva etiqueta com nome, data de preparo e validade. Embalagem aberta segue a validade que o fabricante indica para depois de aberta. As etiquetas do Centralizar já saem com lote e validade.']
+      ['Etiquetar', 'Alimento preparado ou fracionado leva etiqueta com nome, data de preparo e validade. Embalagem aberta segue a validade que o fabricante indica para depois de aberta. As etiquetas do Seu Comando já saem com lote e validade.']
     ], quiz: [
       ['Os sacos de insumos ficam:', ['No chão, encostados na parede', 'Sobre estrados ou prateleiras, afastados da parede', 'Junto dos produtos de limpeza'], 1],
       ['PVPS quer dizer:', ['Primeiro que vence, primeiro que sai', 'Produto vendido, produto separado', 'Primeiro que vem, primeiro que sai'], 0],

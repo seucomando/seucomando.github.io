@@ -1,4 +1,4 @@
-/* Centralizar — landing page. Tokens primeiro; tudo abaixo usa só os tokens. */
+/* Seu Comando — landing page. Tokens primeiro; tudo abaixo usa só os tokens. */
 :root {
   --pinho: #0F3D2E;
   --folha: #1F7A4D;
@@ -349,3 +349,7 @@ progress::-moz-progress-bar { background: var(--folha); border-radius: 999px; }
 .rs-plan { max-width: 560px; }
 .rs-plan h2 small { font-size: 18px; color: var(--muted); font-weight: 500; }
 @media (max-width: 860px) { .rs-two, .rs-cols { grid-template-columns: 1fr; } }
+
+/* Celular: a folha de exemplo cabe na tela */
+@media (max-width: 600px) { .sheet, .sheet.narrow { width: 100%; max-width: 100%; min-height: 0; padding: 28px 22px; } }
+.foot nav { display: flex; flex-wrap: wrap; gap: 8px 20px; }
