@@ -179,6 +179,7 @@
     if (S.compras.itens.length) pend.push([pill('mute', S.compras.itens.length + ' na lista'), 'Lista de compras', 'Estimativa de R$ ' + brl(totalCompras()), '#/compras', 'Abrir lista']);
     if (S.real) {
       S.pessoas.forEach(function (p) { var rr = resumoDocs(p.id); if (rr.conferir) pend.push([pill('warn', rr.conferir + ' documento(s)'), 'Documentos de ' + p.nome, 'Enviados pelo app, aguardando conferência', '#/documentos', 'Conferir']); });
+      var ajP = (S.ajustes || []).filter(function (a) { return a.status === 'pendente'; }).length; if (ajP && S.role === 'empresa') pend.push([pill('warn', ajP + ' pedido(s)'), 'Pedidos de ajuste de ponto', 'Esquecimento ou erro de marcação', '#/ponto', 'Analisar']);
       var hAg = holAguardando().length; if (hAg && S.role === 'empresa') pend.push([pill('warn', hAg + ' holerite(s)'), 'Holerites para aprovar', 'Enviados pelo contador', '#/holerites', 'Aprovar']);
       if (S.role === 'empresa' && !(S.turnos || []).length) pend.push([pill('mute', 'Configuração'), 'Cadastrar os turnos da empresa', 'Para o ponto saber o horário de cada pessoa', '#/empresa', 'Abrir']);
       if (S.role === 'empresa' && cfgPonto().lat == null) pend.push([pill('mute', 'Configuração'), 'Definir o local da empresa para o ponto', 'Para conferir se a marcação foi feita no local', '#/empresa', 'Abrir']);
@@ -742,10 +743,10 @@
   function carregarReais() {
     if (!NUVEM) return Promise.resolve();
     var nada = function () { return null; };
-    return Promise.all([Nuvem.registros(addDays(hojeISO(), -45)).catch(nada), Nuvem.documentos().catch(nada), Nuvem.holeritesPdf().catch(nada)]).then(function (r) {
-      var antes = JSON.stringify([S.registros, S.docsArq, S.holArq]);
-      if (r[0]) S.registros = r[0]; if (r[1]) S.docsArq = r[1]; if (r[2]) S.holArq = r[2]; pontoHoje();
-      return antes !== JSON.stringify([S.registros, S.docsArq, S.holArq]);
+    return Promise.all([Nuvem.registros(addDays(hojeISO(), -45)).catch(nada), Nuvem.documentos().catch(nada), Nuvem.holeritesPdf().catch(nada), Nuvem.ajustes(addDays(hojeISO(), -45)).catch(nada)]).then(function (r) {
+      var antes = JSON.stringify([S.registros, S.docsArq, S.holArq, S.ajustes]);
+      if (r[0]) S.registros = r[0]; if (r[1]) S.docsArq = r[1]; if (r[2]) S.holArq = r[2]; if (r[3]) S.ajustes = r[3]; pontoHoje();
+      return antes !== JSON.stringify([S.registros, S.docsArq, S.holArq, S.ajustes]);
     });
   }
 
@@ -758,11 +759,11 @@
   function regsDe(pid, dia) { return (S.registros || []).filter(function (r) { return r.pessoa_id === pid && (!dia || r.dia === dia); }).sort(function (a, b) { return a.em < b.em ? -1 : 1; }); }
   function diaAberto(pid) {
     var h = hojeISO(), o = addDays(h, -1); if (regsDe(pid, h).length) return h;
-    var ro = regsDe(pid, o); return ro.some(function (r) { return r.tipo === 0; }) && !ro.some(function (r) { return r.tipo === 3; }) ? o : h;
+    var ro = regsDe(pid, o), ent = ro.filter(function (r) { return r.tipo === 0; })[0]; return ent && Date.now() - new Date(ent.em) < 16 * 3600e3 && !ro.some(function (r) { return r.tipo === 3; }) && !ajustesDe(pid, o, 'aprovado').some(function (a) { return a.tipo === 3 && a.acao !== 'desconsiderar'; }) ? o : h;
   }
   function pontoHoje() {
     if (!S.real) return; S.ponto = {}; S.marcacoesMetodo = {};
-    (S.pessoas || []).forEach(function (p) { var m = ['', '', '', '']; regsDe(p.id, diaAberto(p.id)).forEach(function (r) { m[r.tipo] = hhmm(r.em); S.marcacoesMetodo[p.id] = r.metodo === 'fixo' ? 'fixo' : 'celular'; }); S.ponto[p.id] = m; });
+    (S.pessoas || []).forEach(function (p) { var d = diaAberto(p.id); regsDe(p.id, d).forEach(function (r) { S.marcacoesMetodo[p.id] = r.metodo === 'fixo' ? 'fixo' : 'celular'; }); S.ponto[p.id] = marcasDia(p.id, d).map(function (x) { return x ? x.hora : ''; }); });
   }
   function localTxt(r) {
     if (!r) return '';
@@ -823,13 +824,18 @@
     });
   }
   function espelhoHTML(pid) {
-    var dias = {}; regsDe(pid).forEach(function (r) { (dias[r.dia] = dias[r.dia] || [])[r.tipo] = r; });
-    var ks = Object.keys(dias).sort().reverse();
+    var ks = {}; regsDe(pid).forEach(function (r) { ks[r.dia] = 1; }); ajustesDe(pid, null, 'aprovado').forEach(function (a) { ks[a.dia] = 1; });
+    ks = Object.keys(ks).sort().reverse();
     if (!ks.length) return '<p class="ui-sub">Nenhuma marcação ainda. As marcações aparecem aqui a partir do primeiro registro.</p>';
-    var cel = function (r) { if (!r) return '<td class="num">·</td>'; return '<td class="num"><strong>' + hhmm(r.em) + '</strong><span class="sub">NSR ' + esc(r.nsr) + ' · ' + esc(localTxt(r)) + '</span>' + (r.fora_do_local ? pill('bad', 'fora do local') : '') + '<span class="sub">' + (r.foto ? '<button type="button" class="link-btn" data-act="arq-ver" data-path="' + esc(r.foto) + '" data-t="Foto da marcação">foto</button> ' : '') + mapaLink(r) + '</span></td>'; };
-    var tot = function (d) { var a = d[0] && d[1] ? (new Date(d[1].em) - new Date(d[0].em)) / 6e4 : 0, b = d[2] && d[3] ? (new Date(d[3].em) - new Date(d[2].em)) / 6e4 : 0; if (d[0] && d[3] && !d[1] && !d[2]) a = (new Date(d[3].em) - new Date(d[0].em)) / 6e4; var t = Math.round(a + b); return t > 0 ? Math.floor(t / 60) + 'h' + ('0' + t % 60).slice(-2) : '·'; };
+    var cel = function (x) {
+      if (!x) return '<td class="num">·</td>';
+      var r = x.r || (x.antes && x.antes.r), orig = r ? '<span class="sub">' + (x.a ? 'original ' + hhmm(r.em) + ' · ' : '') + 'NSR ' + esc(r.nsr) + ' · ' + esc(localTxt(r)) + '</span>' + (r.fora_do_local ? pill('bad', 'fora do local') : '') + '<span class="sub">' + (r.foto ? '<button type="button" class="link-btn" data-act="arq-ver" data-path="' + esc(r.foto) + '" data-t="Foto da marcação">foto</button> ' : '') + mapaLink(r) + '</span>' : '';
+      if (x.a) return '<td class="num">' + (x.hora ? '<strong>' + esc(x.hora) + '</strong>' : '<s>' + (r ? hhmm(r.em) : '') + '</s>') + ' ' + pill('warn', x.a.acao === 'desconsiderar' ? 'desconsiderada' : 'ajustada') + '<span class="sub">' + esc(x.a.motivo) + (r ? '' : ' · sem marcação original') + '</span>' + orig + '</td>';
+      return '<td class="num"><strong>' + esc(x.hora) + '</strong>' + orig + '</td>';
+    };
+    var tot = function (o) { var h = o.map(function (x) { return x ? x.hora : ''; }), t = 0; if (h[0] && h[1]) t += minJ(h[0], h[1]); if (h[2] && h[3]) t += minJ(h[2], h[3]); if (h[0] && h[3] && !h[1] && !h[2]) t = minJ(h[0], h[3]); return t > 0 && t <= 960 ? fmtHoras(t) : t > 960 ? 'confira' : '·'; };
     return '<div class="table-box"><table class="t stack-sm"><thead><tr><th>Dia</th><th class="num">Entrada</th><th class="num">Saída intervalo</th><th class="num">Volta</th><th class="num">Saída</th><th class="num">Trabalhado</th></tr></thead><tbody>' +
-      ks.map(function (k) { var d = dias[k]; return '<tr><td><strong>' + dmyy(k) + '</strong><span class="sub">' + DIAS[new Date(k + 'T12:00:00').getDay()] + '</span></td>' + [0, 1, 2, 3].map(function (i) { return cel(d[i]); }).join('') + '<td class="num">' + tot(d) + '</td></tr>'; }).join('') + '</tbody></table></div>';
+      ks.map(function (k) { var o = marcasDia(pid, k); return '<tr><td><strong>' + dmyy(k) + '</strong><span class="sub">' + DIAS[new Date(k + 'T12:00:00').getDay()] + '</span></td>' + o.map(cel).join('') + '<td class="num">' + tot(o) + '</td></tr>'; }).join('') + '</tbody></table></div>';
   }
   function csvCel(v) { var s = String(v == null ? '' : v); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
   function baixarTexto(nome, texto, tipo) { salvarArquivo(nome, new Blob(['\ufeff' + texto], { type: tipo || 'text/csv;charset=utf-8' })); }
@@ -1031,12 +1037,48 @@
   function kpiHolFunc() { var u = (S.holArq || []).filter(function (h) { return h.pessoa_id === ME && h.status === 'liberado'; }).sort(function (a, b) { return a.competencia < b.competencia ? 1 : -1; })[0]; return '<div class="kpi"><div class="lbl">Último holerite</div><div class="val num">' + (u ? esc(compTxt(u.competencia)) : 'nenhum ainda') + '</div><div class="cap">' + (u ? '<a href="#/holerites">abrir</a>' : 'aparece quando a empresa aprovar') + '</div></div>'; }
   function kpiDocsFunc() { var r = resumoDocs(ME); return '<div class="kpi"><div class="lbl">Meus documentos</div><div class="val num">' + r.ok + ' de ' + r.total + '</div><div class="cap"><a href="#/documentos">' + (r.falta ? 'enviar os que faltam' : 'ver documentos') + '</a></div></div>'; }
 
+  /* Ajuste de marcação: o registro original fica; o ajuste vale por cima, com motivo e aprovação */
+  function ajustesDe(pid, dia, st) { return (S.ajustes || []).filter(function (a) { return a.pessoa_id === pid && (!dia || a.dia === dia) && (!st || a.status === st); }); }
+  function marcasDia(pid, dia) {
+    var o = [null, null, null, null];
+    regsDe(pid, dia).forEach(function (r) { o[r.tipo] = { hora: hhmm(r.em), r: r }; });
+    ajustesDe(pid, dia, 'aprovado').sort(function (a, b) { return String(a.decidido_em) < String(b.decidido_em) ? -1 : 1; }).forEach(function (a) { var antes = o[a.tipo]; o[a.tipo] = { hora: a.acao === 'desconsiderar' ? '' : a.hora, a: a, antes: antes && (antes.r ? antes : antes.antes) }; });
+    return o;
+  }
+  // Próxima marcação: a que ainda não foi registrada nem incluída por ajuste (o banco não aceita a mesma marcação duas vezes no dia).
+  function proxTipo(pid) { if (!S.real) return (S.ponto[pid] || ['', '', '', '']).indexOf(''); var d = diaAberto(pid), mk = marcasDia(pid, d), raw = regsDe(pid, d); for (var i = 0; i < 4; i++) { if (!raw.some(function (r) { return r.tipo === i; }) && !(mk[i] && mk[i].a)) return i; } return -1; }
+  var ACAO_AJ = { incluir: 'inclusão', corrigir: 'correção de horário', desconsiderar: 'desconsiderar' };
+  function ajusteForm(pid, direto) {
+    var h = hojeISO();
+    return '<form class="stack" data-form="ajuste" data-pessoa="' + esc(pid) + '" data-direto="' + (direto ? 1 : 0) + '"><div class="form-grid"><div class="field"><label for="aj-d">Dia</label><input id="aj-d" name="d" type="date" max="' + h + '" min="' + addDays(h, -45) + '" value="' + h + '" required></div>' +
+      '<div class="field"><label for="aj-t">Marcação</label><select id="aj-t" name="t">' + TIPOS_PONTO.map(function (n, i) { return '<option value="' + i + '">' + n + '</option>'; }).join('') + '</select></div></div>' +
+      (direto ? '<div class="field"><label for="aj-a">O que fazer</label><select id="aj-a" name="a"><option value="auto">Incluir a marcação que faltou ou corrigir o horário</option><option value="desconsiderar">Desconsiderar a marcação (registro errado)</option></select></div>' : '') +
+      '<div class="field"><label for="aj-h">Horário correto</label><input id="aj-h" name="h" type="time"></div>' +
+      '<div class="field"><label for="aj-m">Motivo</label><textarea id="aj-m" name="m" rows="3" maxlength="300" required placeholder="Ex.: esqueci de marcar a saída; saí às 17:50"></textarea></div>' +
+      '<p class="ui-sub">A marcação original não é apagada nem alterada. O ajuste fica registrado à parte, com o motivo, quem pediu e quem aprovou (Portaria MTP 671/2021).</p><button class="btn btn-primary" type="submit">' + (direto ? 'Registrar ajuste' : 'Enviar pedido para a empresa') + '</button></form>';
+  }
+  function ajustesHTML(lista, decide) {
+    if (!lista.length) return '';
+    return '<ul class="list">' + lista.map(function (a) {
+      var st = a.status === 'aprovado' ? pill('ok', 'Aprovado') : a.status === 'recusado' ? pill('bad', 'Recusado') : pill('warn', 'Aguardando a empresa');
+      return '<li><span><strong>' + esc((P(a.pessoa_id) || {}).nome || '') + '</strong> · ' + dmyy(a.dia) + ' · ' + esc(TIPOS_PONTO[a.tipo]) + (a.hora ? ' às ' + esc(a.hora) : '') + ' <span class="sub">' + esc(ACAO_AJ[a.acao]) + ': ' + esc(a.motivo) + ' · pedido por ' + esc(a.pedido_nome || '') + ' em ' + esc(quandoTxt(a.pedido_em)) + (a.decidido_nome ? ' · decidido por ' + esc(a.decidido_nome) : '') + (a.resposta ? ' · resposta: ' + esc(a.resposta) : '') + '</span></span><span class="actions">' + st +
+        (decide && a.status === 'pendente' ? '<button type="button" class="btn btn-sm btn-primary" data-act="aj-ok" data-id="' + esc(a.id) + '">Aprovar</button><button type="button" class="btn btn-sm" data-act="aj-nao" data-id="' + esc(a.id) + '">Recusar</button>' : '') + '</span></li>';
+    }).join('') + '</ul>';
+  }
+  function decidirAjuste(id, status, resposta) {
+    var a = (S.ajustes || []).filter(function (x) { return String(x.id) === String(id); })[0]; if (!a) return;
+    (NUVEM ? Nuvem.decidirAjuste(a.id, status, quemSou(), resposta) : Promise.resolve(null)).then(function (x) {
+      if (x) Object.assign(a, x); else { a.status = status; a.decidido_nome = quemSou(); a.decidido_em = new Date().toISOString(); a.resposta = resposta || null; }
+      pontoHoje(); auditar('Ajuste de ponto ' + (status === 'aprovado' ? 'aprovado' : 'recusado'), ((P(a.pessoa_id) || {}).nome || '') + ' · ' + dmyy(a.dia) + ' · ' + TIPOS_PONTO[a.tipo] + (a.hora ? ' ' + a.hora : '') + ': ' + a.motivo);
+      save(); closeModal(); render(); toast(status === 'aprovado' ? 'Ajuste aprovado. A marcação original continua guardada.' : 'Pedido recusado. A pessoa vê a resposta no app.');
+    }, function (e) { toast(erroTxt(e)); });
+  }
   var MODELO_PEND = '';
   /* ---------- Modo conectado (login e banco de dados) ---------- */
   var NUVEM = !!(window.Nuvem && Nuvem.ativa) && !EXEMPLO;
   var SNAP = null, MEMBROS = [], VINCULOS = [], PUBLICADO = {}, tSync = null, tPend = null;
   var LISTAS = ['atestados', 'advertencias', 'vales', 'banco'];
-  function semUI(s) { var c = clone(s); delete c.ui; delete c.role; delete c.nuvemPessoa; delete c.registros; delete c.docsArq; delete c.holArq; return c; }
+  function semUI(s) { var c = clone(s); delete c.ui; delete c.role; delete c.nuvemPessoa; delete c.registros; delete c.docsArq; delete c.holArq; delete c.ajustes; return c; }
   function pessoaEm(D, id) { return (D.pessoas || []).filter(function (p) { return p.id === id; })[0]; }
   function porId(l) { var m = {}; (l || []).forEach(function (x) { if (x && x.id) m[x.id] = x; }); return m; }
   function igual(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
@@ -1296,7 +1338,7 @@
     s.checklists = (s.checklists || []).map(function (c) { return { id: c.id, setor: c.setor, nome: c.nome, hora: c.hora, resp: '', foto: c.foto, itens: c.itens.map(function (i) { return { t: i.t, foto: i.foto, feito: false }; }) }; });
     if (s.bp) { s.bp.temps = []; s.bp.docs.forEach(function (d) { d.ult = ''; if (d.venc) d.venc = ''; }); }
     if (s.agencia) { s.clientes = []; } delete s.envSeed;
-    s.nsr = 0; s.turnos = []; s.modelosCt = []; s.contratos = []; s.registros = []; s.docsArq = []; s.holArq = []; s.v2 = true; s.empresa.ponto = {};
+    s.nsr = 0; s.turnos = []; s.modelosCt = []; s.contratos = []; s.registros = []; s.docsArq = []; s.holArq = []; s.ajustes = []; s.v2 = true; s.empresa.ponto = {};
     s.hoje = hojeISO(); s.agoraDemo = null; s.real = true; s.plano = 'avaliacao';
     return s;
   }
@@ -1309,7 +1351,7 @@
     var metodo = eu ? 'celular' : real ? 'fixo' : (S.ui.metodo || (quem.celular ? 'celular' : 'fixo'));
     var bloqueado = metodo === 'celular' && !quem.celular, j = jornadaDe(quem);
     var opts = S.pessoas.map(function (p) { return '<option value="' + p.id + '"' + (p.id === quem.id ? ' selected' : '') + '>' + esc(p.nome) + '</option>'; }).join('');
-    var m = S.ponto[quem.id] || ['', '', '', ''], prox = m.indexOf(''), nomes = ['entrada', 'saída para o intervalo', 'volta do intervalo', 'saída'];
+    var m = S.ponto[quem.id] || ['', '', '', ''], prox = proxTipo(quem.id), nomes = ['entrada', 'saída para o intervalo', 'volta do intervalo', 'saída'];
     var rc = S.ui.recibo;
     var painel = '<div class="card card-pad stack"><h2 class="sec">' + (eu ? 'Bater ponto' : 'Bater ponto no aparelho da empresa') + '</h2>' +
       (eu ? '' : '<div class="field"><label for="pp">Quem vai marcar</label><select id="pp" data-in="ponto-pessoa">' + opts + '</select></div>') +
@@ -1318,6 +1360,7 @@
       (bloqueado ? '<div class="notice"><div><strong>Celular não liberado para ' + esc(first(quem.nome)) + '</strong>' + (eu ? 'Marque no aparelho da empresa ou peça a liberação.' : 'A empresa só liberou o aparelho fixo.') + '</div></div>' :
         '<div class="actions"><button type="button" class="btn btn-primary btn-lg" data-act="marcar"' + (prox > -1 ? '' : ' disabled') + '>' + (prox > -1 ? 'Registrar ' + nomes[prox] : 'Jornada de hoje completa') + '</button></div>') +
       (rc ? '<div class="receipt num"><strong>Comprovante de registro de ponto</strong><br>NSR ' + esc(rc.nsr) + ' · ' + esc(rc.quando) + '<br>' + esc(S.empresa.razao || S.empresa.nome) + (S.empresa.cnpj ? ' · CNPJ ' + esc(S.empresa.cnpj) : '') + '<br>' + esc(rc.nome) + (rc.cpf ? ' · CPF ' + esc(rc.cpf) : '') + '<br>' + esc(rc.tipo) + ' · ' + esc(rc.metodo) + (rc.local ? '<br>Local: ' + esc(rc.local) : '') + (rc.foto ? '<br>Foto registrada' : '') + '<br>Programa registrado no INPI nº [a registrar]</div>' : '') +
+      (eu && real ? '<button type="button" class="btn btn-sm" data-act="aj-novo">Esqueceu de marcar ou errou? Pedir ajuste</button>' : '') +
       '<p class="ui-sub">Ponto por programa (REP-P), Portaria MTP 671/2021. ' + (real ? 'A hora registrada é a do servidor. ' : 'No exemplo, a foto e o local ficam só neste aparelho. ') + 'A foto e o local ficam guardados como comprovante de cada marcação; não há reconhecimento facial.</p></div>';
     var hojeRegs = function (pid) { return regsDe(pid, real ? diaAberto(pid) : hojeISO()); };
     var porTipo = function (pid) { var o = []; hojeRegs(pid).forEach(function (r) { o[r.tipo] = r; }); return o; };
@@ -1325,6 +1368,7 @@
       var rs = porTipo(ME);
       var hist = TIPOS_PONTO.map(function (n, i) { return '<li><span>' + n + (rs[i] ? '<span class="sub">' + esc(localTxt(rs[i])) + '</span>' : '') + '</span><span class="actions"><span class="num">' + esc(m[i] || '·') + '</span>' + (rs[i] && rs[i].fora_do_local ? pill('bad', 'fora do local') : '') + '</span></li>'; }).join('');
       return titleRow('Ponto', real ? 'Seu horário: ' + esc(horarioTxt(j)) + ' · ' + esc(diasTxt(j.dias)) : 'Escala de hoje: entrada às ' + esc(quem.escala)) + '<div class="grid-2">' + painel + '<div class="stack"><h2 class="sec">Suas marcações de hoje</h2><div class="card"><ul class="list">' + hist + '</ul></div>' +
+        (real && ajustesDe(ME).length ? '<h2 class="sec">Seus pedidos de ajuste</h2><div class="card">' + ajustesHTML(ajustesDe(ME).slice().reverse().slice(0, 10), false) + '</div>' : '') +
         (real ? '<h2 class="sec">Seus últimos dias</h2><div class="card">' + espelhoHTML(ME) + '</div>' : '') + bancoHTML() + '</div></div>';
     }
     var rows = S.pessoas.map(function (p) {
@@ -1334,9 +1378,10 @@
     }).join('');
     var aut = S.pessoas.map(function (p) { return '<li><label class="check"><input type="checkbox" data-in="aut" data-id="' + p.id + '"' + (p.celular ? ' checked' : '') + (S.role === 'empresa' ? '' : ' disabled') + '> ' + esc(p.nome) + '</label><span class="sub">' + (p.celular ? 'celular ou aparelho da empresa' : 'só aparelho da empresa') + '</span></li>'; }).join('');
     var cfg = cfgPonto(), cfgCard = real && S.role === 'empresa' ? '<div class="card card-pad stack"><h2 class="sec">Regras do ponto</h2><p>' + (cfg.lat != null ? 'Local da empresa definido · raio de ' + cfg.raio + ' m' + (cfg.bloquear ? ' · marcação fora do local é recusada' : ' · fora do local fica sinalizado') : 'Local da empresa ainda não definido') + '</p><p class="ui-sub">' + (cfg.foto ? 'Foto obrigatória' : 'Foto opcional') + ' · ' + (cfg.local ? 'localização obrigatória no celular' : 'localização opcional') + '</p><a class="btn btn-sm" href="#/empresa">Alterar em Dados da empresa</a></div>' : '';
+    var pend = real ? (S.ajustes || []).filter(function (a) { return a.status === 'pendente'; }) : [], ajCard = pend.length ? '<div class="card"><div class="card-head"><h2>Pedidos de ajuste</h2>' + pill('warn', pend.length + ' aguardando') + '</div>' + ajustesHTML(pend, S.role === 'empresa') + '</div>' : '';
     var acoes = real ? '<button type="button" class="btn" data-act="ponto-csv">Exportar marcações (planilha)</button>' : '<button type="button" class="btn" data-act="export-afd">Exportar arquivo para a fiscalização (AFD)</button>';
     return titleRow('Ponto e jornada', (real ? hoje1() : 'Quinta-feira, 05/11') + ' · situação às ' + demoAgora() + ' · tolerância de 10 minutos por dia (CLT, art. 58, § 1º)', acoes) +
-      '<div class="grid-main"><div class="stack"><div class="card"><div class="table-box"><table class="t stack-sm"><thead><tr><th>Pessoa</th><th class="num">Entra</th><th class="num hide-sm">Entrada</th><th class="num hide-sm">Intervalo</th><th class="num hide-sm">Volta</th><th class="num hide-sm">Saída</th><th class="hide-sm">Como e onde</th><th>Situação</th></tr></thead><tbody>' + rows + '</tbody></table></div></div><p class="ui-sub">Toque no nome para ver o espelho de ponto com as fotos e os locais.</p></div>' +
+      '<div class="grid-main"><div class="stack"><div class="card"><div class="table-box"><table class="t stack-sm"><thead><tr><th>Pessoa</th><th class="num">Entra</th><th class="num hide-sm">Entrada</th><th class="num hide-sm">Intervalo</th><th class="num hide-sm">Volta</th><th class="num hide-sm">Saída</th><th class="hide-sm">Como e onde</th><th>Situação</th></tr></thead><tbody>' + rows + '</tbody></table></div></div><p class="ui-sub">Toque no nome para ver o espelho de ponto com as fotos e os locais' + (S.role === 'empresa' && real ? ' e para ajustar uma marcação' : '') + '.</p>' + ajCard + '</div>' +
       '<div class="stack">' + painel + cfgCard + (S.role === 'empresa' ? '<div><h2 class="sec">Quem pode marcar pelo celular</h2><div class="card"><ul class="list">' + aut + '</ul></div></div>' : '') + '</div></div>' + bancoHTML();
   }
   var clockTimer;
@@ -1651,7 +1696,7 @@
     face: function () { var f = $('#face'); if (f) f.textContent = 'Conferindo…'; setTimeout(function () { S.ui.faceOk = true; render(); }, 700); },
     marcar: function () {
       var eu = ehFunc() && (S.real || !pode('ponto')), p = eu ? P(ME) : (P(S.ui.pontoPessoa) || P('e3') || S.pessoas[0]); if (!p) return;
-      var m = S.ponto[p.id] || (S.ponto[p.id] = ['', '', '', '']), i = m.indexOf(''); if (i < 0) return;
+      var i = proxTipo(p.id); if (i < 0) return;
       var met = eu ? 'celular' : S.real ? 'fixo' : (S.ui.metodo || (p.celular ? 'celular' : 'fixo'));
       if (met === 'celular' && !p.celular) { toast('A empresa não liberou a marcação pelo celular para ' + first(p.nome) + '.'); return; }
       capturarPonto(p, i, met);
@@ -1743,10 +1788,14 @@
     sair: function () { Nuvem.sair().then(function () { location.href = 'entrar.html'; }); },
     recarregar: function () { location.reload(); },
     'arq-ver': function (b) { abrirArquivo(b.dataset.path, b.dataset.t); },
-    'ponto-espelho': function (b) { var p = P(b.dataset.id); if (!p) return; modal('Espelho de ponto · ' + p.nome, '<p class="ui-sub">' + esc(S.real ? turnoCurto(p) + ' · últimos 45 dias · hora do servidor' : 'Marcações feitas neste aparelho') + '</p>' + espelhoHTML(p.id), '', 'modal-largo'); },
+    'ponto-espelho': function (b) { var p = P(b.dataset.id); if (!p) return; modal('Espelho de ponto · ' + p.nome, '<p class="ui-sub">' + esc(S.real ? turnoCurto(p) + ' · últimos 45 dias · hora do servidor' : 'Marcações feitas neste aparelho') + '</p>' + espelhoHTML(p.id) + (S.real && ajustesDe(p.id).length ? '<h3 class="lbl-s">Ajustes</h3>' + ajustesHTML(ajustesDe(p.id).slice().reverse(), S.role === 'empresa') : ''), S.real && S.role === 'empresa' ? '<button type="button" class="btn btn-primary" data-act="aj-novo" data-id="' + esc(p.id) + '">Ajustar uma marcação</button>' : '', 'modal-largo'); },
+    'aj-novo': function (b) { var pid = b.dataset.id || ME, pe = P(pid), direto = S.role === 'empresa'; if (!pe) return; modal(direto ? 'Ajustar marcação · ' + pe.nome : 'Pedir ajuste de ponto', ajusteForm(pid, direto)); },
+    'aj-ok': function (b) { decidirAjuste(b.dataset.id, 'aprovado'); },
+    'aj-nao': function (b) { modal('Recusar pedido de ajuste', '<form class="stack" data-form="aj-nao" data-id="' + esc(b.dataset.id) + '"><div class="field"><label for="an-m">Resposta (a pessoa vê no app)</label><input id="an-m" name="m" maxlength="300" required placeholder="Ex.: a câmera mostra a saída às 17:10"></div><button class="btn btn-primary" type="submit">Recusar</button></form>'); },
     'ponto-csv': function () {
-      var linhas = [['Data', 'Pessoa', 'CPF', 'Marcação', 'Hora', 'NSR', 'Como', 'Latitude', 'Longitude', 'Distância da empresa (m)', 'Fora do local'].join(';')];
-      (S.registros || []).slice().sort(function (a, b) { return a.em < b.em ? -1 : 1; }).forEach(function (r) { var p = P(r.pessoa_id) || {}; linhas.push([dmyy(r.dia), p.nome || r.pessoa_id, p.cpf || '', TIPOS_PONTO[r.tipo], hhmm(r.em), r.nsr, r.metodo === 'fixo' ? 'Aparelho da empresa' : 'Celular', r.lat == null ? '' : r.lat, r.lng == null ? '' : r.lng, r.distancia == null ? '' : r.distancia, r.fora_do_local ? 'sim' : ''].map(csvCel).join(';')); });
+      var linhas = [['Data', 'Pessoa', 'CPF', 'Marcação', 'Hora', 'NSR', 'Como', 'Latitude', 'Longitude', 'Distância da empresa (m)', 'Fora do local', 'Ajuste aprovado (motivo)'].join(';')];
+      (S.registros || []).slice().sort(function (a, b) { return a.em < b.em ? -1 : 1; }).forEach(function (r) { var p = P(r.pessoa_id) || {}; linhas.push([dmyy(r.dia), p.nome || r.pessoa_id, p.cpf || '', TIPOS_PONTO[r.tipo], hhmm(r.em), r.nsr, r.metodo === 'fixo' ? 'Aparelho da empresa' : 'Celular', r.lat == null ? '' : r.lat, r.lng == null ? '' : r.lng, r.distancia == null ? '' : r.distancia, r.fora_do_local ? 'sim' : '', ''].map(csvCel).join(';')); });
+      (S.ajustes || []).filter(function (a) { return a.status === 'aprovado'; }).forEach(function (a) { var p = P(a.pessoa_id) || {}; linhas.push([dmyy(a.dia), p.nome || a.pessoa_id, p.cpf || '', TIPOS_PONTO[a.tipo] + ' · ' + ACAO_AJ[a.acao], a.hora || '', '', 'Ajuste aprovado por ' + (a.decidido_nome || ''), '', '', '', '', a.motivo].map(csvCel).join(';')); });
       baixarTexto('Marcacoes de ponto ' + hojeISO() + '.csv', linhas.join('\r\n'));
     },
     'usar-local': function (b) {
@@ -1863,6 +1912,25 @@
       e2.status = 'recusado'; e2.motivo = String(d.get('m') || '').slice(0, 80); e2.decididoEm = agora(); salvaInteg(x2); closeModal(); render(); toast('Recusa registrada e enviada para a recrutadora.'); return;
     }
     if (k === 'nuvem-empresa') { var nn = String(d.get('n') || '').trim().slice(0, 80); if (nn.length < 2) return; criarEmpresaNuvem(nn, String(d.get('t') || 'padaria')).catch(function (e) { toast(e.message); }); return; }
+    if (k === 'ajuste') {
+      var ajp = f.dataset.pessoa, ajd = String(d.get('d') || ''), ajt = +d.get('t'), aja = String(d.get('a') || 'auto'), ajh = hhOk(d.get('h')), ajm = String(d.get('m') || '').trim().slice(0, 300), direto = f.dataset.direto === '1' && S.role === 'empresa';
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(ajd) || ajd > hojeISO()) { toast('Escolha um dia até hoje.'); return; }
+      if (!(ajt >= 0 && ajt <= 3)) return; if (ajm.length < 5) { toast('Explique o motivo do ajuste.'); return; }
+      var reg = regsDe(ajp, ajd).filter(function (r) { return r.tipo === ajt; })[0], acao = aja === 'desconsiderar' ? 'desconsiderar' : reg ? 'corrigir' : 'incluir';
+      if (acao !== 'desconsiderar' && !ajh) { toast('Informe o horário correto.'); return; }
+      if (acao === 'desconsiderar' && !marcasDia(ajp, ajd)[ajt]) { toast('Não há marcação para desconsiderar nesse dia.'); return; }
+      if (!direto && ajustesDe(ajp, ajd, 'pendente').some(function (a) { return a.tipo === ajt; })) { toast('Já existe um pedido aguardando para essa marcação.'); return; }
+      var ajr = { pessoa_id: ajp, dia: ajd, tipo: ajt, acao: acao, hora: acao === 'desconsiderar' ? null : ajh, registro_id: reg ? reg.id : null, motivo: ajm, status: direto ? 'aprovado' : 'pendente', pedido_nome: quemSou() };
+      if (direto) ajr.decidido_nome = quemSou();
+      var agoraIso = new Date().toISOString();
+      (NUVEM ? Nuvem.pedirAjuste(ajr) : Promise.resolve(Object.assign({}, ajr, { id: 'aj' + Date.now(), pedido_em: agoraIso, decidido_em: direto ? agoraIso : null }))).then(function (x) {
+        S.ajustes = S.ajustes || []; S.ajustes.push(x); pontoHoje();
+        if (direto) auditar('Ajuste de ponto', ((P(ajp) || {}).nome || '') + ' · ' + dmyy(ajd) + ' · ' + TIPOS_PONTO[ajt] + (ajh && acao !== 'desconsiderar' ? ' ' + ajh : '') + ' (' + ACAO_AJ[acao] + '): ' + ajm);
+        save(); closeModal(); render(); toast(direto ? 'Ajuste registrado. A marcação original continua guardada.' : 'Pedido enviado. A empresa vai analisar.');
+      }, function (e) { toast(erroTxt(e)); });
+      return;
+    }
+    if (k === 'aj-nao') { var ajr2 = String(d.get('m') || '').trim().slice(0, 300); if (ajr2.length < 3) return; decidirAjuste(f.dataset.id, 'recusado', ajr2); return; }
     if (k === 'turno') {
       var tn = String(d.get('n') || '').trim().slice(0, 40); if (!tn) return;
       var jt = jornadaDoForm(d), tt = f.dataset.id ? turnoDe(f.dataset.id) : null, novoT = !tt; S.turnos = S.turnos || [];

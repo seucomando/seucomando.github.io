@@ -6,6 +6,7 @@
 | Projeto Supabase `seu-comando` | Criado em São Paulo (sa-east-1), ref. `owwwhiswwtddchizoljm` |
 | Tabelas, regras (RLS) e funções | `supabase/schema.sql` rodado e conferido: 8 tabelas, 18 regras, 15 funções, RLS ligado |
 | Parte 2 (18/11/2026) | `supabase/schema-2.sql` rodado: ponto com foto e local (`registros_ponto`, hora e NSR do servidor, sem edição nem exclusão), documentos do funcionário (`documentos_pessoa`), holerites em PDF (`holerites`) e depósito privado `arquivos` com regras por empresa e por pessoa |
+| Parte 3 (18/11/2026) | `supabase/schema-3.sql` rodado: ajuste de marcação (`ajustes_ponto`). O funcionário pede, só a empresa aprova ou recusa com resposta; a marcação original não muda e nada se apaga |
 | Login | E-mail com confirmação; senha mínima de 8 caracteres com letras e números |
 | Função `acesso-funcionario` | Publicada, com "Verify JWT" desligado (a própria função confere CPF e código) |
 | Chave do site | `assets/js/config.js` usa a chave **publishable** (pública por natureza) |
@@ -27,7 +28,7 @@
 ## 3. Publicar uma versão nova
 1. Altere os arquivos, aumente `VERSAO` em `sw.js` e envie para a branch `main` do repositório `seucomando/seucomando.github.io` (organização seucomando no GitHub).
 2. O GitHub Pages publica em cerca de 1 minuto. Quem já instalou o app vê "Nova versão do Seu Comando disponível".
-3. Mudou o banco? Rode `supabase/schema.sql` e depois `supabase/schema-2.sql` de novo no SQL Editor: eles não apagam dados.
+3. Mudou o banco? Rode `supabase/schema.sql`, `supabase/schema-2.sql` e `supabase/schema-3.sql` de novo no SQL Editor: eles não apagam dados.
 
 ## 4. Antes de abrir para clientes: e-mail próprio (SMTP)
 O serviço de e-mail que vem com o Supabase só entrega para quem faz parte da equipe do projeto (hoje, só a sua conta) e no máximo 2 e-mails por hora. Para clientes criarem conta e recuperarem senha:
@@ -50,6 +51,5 @@ O serviço de e-mail que vem com o Supabase só entrega para quem faz parte da e
 - **Chaves:** o site só tem a chave publishable. A chave secreta fica apenas dentro do Supabase, usada pela função do primeiro acesso. Nunca coloque uma chave secreta no site nem no repositório.
 
 ## Limites desta versão
-- Ajuste de marcação (esquecimento, erro) ainda não tem tela: a marcação original não se altera, e o ajuste com justificativa é o próximo passo (Portaria MTP 671/2021).
 - Se duas pessoas salvarem ao mesmo tempo, a segunda recebe um aviso e a tela recarrega com a versão mais nova (nada é sobrescrito sem aviso).
 - O envio de candidatos da recrutadora para empresas clientes pelo banco ainda não passou por teste com contas reais.
