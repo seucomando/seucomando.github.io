@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="robots" content="noindex">
 <title>Painel · Seu Comando</title>
@@ -45,6 +45,8 @@
         <a href="#/clientes" data-roles="empresa" data-rs><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V8l8-4 8 4v12"/><path d="M9 20v-5h6v5"/><path d="M8 10h.01M12 10h.01M16 10h.01"/></svg><span>Empresas clientes</span></a>
         <a href="#/admissoes" data-roles="empresa contador"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg>Admissões<span class="count" data-count="adm"></span></a>
         <a href="#/contratos" data-roles="empresa contador"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h14v16H5z"/><path d="M8 8h8M8 12h8M8 16h4"/></svg>Contratos</a>
+        <a href="#/documentos" data-roles="empresa contador funcionario gerente"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6v18h12V7z"/><path d="M14 3v4h4M9 13h6M9 17h4"/></svg><span>Documentos</span><span class="count" data-count="doc"></span></a>
+        <a href="#/empresa" data-roles="empresa"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18M5 21V7l7-4 7 4v14"/><path d="M9 21v-5h6v5M9 10h.01M15 10h.01"/></svg><span>Dados da empresa</span></a>
         <a href="#/equipe" data-roles="empresa"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.2c2.4.2 4 1.8 4.5 4.8"/></svg><span>Equipe e acessos</span></a>
       </div>
       <div class="nav-group" data-group>
@@ -90,7 +92,7 @@
           <option value="funcionario">Funcionário</option>
         </select>
       </label>
-      <div class="switcher"><span class="mark" id="co-mark">P</span><div><strong id="co-name">Padaria Sol</strong><span>Criciúma/SC · 12 pessoas</span></div></div>
+      <div class="switcher"><span class="mark" id="co-mark">P</span><div><strong id="co-name">Padaria Sol</strong><span id="co-sub">Criciúma/SC · 12 pessoas</span></div></div>
     </div>
   </header>
 

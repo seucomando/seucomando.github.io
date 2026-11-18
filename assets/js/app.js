@@ -90,8 +90,10 @@
     var m = S.ponto[p.id] || ['', '', '', ''];
     var at = S.atestados.filter(function (a) { return a.pessoa === p.id && diffDays(a.inicio, S.hoje) >= 0 && diffDays(a.inicio, S.hoje) < a.dias; })[0];
     if (at) return ['mute', 'Atestado até ' + dmy(addDays(at.inicio, at.dias - 1))];
-    if (!m[0]) return min(p.escala) > min(demoAgora()) ? ['mute', 'Entra às ' + p.escala] : ['bad', 'Ausente'];
-    var atraso = min(m[0]) - min(p.escala);
+    var esc0 = S.real ? jornadaDe(p).e : p.escala;
+    if (S.real && !m[0] && (jornadaDe(p).dias || []).indexOf(new Date().getDay()) < 0) return ['mute', 'Folga hoje'];
+    if (!m[0]) return (S.real ? min(esc0) + 10 >= min(demoAgora()) : min(esc0) > min(demoAgora())) ? ['mute', 'Entra às ' + esc0] : ['bad', S.real ? 'Sem marcação' : 'Ausente'];
+    var atraso = min(m[0]) - min(esc0);
     if (m[3]) return ['mute', 'Jornada encerrada'];
     if (atraso > 10) return ['warn', 'Atraso de ' + atraso + ' min'];
     return ['ok', 'Presente'];
@@ -110,6 +112,8 @@
     vales: { t: 'Vales', r: 'empresa contador funcionario gerente', f: vVales },
     estoque: { t: 'Estoque e etiquetas', r: 'empresa gerente', p: 'estoque', f: vEstoque },
     equipe: { t: 'Equipe e acessos', r: 'empresa', f: vEquipe },
+    empresa: { t: 'Dados da empresa', r: 'empresa', f: vEmpresa },
+    documentos: { t: 'Documentos', r: 'empresa contador funcionario gerente', f: vDocumentos },
     compras: { t: 'Lista de compras', r: 'empresa funcionario gerente', f: vCompras },
     selecao: { t: 'Processos seletivos', r: 'empresa', f: vSelecao },
     clientes: { t: 'Empresas clientes', r: 'empresa', f: vClientes },
@@ -132,9 +136,9 @@
       if (a.getAttribute('href') === '#/' + r) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     });
     $$('#nav [data-group]').forEach(function (g) { g.hidden = !$$('a', g).some(function (a) { return !a.hidden; }); });
-    var counts = { adm: S.admissoes.filter(function (a) { return S.role === 'contador' ? passoAdm(a) === 3 : !a.aprovada; }).length, orig: originaisPendentes().length, hol: ehFunc() ? 0 : S.pessoas.length - S.holerites.aprovados.length, cmp: S.role === 'empresa' ? S.compras.itens.length : 0 };
+    var counts = { adm: S.admissoes.filter(function (a) { return S.role === 'contador' ? passoAdm(a) === 3 : !a.aprovada; }).length, orig: originaisPendentes().length, hol: ehFunc() ? 0 : S.real ? (S.role === 'empresa' ? holAguardando().length : 0) : S.pessoas.length - S.holerites.aprovados.length, doc: S.real && !ehFunc() ? (S.docsArq || []).filter(function (d) { return d.status === 'enviado'; }).length : 0, cmp: S.role === 'empresa' ? S.compras.itens.length : 0 };
     $$('[data-count]').forEach(function (c) { var n = counts[c.dataset.count]; c.textContent = n || ''; c.hidden = !n; });
-    $('#co-name').textContent = S.empresa.nome; $('#co-mark').textContent = S.empresa.nome.charAt(0).toUpperCase();
+    $('#co-name').textContent = S.empresa.nome; var cs = $('#co-sub'); if (cs) cs.textContent = [S.empresa.cidade, S.pessoas.length + (S.pessoas.length === 1 ? ' pessoa' : ' pessoas')].filter(Boolean).join(' · '); $('#co-mark').textContent = S.empresa.nome.charAt(0).toUpperCase();
     $('#role').value = NUVEM ? (Nuvem.empresa || '') : S.role;
     $('#side').classList.remove('open'); $('#menu-btn').setAttribute('aria-expanded', 'false');
     if (R.after) R.after();
@@ -161,9 +165,9 @@
         '<div class="stack">' +
         '<div class="notice info"><div><strong>Atestado médico: entregue o original em papel</strong>A foto enviada pelo app só avisa a empresa da sua ausência. Para ter validade, o atestado original precisa ser entregue fisicamente ao RH em até 48 horas.</div></div>' +
         '<div class="card kpis"><div class="kpi"><div class="lbl">Entrada de hoje</div><div class="val num">' + esc((S.ponto[ME] || [])[0] || 'pendente') + '</div><div class="cap">escala às ' + esc(me.escala) + '</div></div>' +
-        '<div class="kpi"><div class="lbl">Holerite de outubro</div><div class="val num">' + (st === 'liberado' ? 'R$ ' + brl(h.liq) : 'em aprovação') + '</div><div class="cap">' + (st === 'liberado' ? 'liberado pela empresa' : 'aparece aqui quando a empresa aprovar') + '</div></div>' +
+        (S.real ? kpiHolFunc() : '<div class="kpi"><div class="lbl">Holerite de outubro</div><div class="val num">' + (st === 'liberado' ? 'R$ ' + brl(h.liq) : 'em aprovação') + '</div><div class="cap">' + (st === 'liberado' ? 'liberado pela empresa' : 'aparece aqui quando a empresa aprovar') + '</div></div>') +
         '<div class="kpi"><div class="lbl">Vales para assinar</div><div class="val num">' + pend.length + '</div><div class="cap">' + (pend.length ? '<a href="#/vales">assinar agora</a>' : 'nada pendente') + '</div></div>' +
-        '<div class="kpi"><div class="lbl">Checklist de hoje</div><div class="val num">Abertura</div><div class="cap"><a href="#/checklists">ver itens</a></div></div></div></div>';
+        (S.real ? kpiDocsFunc() : '<div class="kpi"><div class="lbl">Checklist de hoje</div><div class="val num">Abertura</div><div class="cap"><a href="#/checklists">ver itens</a></div></div>') + '</div></div>';
     }
     var pend = [];
     originaisPendentes().forEach(function (a) { var venc = diffDays(S.hoje, a.prazo) < 0; pend.push([venc ? pill('bad', 'Vencido') : pill('warn', 'Até ' + dmy(a.prazo)), 'Atestado original de ' + P(a.pessoa).nome, 'Foto recebida em ' + dmy(a.foto) + '; falta o papel', '#/ocorrencias', 'Registrar entrega']); });
@@ -173,19 +177,25 @@
     var falta = sugestaoCompra().length;
     if (falta) pend.push([pill('bad', falta + ' item(ns)'), 'Abaixo do estoque mínimo', 'Ainda fora da lista de compras', '#/estoque', 'Ver estoque']);
     if (S.compras.itens.length) pend.push([pill('mute', S.compras.itens.length + ' na lista'), 'Lista de compras', 'Estimativa de R$ ' + brl(totalCompras()), '#/compras', 'Abrir lista']);
-    var aguard = S.pessoas.length - S.holerites.aprovados.length, fa = faltasAbertas();
+    if (S.real) {
+      S.pessoas.forEach(function (p) { var rr = resumoDocs(p.id); if (rr.conferir) pend.push([pill('warn', rr.conferir + ' documento(s)'), 'Documentos de ' + p.nome, 'Enviados pelo app, aguardando conferência', '#/documentos', 'Conferir']); });
+      var hAg = holAguardando().length; if (hAg && S.role === 'empresa') pend.push([pill('warn', hAg + ' holerite(s)'), 'Holerites para aprovar', 'Enviados pelo contador', '#/holerites', 'Aprovar']);
+      if (S.role === 'empresa' && !(S.turnos || []).length) pend.push([pill('mute', 'Configuração'), 'Cadastrar os turnos da empresa', 'Para o ponto saber o horário de cada pessoa', '#/empresa', 'Abrir']);
+      if (S.role === 'empresa' && cfgPonto().lat == null) pend.push([pill('mute', 'Configuração'), 'Definir o local da empresa para o ponto', 'Para conferir se a marcação foi feita no local', '#/empresa', 'Abrir']);
+    }
+    var aguard = S.real ? holAguardando().length : S.pessoas.length - S.holerites.aprovados.length, fa = faltasAbertas();
     var presentes = S.pessoas.filter(function (p) { var s = situacaoPonto(p)[1]; return s === 'Presente' || s.indexOf('Atraso') === 0; }).length;
     var rows = pend.slice(0, 12).map(function (x) { return '<tr><td>' + esc(x[1]) + '<span class="sub">' + esc(x[2]) + '</span></td><td>' + x[0] + '</td><td class="num"><a class="btn btn-sm" href="' + x[3] + '">' + esc(x[4]) + '</a></td></tr>'; }).join('');
     var pontoRail = S.pessoas.map(function (p) { var s = situacaoPonto(p); return s[0] === 'ok' ? '' : '<li><span>' + esc(p.nome) + '<span class="sub">' + esc(p.funcao) + '</span></span>' + pill(s[0], s[1]) + '</li>'; }).join('');
     var validade = S.produtos.filter(function (p) { return diffDays(S.hoje, p.validade) <= 3; }).map(function (p) { return '<li><span>' + esc(p.nome) + '<span class="sub">lote ' + esc(p.lote) + '</span></span>' + pill('warn', 'vence ' + dmy(p.validade)) + '</li>'; }).join('');
-    var act = S.role === 'empresa' ? '<a class="btn btn-primary" href="#/holerites">Aprovar holerites de outubro</a>' : '<a class="btn btn-primary" href="#/holerites">Lançar holerites</a>';
-    return titleRow(S.empresa.nome, 'Quinta-feira, 5 de novembro de 2026' + (S.role === 'contador' ? ' · você está vendo como contador' : ''), act) +
+    var act = S.real ? '<a class="btn btn-primary" href="#/ponto">Ver o ponto de hoje</a>' : S.role === 'empresa' ? '<a class="btn btn-primary" href="#/holerites">Aprovar holerites de outubro</a>' : '<a class="btn btn-primary" href="#/holerites">Lançar holerites</a>';
+    return titleRow(S.empresa.nome, (S.real ? hoje1() : 'Quinta-feira, 5 de novembro de 2026') + (S.role === 'contador' ? ' · você está vendo como contador' : ''), act) +
       '<div class="grid-main"><div class="stack">' +
       '<div class="card kpis">' +
       '<div class="kpi"><div class="lbl">Pessoas ativas</div><div class="val num">' + S.pessoas.length + '</div><div class="cap">' + S.admissoes.length + ' admissões em andamento</div></div>' +
       '<div class="kpi"><div class="lbl">No trabalho agora</div><div class="val num">' + presentes + '</div><div class="cap">pelo ponto das ' + demoAgora() + '</div></div>' +
-      '<div class="kpi"><div class="lbl">Holerites de outubro</div><div class="val num">' + aguard + '</div><div class="cap">aguardando aprovação</div></div>' +
-      '<div class="kpi"><div class="lbl">Faltas não abonadas</div><div class="val num">' + fa.length + '</div><div class="cap">outubro, antes de fechar a folha</div></div></div>' +
+      '<div class="kpi"><div class="lbl">' + (S.real ? 'Holerites para aprovar' : 'Holerites de outubro') + '</div><div class="val num">' + aguard + '</div><div class="cap">aguardando aprovação</div></div>' +
+      '<div class="kpi"><div class="lbl">Faltas não abonadas</div><div class="val num">' + fa.length + '</div><div class="cap">' + (S.real ? 'antes de fechar a folha' : 'outubro, antes de fechar a folha') + '</div></div></div>' +
       '<div class="card"><div class="card-head"><h2>Pendências da semana</h2><span class="pill mute">' + pend.length + ' no total</span></div><div class="table-box"><table class="t stack-sm"><thead><tr><th>O que falta</th><th>Situação</th><th class="num">Ação</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>' +
       '</div><div class="stack"><div><h2 class="sec">Ponto agora</h2><div class="card"><ul class="list">' + pontoRail + '</ul></div></div>' +
       '<div><h2 class="sec">Validade nos próximos 3 dias</h2><div class="card"><ul class="list">' + (validade || '<li>Nada vencendo.</li>') + '</ul></div><a class="btn btn-sm" href="#/estoque">Ver estoque</a></div></div></div>';
@@ -360,6 +370,12 @@
     return { pessoa: pessoa, cargo: cargo, ct: ct, corpo: corpo };
   }
   function vContratos() {
+    var tab = S.ui.ctTab || 'gerar', sub0 = 'Modelos da empresa, contratos da equipe e o gerador por função';
+    if (tab === 'modelos') return titleRow('Contratos', sub0) + abasContrato(tab) + vCtModelos();
+    if (tab === 'equipe') return titleRow('Contratos', sub0) + abasContrato(tab) + vCtEquipe();
+    return vGerador();
+  }
+  function vGerador() {
     var x = contratoAtualHTML(), ct = x.ct, pessoa = x.pessoa, cargo = x.cargo, ver = verificacao(ct, pessoa, cargo);
     var bloqueio = ver.some(function (i) { return i[0] === 'bad'; }), conferido = CHECKS.every(function (c) { return ct.checks[c[0]]; });
     var setores = []; CARGOS.forEach(function (c) { if (setores.indexOf(c.setor) < 0) setores.push(c.setor); });
@@ -406,7 +422,7 @@
       CHECKS.map(function (c) { return '<label class="check"><input type="checkbox" data-in="ct-check" data-k="' + c[0] + '"' + (ct.checks[c[0]] ? ' checked' : '') + '> ' + esc(c[1]) + '</label>'; }).join('') + '</div>';
     var plano = '<div class="seg" role="group" aria-label="Plano"><button type="button" data-act="plano" data-v="avaliacao" aria-pressed="' + (S.plano !== 'assinante') + '">Avaliação gratuita</button><button type="button" data-act="plano" data-v="assinante" aria-pressed="' + (S.plano === 'assinante') + '">Assinante</button></div>';
     var btn = '<button type="button" class="btn btn-primary" data-act="ct-pdf"' + (conferido && !bloqueio ? '' : ' disabled') + '>' + (bloqueio ? 'Corrija os pontos em vermelho' : conferido ? 'Exportar PDF' : 'Marque a verificação para exportar') + '</button>';
-    return titleRow('Contratos', 'Escolha o enquadramento, verifique e exporte · ' + (S.plano === 'assinante' ? 'PDF sem marca d\'água' : 'no plano de avaliação o PDF sai com marca d\'água'), plano + btn) +
+    return titleRow('Contratos', 'Escolha o enquadramento, verifique e exporte · ' + (S.plano === 'assinante' ? 'PDF sem marca d\'água' : 'no plano de avaliação o PDF sai com marca d\'água'), plano + '<button type="button" class="btn" data-act="ct-salvar-modelo">Salvar como modelo</button>' + btn) + abasContrato('gerar') +
       '<div class="doc-wrap ct-wrap"><div class="stack">' + form + extras + verif + pontos + '</div>' +
       '<article class="paper" id="paper">' + marcaDagua() + '<div class="notice sugestao"><div><strong>Sugestão de cláusulas, não é parecer jurídico</strong>Clique em qualquer cláusula para editar antes de exportar. Revise com seu advogado ou contador.</div></div>' + x.corpo + '</article></div>';
   }
@@ -671,11 +687,356 @@
       '<div class="notice info"><div><strong>O que os cursos comprovam</strong>Os certificados registram a capacitação periódica dos manipuladores (RDC 216/2004, item 4.6.7). O curso do responsável pelas atividades de manipulação (item 4.12.2) e regras próprias do município continuam valendo.</div></div>';
   }
 
+  /* ---------- Versão em funcionamento: arquivos, ponto com foto e local, turnos, empresa, documentos, holerites e modelos de contrato ---------- */
+  // Arquivos: no modo conectado vão para o depósito privado do Supabase; no exemplo ficam só neste aparelho (IndexedDB).
+  var ARQ_LOCAL = (function () {
+    var dbp = null;
+    function db() { if (!dbp) dbp = new Promise(function (ok, no) { try { var q = indexedDB.open('seucomando-arquivos', 1); q.onupgradeneeded = function () { q.result.createObjectStore('a'); }; q.onsuccess = function () { ok(q.result); }; q.onerror = function () { no(q.error); }; } catch (e) { no(e); } }); return dbp; }
+    function tx(modo, fn) { return db().then(function (d) { return new Promise(function (ok, no) { var t = d.transaction('a', modo), r = fn(t.objectStore('a')); t.oncomplete = function () { ok(r && r.result); }; t.onerror = function () { no(t.error); }; }); }); }
+    return {
+      enviar: function (path, blob) { return tx('readwrite', function (s) { return s.put(blob, path); }).then(function () { return path; }); },
+      url: function (path) { return tx('readonly', function (s) { return s.get(path); }).then(function (b) { if (!b) throw new Error('Arquivo não encontrado neste aparelho.'); return URL.createObjectURL(b); }); },
+      apagar: function (path) { return tx('readwrite', function (s) { return s.delete(path); }); }
+    };
+  })();
+  function Arq() { return NUVEM ? Nuvem.arquivo : ARQ_LOCAL; }
+  function rnd() { var a = new Uint8Array(6); window.crypto.getRandomValues(a); return Array.prototype.map.call(a, function (x) { return ('0' + x.toString(16)).slice(-2); }).join(''); }
+  function caminho(pessoa, area, ext) { return (NUVEM ? Nuvem.empresa : 'local') + '/' + String(pessoa).replace(/[^\w-]/g, '').slice(0, 40) + '/' + area + '/' + hojeISO() + '_' + rnd() + '.' + ext; }
+  var TIPOS_ARQ = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'application/pdf': 'pdf', 'application/msword': 'doc', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx' };
+  function erroTxt(e) { return (e && e.message) || 'Não foi possível concluir. Verifique a internet e tente de novo.'; }
+  // Fotos do celular têm vários MB: reduz para até 1600 px em JPEG antes de enviar.
+  function prepararArquivo(file) {
+    if (!file) return Promise.reject(new Error('Nenhum arquivo escolhido.'));
+    if (!/^image\//.test(file.type)) {
+      if (!TIPOS_ARQ[file.type]) return Promise.reject(new Error('Envie foto (JPG ou PNG), PDF ou Word.'));
+      if (file.size > 10 * 1024 * 1024) return Promise.reject(new Error('Arquivo maior que 10 MB.'));
+      return Promise.resolve(file);
+    }
+    return new Promise(function (ok, no) {
+      var url = URL.createObjectURL(file), img = new Image();
+      img.onload = function () {
+        var k = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight)), c = doc.createElement('canvas');
+        c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+        c.toBlob(function (b) { if (b) ok(b); else no(new Error('Não foi possível ler a foto.')); }, 'image/jpeg', 0.8);
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); no(new Error('Formato de foto não aceito. Envie JPG ou PNG.')); };
+      img.src = url;
+    });
+  }
+  function enviarArquivo(file, pessoa, area) {
+    return prepararArquivo(file).then(function (b) { return Arq().enviar(caminho(pessoa, area, TIPOS_ARQ[b.type] || 'bin'), b).then(function (path) { return { path: path, nome: String(file.name || 'arquivo').slice(0, 120) }; }); });
+  }
+  function abrirArquivo(path, titulo) {
+    if (!path) return;
+    modal(titulo || 'Arquivo', '<p class="ui-sub" id="arq-st">Carregando…</p><div class="arq-box" id="arq-box"></div>');
+    Arq().url(path).then(function (url) {
+      var box = $('#arq-box'), st = $('#arq-st'); if (!box) return; if (st) st.remove();
+      box.innerHTML = /\.(jpe?g|png|webp)$/i.test(path) ? '<img src="' + esc(url) + '" alt="' + esc(titulo || 'Arquivo') + '"><a class="btn" href="' + esc(url) + '" target="_blank" rel="noopener">Abrir em tamanho real</a>' : '<a class="btn btn-primary" href="' + esc(url) + '" target="_blank" rel="noopener">Abrir o arquivo</a>';
+    }, function (e) { var st = $('#arq-st'); if (st) st.textContent = 'Não foi possível abrir: ' + erroTxt(e); });
+  }
+  function quandoTxt(iso) { if (!iso) return ''; var d = new Date(iso); return isNaN(d) ? String(iso) : d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); }
+  function hoje1() { var t = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); return t.charAt(0).toUpperCase() + t.slice(1); }
+
+  // Dados que, no modo conectado, ficam em tabelas próprias (não no documento da empresa).
+  function carregarReais() {
+    if (!NUVEM) return Promise.resolve();
+    var nada = function () { return null; };
+    return Promise.all([Nuvem.registros(addDays(hojeISO(), -45)).catch(nada), Nuvem.documentos().catch(nada), Nuvem.holeritesPdf().catch(nada)]).then(function (r) {
+      var antes = JSON.stringify([S.registros, S.docsArq, S.holArq]);
+      if (r[0]) S.registros = r[0]; if (r[1]) S.docsArq = r[1]; if (r[2]) S.holArq = r[2]; pontoHoje();
+      return antes !== JSON.stringify([S.registros, S.docsArq, S.holArq]);
+    });
+  }
+
+  /* Ponto real */
+  var TIPOS_PONTO = ['Entrada', 'Saída para o intervalo', 'Volta do intervalo', 'Saída'];
+  function cfgPonto() { var c = (S.empresa && S.empresa.ponto) || {}; return { foto: c.foto !== false, local: c.local !== false, bloquear: !!c.bloquear, raio: +c.raio || 200, lat: typeof c.lat === 'number' ? c.lat : null, lng: typeof c.lng === 'number' ? c.lng : null }; }
+  function distM(a, b, c, d) { var r = Math.PI / 180, x = Math.sin((c - a) * r / 2), y = Math.sin((d - b) * r / 2); return Math.round(2 * 6371000 * Math.asin(Math.sqrt(x * x + Math.cos(a * r) * Math.cos(c * r) * y * y))); }
+  function fmtDist(m) { return m >= 1000 ? (m / 1000).toFixed(1).replace('.', ',') + ' km' : Math.round(m) + ' m'; }
+  function hhmm(iso) { return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }); }
+  function regsDe(pid, dia) { return (S.registros || []).filter(function (r) { return r.pessoa_id === pid && (!dia || r.dia === dia); }).sort(function (a, b) { return a.em < b.em ? -1 : 1; }); }
+  function diaAberto(pid) {
+    var h = hojeISO(), o = addDays(h, -1); if (regsDe(pid, h).length) return h;
+    var ro = regsDe(pid, o); return ro.some(function (r) { return r.tipo === 0; }) && !ro.some(function (r) { return r.tipo === 3; }) ? o : h;
+  }
+  function pontoHoje() {
+    if (!S.real) return; S.ponto = {}; S.marcacoesMetodo = {};
+    (S.pessoas || []).forEach(function (p) { var m = ['', '', '', '']; regsDe(p.id, diaAberto(p.id)).forEach(function (r) { m[r.tipo] = hhmm(r.em); S.marcacoesMetodo[p.id] = r.metodo === 'fixo' ? 'fixo' : 'celular'; }); S.ponto[p.id] = m; });
+  }
+  function localTxt(r) {
+    if (!r) return '';
+    if (r.lat == null) return r.metodo === 'fixo' ? 'aparelho da empresa' : 'sem localização';
+    if (r.distancia == null) return 'localização registrada';
+    return fmtDist(r.distancia) + ' da empresa';
+  }
+  function localPill(r) { if (!r) return ''; return r.fora_do_local ? pill('bad', 'Fora do local · ' + fmtDist(r.distancia)) : r.distancia != null ? pill('ok', 'No local') : pill('mute', localTxt(r)); }
+  function mapaLink(r) { return r && r.lat != null ? '<a href="https://www.openstreetmap.org/?mlat=' + r.lat + '&amp;mlon=' + r.lng + '#map=18/' + r.lat + '/' + r.lng + '" target="_blank" rel="noopener noreferrer">mapa</a>' : ''; }
+  var CAM = null;
+  function pararCamera() { if (CAM) { CAM.getTracks().forEach(function (t) { t.stop(); }); CAM = null; } }
+  // Abre a câmera frontal e pega a localização; só registra quando cumpre o que a empresa exige.
+  function capturarPonto(p, tipo, metodo) {
+    var cfg = cfgPonto(), st = { cam: false, loc: null, locFim: false }, precisaLoc = metodo === 'celular' && cfg.local;
+    modal(TIPOS_PONTO[tipo] + ' · ' + first(p.nome), '<div class="cam"><video id="cam-v" autoplay playsinline muted></video></div><p class="ui-sub" id="cam-st">Abrindo a câmera…</p><p class="ui-sub" id="loc-st">Buscando a localização…</p>' +
+      '<p class="ui-sub">A foto e o local ficam guardados como comprovante desta marcação. Não há reconhecimento facial.</p>', '<button type="button" class="btn btn-primary" id="cam-ok" disabled>Tirar foto e registrar</button>');
+    var v = $('#cam-v'), bt = $('#cam-ok');
+    var txt = function (id, t) { var el = $('#' + id); if (el) el.textContent = t; };
+    var atualiza = function () { var b = $('#cam-ok'); if (!b) return; b.disabled = !((st.cam || !cfg.foto) && (st.locFim || !precisaLoc) && (st.loc || !precisaLoc)); b.textContent = st.cam ? 'Tirar foto e registrar' : 'Registrar sem foto'; };
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }, audio: false }).then(function (s) {
+        if (!$('#cam-v')) { s.getTracks().forEach(function (t) { t.stop(); }); return; }
+        CAM = s; v.srcObject = s; var pronto = function () { if (st.cam || !v.videoWidth) return; st.cam = true; txt('cam-st', 'Enquadre o rosto e toque no botão.'); atualiza(); }; v.addEventListener('loadeddata', pronto); v.addEventListener('playing', pronto); setTimeout(pronto, 1500);
+      }, function () { txt('cam-st', cfg.foto ? 'Sem acesso à câmera. Permita a câmera para este site (no cadeado da barra de endereço ou nos ajustes do celular) e abra de novo.' : 'Câmera indisponível: a marcação sai sem foto.'); atualiza(); });
+    } else { txt('cam-st', 'Este navegador não abre a câmera.'); atualiza(); }
+    if (navigator.geolocation) navigator.geolocation.getCurrentPosition(function (pos) {
+      st.loc = { lat: +pos.coords.latitude.toFixed(6), lng: +pos.coords.longitude.toFixed(6), prec: Math.round(pos.coords.accuracy || 0) }; st.locFim = true;
+      var t = 'Localização obtida (precisão de ' + st.loc.prec + ' m)';
+      if (cfg.lat != null) { var dd = distM(cfg.lat, cfg.lng, st.loc.lat, st.loc.lng); t += ' · ' + fmtDist(dd) + ' da empresa' + (dd > cfg.raio + st.loc.prec ? ', fora do local' + (cfg.bloquear ? ': a empresa não aceita marcação fora do local' : '') : ''); }
+      txt('loc-st', t); atualiza();
+    }, function (er) { st.locFim = true; txt('loc-st', precisaLoc ? 'Sem localização (' + (er && er.code === 1 ? 'permissão negada' : 'sinal indisponível') + '). Ative a localização do aparelho, permita para este site e abra de novo.' : 'Sem localização: a marcação sai sem o local.'); atualiza(); }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+    else { st.locFim = true; txt('loc-st', 'Este navegador não informa a localização.'); atualiza(); }
+    bt.addEventListener('click', function () {
+      bt.disabled = true; bt.textContent = 'Registrando…';
+      var vai = function (blob) { registrarPonto(p, tipo, metodo, blob, st.loc).then(function () { pararCamera(); closeModal(); }, function (e) { bt.disabled = false; bt.textContent = 'Tentar de novo'; txt('cam-st', erroTxt(e)); }); };
+      if (st.cam && v.videoWidth) { var c = doc.createElement('canvas'), k = Math.min(1, 480 / v.videoWidth); c.width = Math.round(v.videoWidth * k); c.height = Math.round(v.videoHeight * k); c.getContext('2d').drawImage(v, 0, 0, c.width, c.height); c.toBlob(vai, 'image/jpeg', 0.75); }
+      else vai(null);
+    });
+  }
+  function registrarPonto(p, tipo, metodo, blob, loc) {
+    var cfg = cfgPonto();
+    if (cfg.foto && !blob) return Promise.reject(new Error('Tire a foto para registrar o ponto.'));
+    if (metodo === 'celular' && cfg.local && !loc) return Promise.reject(new Error('Permita a localização para registrar o ponto.'));
+    var dist = loc && cfg.lat != null ? distM(cfg.lat, cfg.lng, loc.lat, loc.lng) : null, fora = dist != null && dist > cfg.raio + (loc.prec || 0);
+    if (fora && cfg.bloquear) return Promise.reject(new Error('Você está a ' + fmtDist(dist) + ' do local de trabalho. A empresa só aceita marcação no local.'));
+    var up = blob ? Arq().enviar(caminho(p.id, 'ponto', 'jpg'), blob) : Promise.resolve(null);
+    return up.then(function (path) {
+      var row = { pessoa_id: p.id, tipo: tipo, metodo: metodo, foto: path, lat: loc ? loc.lat : null, lng: loc ? loc.lng : null, precisao: loc ? loc.prec : null };
+      if (NUVEM) return Nuvem.baterPonto(row);
+      S.nsr = (S.nsr || 0) + 1;
+      row.id = 'r' + Date.now(); row.em = new Date().toISOString(); row.dia = S.real ? diaAberto(p.id) : hojeISO(); row.nsr = S.nsr; row.distancia = dist; row.fora_do_local = dist == null ? null : fora;
+      return row;
+    }).then(function (row) {
+      S.registros = S.registros || []; S.registros.push(row);
+      if (S.real) pontoHoje(); else { var m = S.ponto[p.id] || (S.ponto[p.id] = ['', '', '', '']); m[tipo] = hhmm(row.em); S.marcacoesMetodo[p.id] = metodo === 'celular' ? 'celular' : 'fixo'; }
+      S.ui.recibo = { nsr: String(row.nsr).padStart(9, '0'), quando: new Date(row.em).toLocaleDateString('pt-BR') + ' ' + hhmm(row.em), nome: p.nome, cpf: p.cpf, tipo: TIPOS_PONTO[tipo], metodo: METODO[metodo], local: localTxt(row) + (row.fora_do_local ? ' (fora do local)' : '') + (row.lat != null ? ' · ' + row.lat + ', ' + row.lng : ''), foto: !!row.foto };
+      save(); render(); toast(TIPOS_PONTO[tipo] + ' registrada às ' + hhmm(row.em) + '. Comprovante gerado.');
+    });
+  }
+  function espelhoHTML(pid) {
+    var dias = {}; regsDe(pid).forEach(function (r) { (dias[r.dia] = dias[r.dia] || [])[r.tipo] = r; });
+    var ks = Object.keys(dias).sort().reverse();
+    if (!ks.length) return '<p class="ui-sub">Nenhuma marcação ainda. As marcações aparecem aqui a partir do primeiro registro.</p>';
+    var cel = function (r) { if (!r) return '<td class="num">·</td>'; return '<td class="num"><strong>' + hhmm(r.em) + '</strong><span class="sub">NSR ' + esc(r.nsr) + ' · ' + esc(localTxt(r)) + '</span>' + (r.fora_do_local ? pill('bad', 'fora do local') : '') + '<span class="sub">' + (r.foto ? '<button type="button" class="link-btn" data-act="arq-ver" data-path="' + esc(r.foto) + '" data-t="Foto da marcação">foto</button> ' : '') + mapaLink(r) + '</span></td>'; };
+    var tot = function (d) { var a = d[0] && d[1] ? (new Date(d[1].em) - new Date(d[0].em)) / 6e4 : 0, b = d[2] && d[3] ? (new Date(d[3].em) - new Date(d[2].em)) / 6e4 : 0; if (d[0] && d[3] && !d[1] && !d[2]) a = (new Date(d[3].em) - new Date(d[0].em)) / 6e4; var t = Math.round(a + b); return t > 0 ? Math.floor(t / 60) + 'h' + ('0' + t % 60).slice(-2) : '·'; };
+    return '<div class="table-box"><table class="t stack-sm"><thead><tr><th>Dia</th><th class="num">Entrada</th><th class="num">Saída intervalo</th><th class="num">Volta</th><th class="num">Saída</th><th class="num">Trabalhado</th></tr></thead><tbody>' +
+      ks.map(function (k) { var d = dias[k]; return '<tr><td><strong>' + dmyy(k) + '</strong><span class="sub">' + DIAS[new Date(k + 'T12:00:00').getDay()] + '</span></td>' + [0, 1, 2, 3].map(function (i) { return cel(d[i]); }).join('') + '<td class="num">' + tot(d) + '</td></tr>'; }).join('') + '</tbody></table></div>';
+  }
+  function csvCel(v) { var s = String(v == null ? '' : v); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
+  function baixarTexto(nome, texto, tipo) { salvarArquivo(nome, new Blob(['\ufeff' + texto], { type: tipo || 'text/csv;charset=utf-8' })); }
+
+  /* Turnos */
+  var DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+  function hhOk(v) { v = String(v || ''); return /^\d\d:\d\d$/.test(v) ? v : ''; }
+  function turnoDe(id) { return (S.turnos || []).filter(function (t) { return t.id === id; })[0]; }
+  function jornadaDe(p) { var t = p && p.turno && turnoDe(p.turno); if (t) return t; if (p && p.jornada && p.jornada.e) return p.jornada; return { e: (p && p.escala) || '08:00', si: '', vi: '', s: '', dias: [1, 2, 3, 4, 5, 6] }; }
+  function minJ(a, b) { var x = min(a), y = min(b); if (x == null || y == null) return 0; return y >= x ? y - x : y + 1440 - x; }
+  function cargaDia(j) { return Math.max(0, minJ(j.e, j.s) - (j.si && j.vi ? minJ(j.si, j.vi) : 0)); }
+  function fmtHoras(m) { return Math.floor(m / 60) + 'h' + ('0' + Math.round(m % 60)).slice(-2); }
+  function horarioTxt(j) { return j.e + (j.s ? '–' + j.s : '') + (j.si && j.vi ? ', intervalo ' + j.si + '–' + j.vi : ''); }
+  function diasTxt(ds) { ds = (ds || []).slice().sort(); if (ds.length === 7) return 'todos os dias'; if (ds.join() === '1,2,3,4,5') return 'segunda a sexta'; if (ds.join() === '1,2,3,4,5,6') return 'segunda a sábado'; return ds.map(function (d) { return DIAS[d]; }).join(', '); }
+  function turnoCurto(p) { var t = p.turno && turnoDe(p.turno); return t ? t.nome : horarioTxt(jornadaDe(p)); }
+  function alertasJornada(j) {
+    var a = [], dia = cargaDia(j), sem = dia * (j.dias || []).length, iv = j.si && j.vi ? minJ(j.si, j.vi) : 0;
+    if (!j.s) return a;
+    if (sem > 44 * 60) a.push('Passa de 44 horas por semana (CF, art. 7º, XIII)');
+    if (dia > 10 * 60) a.push('Mais de 10 horas por dia: só em escala 12x36 com acordo escrito ou convenção (CLT, art. 59-A)');
+    else if (dia > 8 * 60) a.push('Mais de 8 horas por dia: precisa de acordo de compensação (CLT, art. 59, §§ 2º e 6º)');
+    if (dia > 6 * 60 && iv < 60) a.push('Mais de 6 horas por dia pede intervalo de pelo menos 1 hora (CLT, art. 71)');
+    if (dia > 4 * 60 && dia <= 6 * 60 && iv < 15) a.push('De 4 a 6 horas por dia pede intervalo de 15 minutos (CLT, art. 71, § 1º)');
+    if (iv > 120) a.push('Intervalo acima de 2 horas precisa de acordo escrito ou convenção (CLT, art. 71)');
+    return a;
+  }
+  function diasChips(nome, sel) { return '<div class="chips">' + DIAS.map(function (n, i) { return '<label class="chip chip-check"><input type="checkbox" name="' + nome + '" value="' + i + '"' + ((sel || []).indexOf(i) > -1 ? ' checked' : '') + '> ' + n + '</label>'; }).join('') + '</div>'; }
+  function camposHorario(pre, j) {
+    var f = function (n, l, v) { return '<div class="field"><label for="' + pre + n + '">' + l + '</label><input id="' + pre + n + '" name="' + n + '" type="time" value="' + esc(v || '') + '"' + (n === 'je' ? ' required' : '') + '></div>'; };
+    return '<div class="form-grid form-grid-4">' + f('je', 'Entrada', j.e) + f('jsi', 'Saída intervalo', j.si) + f('jvi', 'Volta', j.vi) + f('js', 'Saída', j.s) + '</div><div class="field"><span class="lbl-s">Dias de trabalho</span>' + diasChips('jd', j.dias) + '</div>';
+  }
+  function jornadaDoForm(d) { var j = { e: hhOk(d.get('je')) || '08:00', si: hhOk(d.get('jsi')), vi: hhOk(d.get('jvi')), s: hhOk(d.get('js')), dias: d.getAll('jd').map(Number).filter(function (x) { return x >= 0 && x <= 6; }) }; if (!j.dias.length) j.dias = [1, 2, 3, 4, 5]; if (!(j.si && j.vi)) { j.si = ''; j.vi = ''; } return j; }
+  function turnoForm(t) {
+    t = t || { nome: '', e: '08:00', si: '12:00', vi: '13:00', s: '17:48', dias: [1, 2, 3, 4, 5] };
+    return '<form class="stack" data-form="turno" data-id="' + esc(t.id || '') + '"><div class="field"><label for="tu-n">Nome do turno</label><input id="tu-n" name="n" maxlength="40" required value="' + esc(t.nome) + '" placeholder="Ex.: Manhã, Comercial, 12x36 noturno"></div>' + camposHorario('tu-', t) +
+      '<p class="ui-sub">Turno que passa da meia-noite pode ser cadastrado normalmente (ex.: 22:00 às 05:00).</p><button class="btn btn-primary" type="submit">Salvar turno</button></form>';
+  }
+
+  /* Dados da empresa */
+  function cnpjValido(c) {
+    c = String(c || '').replace(/\D/g, ''); if (c.length !== 14 || /^(\d)\1+$/.test(c)) return false;
+    var calc = function (n) { var s = 0, p = n - 7; for (var i = 0; i < n; i++) { s += +c[i] * p--; if (p < 2) p = 9; } var r = s % 11; return r < 2 ? 0 : 11 - r; };
+    return calc(12) === +c[12] && calc(13) === +c[13];
+  }
+  function vEmpresa() {
+    var e = S.empresa, c = cfgPonto();
+    var f = function (id, l, n, v, extra) { return '<div class="field"><label for="' + id + '">' + l + '</label><input id="' + id + '" name="' + n + '" value="' + esc(v == null ? '' : v) + '"' + (extra || '') + '></div>'; };
+    var dados = '<form class="card card-pad stack" data-form="empresa-dados"><h2 class="sec">Cadastro</h2>' + f('ed-n', 'Nome fantasia (aparece no app)', 'n', e.nome, ' maxlength="80" required') + f('ed-r', 'Razão social', 'r', e.razao, ' maxlength="120"') +
+      '<div class="form-grid">' + f('ed-c', 'CNPJ', 'c', e.cnpj, ' maxlength="18" inputmode="numeric"') + f('ed-ie', 'Inscrição estadual', 'ie', e.ie, ' maxlength="20"') + '</div>' +
+      f('ed-e', 'Endereço (rua e número)', 'e', e.endereco, ' maxlength="140"') + '<div class="form-grid">' + f('ed-b', 'Bairro', 'b', e.bairro, ' maxlength="60"') + f('ed-cep', 'CEP', 'cep', e.cep, ' maxlength="9" inputmode="numeric"') + '</div>' +
+      '<div class="form-grid">' + f('ed-ci', 'Cidade/UF', 'ci', e.cidade, ' maxlength="60"') + f('ed-t', 'Telefone ou WhatsApp', 't', e.fone, ' maxlength="20" inputmode="tel"') + '</div>' + f('ed-m', 'E-mail', 'm', e.email, ' type="email" maxlength="120"') +
+      '<div class="form-grid">' + f('ed-rn', 'Responsável legal', 'rn', e.resp, ' maxlength="80"') + f('ed-rc', 'Cargo do responsável', 'rc', e.respCargo, ' maxlength="40" placeholder="Ex.: sócio administrador"') + '</div>' +
+      '<p class="ui-sub">Esses dados entram nos contratos, nos comprovantes de ponto e nos documentos da equipe.</p><button class="btn btn-primary" type="submit">Salvar cadastro</button></form>';
+    var ponto = '<form class="card card-pad stack" data-form="ponto-cfg"><h2 class="sec">Ponto: local e regras</h2>' +
+      '<div class="field"><span class="lbl-s">Local de trabalho</span><p>' + (c.lat != null ? 'Definido: ' + c.lat + ', ' + c.lng + ' · ' + mapaLink({ lat: c.lat, lng: c.lng }) : 'Ainda não definido. Sem ele, o ponto registra o local, mas não confere a distância.') + '</p><button type="button" class="btn" data-act="usar-local">Usar a localização deste aparelho</button><span class="sub">Faça isso dentro da empresa.</span></div>' +
+      '<div class="field"><label for="pc-r">Raio aceito (metros)</label><input id="pc-r" name="raio" type="number" min="30" max="5000" step="10" value="' + esc(c.raio) + '"></div>' +
+      '<label class="check"><input type="checkbox" name="foto"' + (c.foto ? ' checked' : '') + '> Exigir foto em cada marcação</label>' +
+      '<label class="check"><input type="checkbox" name="local"' + (c.local ? ' checked' : '') + '> Exigir localização na marcação pelo celular</label>' +
+      '<label class="check"><input type="checkbox" name="bloquear"' + (c.bloquear ? ' checked' : '') + '> Não aceitar marcação fora do raio (sem isso, ela entra marcada como "fora do local")</label>' +
+      '<button class="btn btn-primary" type="submit">Salvar regras do ponto</button><p class="ui-sub">A hora vem do servidor, não do celular. As regras valem também no banco de dados, não só na tela.</p></form>';
+    var turnos = (S.turnos || []).map(function (t) {
+      var al = alertasJornada(t), n = S.pessoas.filter(function (p) { return p.turno === t.id; }).length, dia = cargaDia(t);
+      return '<tr><td><strong>' + esc(t.nome) + '</strong><span class="sub">' + esc(diasTxt(t.dias)) + '</span></td><td>' + esc(horarioTxt(t)) + '<span class="sub">' + fmtHoras(dia) + ' por dia · ' + fmtHoras(dia * (t.dias || []).length) + ' por semana</span></td><td>' + (al.length ? al.map(function (x) { return '<span class="pill warn pill-wrap">' + esc(x) + '</span>'; }).join(' ') : pill('ok', 'Dentro da CLT')) + '<span class="sub">' + n + (n === 1 ? ' pessoa' : ' pessoas') + '</span></td>' +
+        '<td class="num"><span class="actions"><button type="button" class="btn btn-sm" data-act="turno-editar" data-id="' + esc(t.id) + '">Editar</button><button type="button" class="btn btn-sm" data-act="turno-del" data-id="' + esc(t.id) + '">Remover</button></span></td></tr>';
+    }).join('');
+    var cardT = '<div class="card"><div class="card-head"><h2>Turnos de trabalho</h2><button type="button" class="btn btn-sm btn-primary" data-act="turno-editar">Novo turno</button></div>' +
+      (turnos ? '<div class="table-box"><table class="t stack-sm"><thead><tr><th>Turno</th><th>Horário e carga</th><th>Conferência</th><th class="num">Ação</th></tr></thead><tbody>' + turnos + '</tbody></table></div>' : '<p class="card-pad ui-sub">Nenhum turno ainda. Cadastre os horários da empresa uma vez e escolha o turno ao cadastrar cada pessoa. Quem tem horário diferente recebe um horário próprio no cadastro.</p>') + '</div>';
+    return titleRow('Dados da empresa', 'Cadastro, local e regras do ponto e turnos de trabalho') + '<div class="grid-main"><div class="stack">' + dados + cardT + '</div><div class="stack">' + ponto + '</div></div>';
+  }
+
+  /* Documentos da pessoa */
+  var DOCS_PESSOA = [
+    ['rg', 'RG ou CNH', true, 'Foto da frente e do verso'], ['cpf', 'CPF', false, 'Só se o número não estiver no RG ou na CNH'],
+    ['ctps', 'Carteira de Trabalho Digital', true, 'Print da tela com seus dados, no app Carteira de Trabalho Digital'], ['pis', 'PIS/NIS', false, 'Print do número no app Carteira de Trabalho Digital'],
+    ['residencia', 'Comprovante de residência', true, 'Conta de água, luz ou telefone dos últimos 3 meses'], ['titulo', 'Título de eleitor', false, 'Ou print do e-Título'],
+    ['escolaridade', 'Comprovante de escolaridade', false, 'Diploma, certificado ou declaração da escola'], ['civil', 'Certidão de nascimento ou casamento', false, ''],
+    ['reservista', 'Certificado de reservista', false, 'Para homens de 18 a 45 anos'], ['filhos', 'Certidão dos filhos menores de 14 anos', false, 'Para o salário-família'],
+    ['vacina', 'Carteira de vacinação dos filhos menores de 7 anos', false, 'Para o salário-família'], ['foto', 'Foto 3x4', false, 'Pode ser uma foto de frente, com fundo claro'],
+    ['banco', 'Conta bancária ou chave Pix', true, 'Print com banco, agência e conta, ou a chave Pix'], ['aso', 'Exame admissional (ASO)', false, 'A empresa indica a clínica'], ['outro', 'Outro documento', false, 'O que a empresa pedir']
+  ];
+  function docsDe(pid) { return (S.docsArq || []).filter(function (d) { return d.pessoa_id === pid; }); }
+  function resumoDocs(pid) {
+    var ds = docsDe(pid), ob = DOCS_PESSOA.filter(function (x) { return x[2]; });
+    var tem = function (k, st) { return ds.some(function (d) { return d.tipo === k && (st ? d.status === st : d.status !== 'recusado'); }); };
+    return { ok: ob.filter(function (x) { return tem(x[0], 'aprovado'); }).length, total: ob.length, falta: ob.filter(function (x) { return !tem(x[0]); }).length, conferir: ds.filter(function (d) { return d.status === 'enviado'; }).length };
+  }
+  function contratosDe(pid) { return (S.contratos || []).filter(function (c) { return c.pessoa === pid; }); }
+  function vDocumentos() {
+    var func = ehFunc(), decide = S.role === 'empresa' || S.role === 'contador';
+    var pid = func ? ME : (S.ui.docPessoa && P(S.ui.docPessoa) ? S.ui.docPessoa : (S.pessoas[0] || {}).id);
+    if (!pid) return titleRow('Documentos da equipe', '') + vazioHTML('Cadastre a equipe primeiro', 'Depois do cadastro, cada pessoa envia os documentos pelo app, e você e o contador conferem aqui.', '<a class="btn btn-primary" href="#/equipe">Ir para Equipe e acessos</a>');
+    var p = P(pid), ds = docsDe(pid), r = resumoDocs(pid);
+    var tipos = DOCS_PESSOA.map(function (x) {
+      var meus = ds.filter(function (d) { return d.tipo === x[0]; });
+      var arqs = meus.map(function (d) {
+        var pl = d.status === 'aprovado' ? pill('ok', 'Aprovado') : d.status === 'recusado' ? pill('bad', 'Recusado' + (d.motivo ? ': ' + d.motivo : '')) : pill('warn', 'Aguardando conferência');
+        return '<li><span><button type="button" class="link-btn" data-act="arq-ver" data-path="' + esc(d.arquivo) + '" data-t="' + esc(x[1]) + '">' + esc(d.nome || 'arquivo') + '</button><span class="sub">enviado em ' + esc(quandoTxt(d.enviado_em)) + (d.decidido_por ? ' · conferido por ' + esc(d.decidido_por) : '') + '</span></span><span class="actions">' + pl +
+          (decide && d.status !== 'aprovado' ? '<button type="button" class="btn btn-sm" data-act="doc-ok" data-id="' + esc(d.id) + '">Aprovar</button>' : '') +
+          (decide && d.status !== 'recusado' ? '<button type="button" class="btn btn-sm" data-act="doc-nao" data-id="' + esc(d.id) + '">Recusar</button>' : '') +
+          (decide || d.status !== 'aprovado' ? '<button type="button" class="btn btn-sm" data-act="doc-del" data-id="' + esc(d.id) + '">Apagar</button>' : '') + '</span></li>';
+      }).join('');
+      return '<div class="doc-tipo"><div class="doc-tipo-h"><div><strong>' + esc(x[1]) + '</strong>' + (x[2] ? ' ' + pill('mute', 'obrigatório') : '') + (x[3] ? '<span class="sub">' + esc(x[3]) + '</span>' : '') + '</div>' +
+        '<span class="btn btn-sm file-btn">' + (meus.length ? 'Enviar outro' : 'Enviar') + '<input type="file" accept="image/*,application/pdf" data-in="doc-enviar" data-tipo="' + x[0] + '" data-pessoa="' + esc(pid) + '" aria-label="Enviar ' + esc(x[1]) + '"></span></div>' + (arqs ? '<ul class="list">' + arqs + '</ul>' : '') + '</div>';
+    }).join('');
+    var cts = contratosDe(pid).map(function (c) { var m = modeloCt(c.modelo); return '<li><span>' + esc(m ? m.nome : (c.nomeArq || 'Contrato')) + '<span class="sub">' + esc(c.em || '') + (c.arquivo ? ' · assinado enviado' : '') + '</span></span><span class="actions">' + (m && m.tipo !== 'arquivo' ? '<button type="button" class="btn btn-sm" data-act="ct-ver" data-id="' + esc(c.id) + '">Ver</button>' : '') + (m && m.tipo === 'arquivo' ? '<button type="button" class="btn btn-sm" data-act="arq-ver" data-path="' + esc(m.arquivo) + '" data-t="' + esc(m.nome) + '">Ver</button>' : '') + (c.arquivo ? '<button type="button" class="btn btn-sm" data-act="arq-ver" data-path="' + esc(c.arquivo) + '" data-t="Contrato assinado">Assinado</button>' : '') + '</span></li>'; }).join('');
+    var cabeca = '<div class="card kpis"><div class="kpi"><div class="lbl">Obrigatórios aprovados</div><div class="val num">' + r.ok + ' de ' + r.total + '</div><div class="cap">' + (r.falta ? r.falta + ' ainda não enviado(s)' : 'todos enviados') + '</div></div><div class="kpi"><div class="lbl">Aguardando conferência</div><div class="val num">' + r.conferir + '</div><div class="cap">' + (decide ? 'confira e aprove' : 'a empresa confere') + '</div></div></div>';
+    var aviso = '<div class="notice info"><div><strong>Seus documentos ficam protegidos</strong>Só você, a empresa e o contador da empresa veem estes arquivos. Use foto nítida ou PDF; frente e verso podem ir em dois envios.</div></div>';
+    if (func) return titleRow('Meus documentos', 'Envie os documentos da sua contratação pelo app') + '<div class="grid-main"><div class="stack">' + cabeca + '<div class="card">' + tipos + '</div></div><div class="stack">' + aviso + (cts ? '<div><h2 class="sec">Meus contratos</h2><div class="card"><ul class="list">' + cts + '</ul></div></div>' : '') + '</div></div>';
+    var lista = S.pessoas.map(function (x) { var rr = resumoDocs(x.id); return '<li><span><button type="button" class="link-btn" data-act="doc-pessoa" data-id="' + esc(x.id) + '"' + (x.id === pid ? ' aria-current="true"' : '') + '>' + esc(x.nome) + '</button><span class="sub">' + rr.ok + ' de ' + rr.total + ' obrigatórios aprovados</span></span>' + (rr.conferir ? pill('warn', rr.conferir + ' para conferir') : rr.ok === rr.total ? pill('ok', 'Completo') : pill('mute', rr.falta + ' faltando')) + '</li>'; }).join('');
+    return titleRow('Documentos da equipe', 'Cada pessoa envia pelo app; você e o contador conferem') + '<div class="grid-main"><div class="stack"><h2 class="sec">' + esc(p.nome) + '</h2>' + cabeca + '<div class="card">' + tipos + '</div>' + (cts ? '<div><h2 class="sec">Contratos</h2><div class="card"><ul class="list">' + cts + '</ul></div></div>' : '') + '</div>' +
+      '<div class="stack"><div><h2 class="sec">Equipe</h2><div class="card"><ul class="list">' + lista + '</ul></div></div>' + aviso.replace('Seus documentos ficam protegidos', 'Arquivos protegidos').replace('Só você, a empresa e o contador da empresa veem estes arquivos.', 'Cada pessoa só vê os próprios documentos; a empresa e o contador veem os da equipe.') + '</div></div>';
+  }
+  function decidirDoc(id, status, motivo) {
+    var d = (S.docsArq || []).filter(function (x) { return String(x.id) === String(id); })[0]; if (!d) return;
+    var por = quemSou(), pr = NUVEM ? Nuvem.decidirDoc(d.id, status, motivo || null, por) : Promise.resolve(null);
+    pr.then(function () { d.status = status; d.motivo = motivo || null; d.decidido_em = new Date().toISOString(); d.decidido_por = por; auditar('Documento ' + (status === 'aprovado' ? 'aprovado' : 'recusado'), (P(d.pessoa_id) || {}).nome + ': ' + d.tipo); save(); closeModal(); render(); toast(status === 'aprovado' ? 'Documento aprovado.' : 'Documento recusado. A pessoa vê o motivo no app.'); }, function (e) { toast(erroTxt(e)); });
+  }
+
+  /* Holerites em PDF */
+  function mesAnterior() { var d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2); }
+  var MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+  function compTxt(c) { var p = String(c || '').split('-'); return p.length === 2 ? MESES[+p[1] - 1] + ' de ' + p[0] : c; }
+  function holDe(pid, comp) { return (S.holArq || []).filter(function (h) { return h.pessoa_id === pid && h.competencia === comp; })[0]; }
+  function holAguardando() { return (S.holArq || []).filter(function (h) { return h.status === 'aguardando'; }); }
+  function vHoleritesReal() {
+    if (ehFunc()) {
+      var meus = (S.holArq || []).filter(function (h) { return h.pessoa_id === ME && h.status === 'liberado'; }).sort(function (a, b) { return a.competencia < b.competencia ? 1 : -1; });
+      return titleRow('Seus holerites', 'Aparecem aqui depois que a empresa aprova') + (meus.length ? '<div class="card"><ul class="list">' + meus.map(function (h) { var t = compTxt(h.competencia); return '<li><span>' + esc(t.charAt(0).toUpperCase() + t.slice(1)) + '<span class="sub">Liberado em ' + esc(quandoTxt(h.liberado_em)) + '</span></span><button type="button" class="btn btn-sm btn-primary" data-act="arq-ver" data-path="' + esc(h.arquivo) + '" data-t="Holerite de ' + esc(t) + '">Abrir</button></li>'; }).join('') + '</ul></div>' :
+        vazioHTML('Nenhum holerite liberado ainda', 'Quando o contador enviar e a empresa aprovar, o holerite aparece aqui para abrir e baixar.', ''));
+    }
+    var comp = S.ui.comp || mesAnterior(), emp = S.role === 'empresa';
+    var rows = S.pessoas.map(function (p) {
+      var h = holDe(p.id, comp), st = !h ? pill('mute', 'Não enviado') : h.status === 'liberado' ? pill('ok', 'Liberado') : pill('warn', 'Aguardando aprovação');
+      return '<tr>' + (emp ? '<td><input type="checkbox" data-in="sel-hol" data-id="' + esc(h ? h.id : '') + '"' + (!h || h.status === 'liberado' ? ' disabled' : '') + ' aria-label="Selecionar ' + esc(p.nome) + '"></td>' : '') +
+        '<td><strong>' + esc(p.nome) + '</strong><span class="sub">' + esc(p.funcao || '') + '</span></td><td>' + st + (h ? '<span class="sub">enviado em ' + esc(quandoTxt(h.enviado_em)) + '</span>' : '') + '</td><td class="num"><span class="actions">' +
+        (h ? '<button type="button" class="btn btn-sm" data-act="arq-ver" data-path="' + esc(h.arquivo) + '" data-t="Holerite de ' + esc(p.nome) + '">Ver</button>' : '') +
+        (!h || h.status !== 'liberado' ? '<span class="btn btn-sm file-btn">' + (h ? 'Trocar PDF' : 'Enviar PDF') + '<input type="file" accept="application/pdf,image/*" data-in="hol-enviar" data-id="' + esc(p.id) + '" aria-label="Enviar holerite de ' + esc(p.nome) + '"></span>' : '') +
+        (emp && h && h.status !== 'liberado' ? '<button type="button" class="btn btn-sm btn-primary" data-act="hol-liberar" data-id="' + esc(h.id) + '">Aprovar</button>' : '') + '</span></td></tr>';
+    }).join('');
+    var env = S.pessoas.filter(function (p) { return holDe(p.id, comp); }).length, lib = S.pessoas.filter(function (p) { var h = holDe(p.id, comp); return h && h.status === 'liberado'; }).length;
+    return titleRow('Holerites', 'Competência de ' + esc(compTxt(comp)) + ' · o contador envia o PDF de cada pessoa, a empresa aprova e o funcionário recebe no app', emp ? '<button type="button" class="btn" data-act="hol-liberar-sel">Aprovar selecionados</button><button type="button" class="btn btn-primary" data-act="hol-liberar-todos"' + (env - lib ? '' : ' disabled') + '>Aprovar todos os enviados (' + (env - lib) + ')</button>' : '') +
+      '<div class="stack"><div class="card card-pad form-grid"><div class="field"><label for="h-comp">Competência</label><input id="h-comp" type="month" value="' + esc(comp) + '" data-in="hol-comp"></div><div class="field"><span class="lbl-s">Situação</span><p class="num"><strong>' + env + ' de ' + S.pessoas.length + '</strong> enviados · <strong>' + lib + '</strong> liberados</p></div></div>' +
+      '<div class="card"><div class="table-box"><table class="t stack-sm"><thead><tr>' + (emp ? '<th><span class="sr-only">Selecionar</span></th>' : '') + '<th>Pessoa</th><th>Situação</th><th class="num">Ação</th></tr></thead><tbody>' + (rows || '<tr><td colspan="4">Cadastre a equipe primeiro.</td></tr>') + '</tbody></table></div></div>' +
+      '<p class="ui-sub">O PDF sai do sistema de folha do contador. O funcionário só vê o holerite depois da aprovação da empresa.</p></div>';
+  }
+  function liberarHol(ids) {
+    ids = ids.filter(Boolean); if (!ids.length) { toast('Selecione ao menos um holerite enviado.'); return; }
+    (NUVEM ? Nuvem.liberarHolerites(ids) : Promise.resolve(null)).then(function () {
+      var quando = new Date().toISOString(); (S.holArq || []).forEach(function (h) { if (ids.indexOf(String(h.id)) > -1) { h.status = 'liberado'; h.liberado_em = quando; } });
+      auditar('Holerites aprovados', ids.length + ' holerite(s)'); save(); render(); toast(ids.length + ' holerite(s) liberado(s) para a equipe.');
+    }, function (e) { toast(erroTxt(e)); });
+  }
+
+  /* Modelos de contrato */
+  var CAMPOS_CT = [['nome', 'nome do empregado'], ['cpf', 'CPF'], ['funcao', 'função'], ['salario', 'salário'], ['admissao', 'data de admissão'], ['empresa', 'razão social'], ['cnpj', 'CNPJ'], ['endereco', 'endereço da empresa'], ['cidade', 'cidade/UF'], ['hoje', 'data de hoje']];
+  function modeloCt(id) { return (S.modelosCt || []).filter(function (m) { return m.id === id; })[0]; }
+  function valoresCt(p) { var e = S.empresa; return { nome: p.nome, cpf: p.cpf || '[CPF]', funcao: p.funcao || '', salario: 'R$ ' + brl(p.salario || 0), admissao: p.admissao ? dmyy(p.admissao) : '', empresa: e.razao || e.nome, cnpj: e.cnpj || '', endereco: e.endereco || '', cidade: e.cidade || '', hoje: new Date().toLocaleDateString('pt-BR') }; }
+  var TAGS_OK = /^(P|H1|H2|H3|H4|STRONG|B|EM|I|U|BR|OL|UL|LI|SPAN|DIV|TABLE|THEAD|TBODY|TR|TD|TH|SECTION|ARTICLE|SMALL|SUP|SUB)$/;
+  // O texto do contrato é guardado sem scripts, links e atributos (só a classe), para ninguém injetar nada na tela de outra pessoa.
+  function limparHTML(html) {
+    var d = new DOMParser().parseFromString('<div>' + html + '</div>', 'text/html'), raiz = d.body.firstChild;
+    $$('.wm, .notice, script, style, iframe, img, a, button, input, form, svg', raiz).forEach(function (n) { n.remove(); });
+    (function anda(n) { Array.prototype.slice.call(n.children).forEach(function (c) { if (!TAGS_OK.test(c.tagName)) { var t = d.createElement('span'); t.textContent = c.textContent; c.replaceWith(t); return; } Array.prototype.slice.call(c.attributes).forEach(function (a) { if (a.name !== 'class') c.removeAttribute(a.name); }); anda(c); }); })(raiz);
+    return raiz.innerHTML.slice(0, 120000);
+  }
+  function htmlDoModelo(m, p) {
+    var v = valoresCt(p);
+    if (m.tipo === 'gerado') return limparHTML(m.html).split('[NOME DO EMPREGADO]').join(esc(v.nome)).split('[CPF]').join(esc(v.cpf));
+    return '<h2 class="center">' + esc(m.nome) + '</h2>' + String(m.texto || '').split(/\n\s*\n/).map(function (par) {
+      return '<p>' + esc(par).replace(/\n/g, '<br>').replace(/\{\{\s*([a-z]+)\s*\}\}/g, function (todo, k) { return v[k] != null ? '<strong>' + esc(v[k]) + '</strong>' : todo; }) + '</p>';
+    }).join('');
+  }
+  function vCtModelos() {
+    var ms = (S.modelosCt || []).map(function (m) {
+      var n = (S.contratos || []).filter(function (c) { return c.modelo === m.id; }).length;
+      return '<tr><td><strong>' + esc(m.nome) + '</strong><span class="sub">' + ({ gerado: 'Feito no gerador do Seu Comando', texto: 'Texto próprio, com campos preenchidos automaticamente', arquivo: 'Arquivo pronto (' + esc(m.nomeArq || '') + ')' }[m.tipo]) + ' · ' + esc(m.em || '') + '</span></td><td class="num hide-sm">' + n + '</td>' +
+        '<td class="num"><span class="actions"><button type="button" class="btn btn-sm btn-primary" data-act="ct-aplicar" data-id="' + esc(m.id) + '">Usar para a equipe</button>' + (m.tipo === 'arquivo' ? '<button type="button" class="btn btn-sm" data-act="arq-ver" data-path="' + esc(m.arquivo) + '" data-t="' + esc(m.nome) + '">Ver</button>' : '<button type="button" class="btn btn-sm" data-act="ct-modelo-ver" data-id="' + esc(m.id) + '">Ver</button>') + '<button type="button" class="btn btn-sm" data-act="ct-modelo-del" data-id="' + esc(m.id) + '">Remover</button></span></td></tr>';
+    }).join('');
+    var tabela = '<div class="card"><div class="card-head"><h2>Modelos da empresa</h2><span class="ui-sub">Cadastre uma vez e use para quantas pessoas quiser</span></div>' + (ms ? '<div class="table-box"><table class="t stack-sm"><thead><tr><th>Modelo</th><th class="num hide-sm">Contratos gerados</th><th class="num">Ação</th></tr></thead><tbody>' + ms + '</tbody></table></div>' : '<p class="card-pad ui-sub">Nenhum modelo ainda. Salve um contrato do gerador como modelo, cole o texto do contrato que você já usa ou envie o arquivo pronto.</p>') + '</div>';
+    var texto = '<form class="card card-pad stack" data-form="ct-modelo-texto"><h2 class="sec">Cadastrar o contrato que você já usa</h2><div class="field"><label for="mt-n">Nome do modelo</label><input id="mt-n" name="n" maxlength="80" required placeholder="Ex.: Contrato de experiência · atendente"></div>' +
+      '<div class="field"><label for="mt-x">Texto do contrato</label><textarea id="mt-x" name="x" rows="10" maxlength="60000" required placeholder="Cole aqui o texto. Onde entra o dado de cada pessoa, escreva o campo entre chaves duplas, como {{nome}}."></textarea><span class="sub">Campos: ' + CAMPOS_CT.map(function (c) { return '{{' + c[0] + '}} ' + c[1]; }).join(' · ') + '</span></div><button class="btn btn-primary" type="submit">Salvar modelo</button></form>';
+    var arq = '<div class="card card-pad stack"><h2 class="sec">Enviar um contrato pronto em arquivo</h2><p class="ui-sub">PDF ou Word. O arquivo fica como modelo da empresa e pode ser ligado às pessoas, mas não é preenchido automaticamente: para isso, use o texto acima.</p><div class="field"><label for="ma-n">Nome do modelo</label><input id="ma-n" maxlength="80" placeholder="Ex.: Contrato padrão da loja"></div><span class="btn file-btn">Escolher arquivo<input type="file" accept="application/pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" data-in="ct-modelo-arq" aria-label="Enviar contrato pronto"></span></div>';
+    return '<div class="grid-main"><div class="stack">' + tabela + texto + '</div><div class="stack">' + arq + '<div class="notice info"><div><strong>Do gerador para o modelo</strong>Na aba "Gerar contrato", escolha o enquadramento e clique em "Salvar como modelo". O nome e o CPF ficam em branco e são preenchidos com os dados de cada pessoa.</div></div></div></div>';
+  }
+  function vCtEquipe() {
+    var rows = (S.contratos || []).slice().reverse().map(function (c) {
+      var p = P(c.pessoa), m = modeloCt(c.modelo); if (!p) return '';
+      return '<tr><td><strong>' + esc(p.nome) + '</strong><span class="sub">' + esc(p.funcao || '') + '</span></td><td>' + esc(m ? m.nome : (c.nomeArq || 'Contrato enviado')) + '<span class="sub">' + esc(c.em || '') + '</span></td><td>' + (c.arquivo ? pill('ok', 'Assinado enviado') : pill('warn', 'Falta o assinado')) + '</td>' +
+        '<td class="num"><span class="actions">' + (m && m.tipo !== 'arquivo' ? '<button type="button" class="btn btn-sm" data-act="ct-ver" data-id="' + esc(c.id) + '">Ver e baixar</button>' : '') + (m && m.tipo === 'arquivo' ? '<button type="button" class="btn btn-sm" data-act="arq-ver" data-path="' + esc(m.arquivo) + '" data-t="' + esc(m.nome) + '">Modelo</button>' : '') +
+        (c.arquivo ? '<button type="button" class="btn btn-sm" data-act="arq-ver" data-path="' + esc(c.arquivo) + '" data-t="Contrato assinado de ' + esc(p.nome) + '">Assinado</button>' : '<span class="btn btn-sm file-btn">Enviar assinado<input type="file" accept="application/pdf,image/*" data-in="ct-assinado" data-id="' + esc(c.id) + '" aria-label="Enviar contrato assinado de ' + esc(p.nome) + '"></span>') +
+        '<button type="button" class="btn btn-sm" data-act="ct-del" data-id="' + esc(c.id) + '">Remover</button></span></td></tr>';
+    }).join('');
+    var opts = S.pessoas.map(function (p) { return '<option value="' + esc(p.id) + '">' + esc(p.nome) + '</option>'; }).join('');
+    return '<div class="grid-main"><div class="card"><div class="card-head"><h2>Contratos da equipe</h2><span class="ui-sub">Gerados pelos modelos ou enviados já assinados</span></div>' + (rows ? '<div class="table-box"><table class="t stack-sm"><thead><tr><th>Pessoa</th><th>Contrato</th><th>Situação</th><th class="num">Ação</th></tr></thead><tbody>' + rows + '</tbody></table></div>' : '<p class="card-pad ui-sub">Nenhum contrato ainda. Em "Modelos da empresa", use um modelo para várias pessoas de uma vez, ou cadastre ao lado um contrato que já está assinado.</p>') + '</div>' +
+      '<div class="stack"><div class="card card-pad stack"><h2 class="sec">Cadastrar contrato já assinado</h2>' + (opts ? '<div class="field"><label for="cp-p">Pessoa</label><select id="cp-p">' + opts + '</select></div><span class="btn btn-primary file-btn">Escolher o arquivo assinado<input type="file" accept="application/pdf,image/*" data-in="ct-pronto" aria-label="Enviar contrato assinado"></span><p class="ui-sub">PDF ou foto das páginas. A pessoa também vê o contrato em "Meus documentos".</p>' : '<p class="ui-sub">Cadastre a equipe primeiro.</p>') + '</div></div></div>';
+  }
+  function abasContrato(atual) { return '<div class="tabs" role="tablist">' + [['gerar', 'Gerar contrato'], ['modelos', 'Modelos da empresa (' + (S.modelosCt || []).length + ')'], ['equipe', 'Contratos da equipe (' + (S.contratos || []).length + ')']].map(function (t) { return '<button type="button" role="tab" data-act="ct-tab" data-v="' + t[0] + '" aria-selected="' + (atual === t[0]) + '">' + esc(t[1]) + '</button>'; }).join('') + '</div>'; }
+
+  function kpiHolFunc() { var u = (S.holArq || []).filter(function (h) { return h.pessoa_id === ME && h.status === 'liberado'; }).sort(function (a, b) { return a.competencia < b.competencia ? 1 : -1; })[0]; return '<div class="kpi"><div class="lbl">Último holerite</div><div class="val num">' + (u ? esc(compTxt(u.competencia)) : 'nenhum ainda') + '</div><div class="cap">' + (u ? '<a href="#/holerites">abrir</a>' : 'aparece quando a empresa aprovar') + '</div></div>'; }
+  function kpiDocsFunc() { var r = resumoDocs(ME); return '<div class="kpi"><div class="lbl">Meus documentos</div><div class="val num">' + r.ok + ' de ' + r.total + '</div><div class="cap"><a href="#/documentos">' + (r.falta ? 'enviar os que faltam' : 'ver documentos') + '</a></div></div>'; }
+
+  var MODELO_PEND = '';
   /* ---------- Modo conectado (login e banco de dados) ---------- */
   var NUVEM = !!(window.Nuvem && Nuvem.ativa) && !EXEMPLO;
   var SNAP = null, MEMBROS = [], VINCULOS = [], PUBLICADO = {}, tSync = null, tPend = null;
   var LISTAS = ['atestados', 'advertencias', 'vales', 'banco'];
-  function semUI(s) { var c = clone(s); delete c.ui; delete c.role; delete c.nuvemPessoa; return c; }
+  function semUI(s) { var c = clone(s); delete c.ui; delete c.role; delete c.nuvemPessoa; delete c.registros; delete c.docsArq; delete c.holArq; return c; }
   function pessoaEm(D, id) { return (D.pessoas || []).filter(function (p) { return p.id === id; })[0]; }
   function porId(l) { var m = {}; (l || []).forEach(function (x) { if (x && x.id) m[x.id] = x; }); return m; }
   function igual(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
@@ -683,11 +1044,11 @@
   // Funcionário e gerente não gravam o documento da empresa: enviam só o que fizeram (ponto, atestado, curso...).
   function diffOps(a, b) {
     var ops = [];
-    Object.keys(b.ponto || {}).forEach(function (pid) { (b.ponto[pid] || []).forEach(function (v, i) { if (v !== (((a.ponto || {})[pid]) || [])[i]) ops.push({ k: 'ponto', p: pid, i: i, v: v }); }); });
+    // ponto não vai mais por aqui: cada marcação é gravada direto na tabela do ponto, com a hora do servidor
     LISTAS.forEach(function (n) { var A = porId(a[n]); (b[n] || []).forEach(function (x) { if (!x || !x.id) return; var o = A[x.id]; if (!o) ops.push({ k: 'add', l: n, v: x }); else Object.keys(x).forEach(function (c) { if (!igual(x[c], o[c])) ops.push({ k: 'set', l: n, id: x.id, c: c, v: x[c] }); }); }); });
     ((b.bp || {}).temps || []).slice(((a.bp || {}).temps || []).length).forEach(function (x) { ops.push({ k: 'add', l: 'temps', v: x }); });
     var CA = porId((a.compras || {}).itens); ((b.compras || {}).itens || []).forEach(function (x) { var o = CA[x.id]; if (!o) ops.push({ k: 'add', l: 'compras', v: x }); else Object.keys(x).forEach(function (c) { if (!igual(x[c], o[c])) ops.push({ k: 'set', l: 'compras', id: x.id, c: c, v: x[c] }); }); });
-    var CK = porId(a.checklists); (b.checklists || []).forEach(function (c) { var o = CK[c.id]; if (!o) return; (c.itens || []).forEach(function (it, j) { var oi = (o.itens || [])[j] || {}; ['feito', 'fotoEm', 'por'].forEach(function (f) { if (it[f] !== oi[f]) ops.push({ k: 'ck', id: c.id, j: j, c: f, v: it[f] }); }); }); });
+    var CK = porId(a.checklists); (b.checklists || []).forEach(function (c) { var o = CK[c.id]; if (!o) return; (c.itens || []).forEach(function (it, j) { var oi = (o.itens || [])[j] || {}; ['feito', 'fotoEm', 'por', 'arquivo'].forEach(function (f) { if (it[f] !== oi[f]) ops.push({ k: 'ck', id: c.id, j: j, c: f, v: it[f] }); }); }); });
     var tb = (b.treinos || {})[ME] || {}, ta = (a.treinos || {})[ME] || {}; Object.keys(tb).forEach(function (cid) { if (!igual(tb[cid], ta[cid])) ops.push({ k: 'treino', id: cid, v: tb[cid] }); });
     return ops;
   }
@@ -712,11 +1073,11 @@
           else if (o.l === 'compras' && (v.por === pid || tem('estoque'))) { D.compras = D.compras || { itens: [] }; D.compras.itens.push(v); ok = true; }
         } else if (o.k === 'set') {
           var lista = o.l === 'compras' ? (D.compras || {}).itens : D[o.l], item = (lista || []).filter(function (x) { return x.id === o.id; })[0];
-          var regra = { atestados: ['foto', 'ciencia'], advertencias: ['ciencia', 'cienciaEm', 'recusa'], vales: ['assinado'], compras: ['qtd', 'comprado', 'obs'] }[o.l] || [];
+          var regra = { atestados: ['foto', 'ciencia', 'arquivo'], advertencias: ['ciencia', 'cienciaEm', 'recusa'], vales: ['assinado'], compras: ['qtd', 'comprado', 'obs'] }[o.l] || [];
           if (item && regra.indexOf(o.c) > -1 && (o.l === 'compras' ? (item.por === pid || tem('estoque')) : item.pessoa === pid)) { item[o.c] = limpa({ v: o.v }).v; ok = true; }
         } else if (o.k === 'ck') {
           var ck = (D.checklists || []).filter(function (x) { return x.id === o.id; })[0];
-          if (ck && ck.itens[o.j] && ['feito', 'fotoEm', 'por'].indexOf(o.c) > -1 && (ck.resp === pid || ck.setor === eu.setor || tem('checklists'))) { ck.itens[o.j][o.c] = limpa({ v: o.v }).v; ok = true; }
+          if (ck && ck.itens[o.j] && ['feito', 'fotoEm', 'por', 'arquivo'].indexOf(o.c) > -1 && (ck.resp === pid || ck.setor === eu.setor || tem('checklists'))) { ck.itens[o.j][o.c] = limpa({ v: o.v }).v; ok = true; }
         } else if (o.k === 'treino' && o.v && +o.v.nota >= 0 && +o.v.nota <= 100) {
           D.treinos = D.treinos || {}; (D.treinos[pid] = D.treinos[pid] || {})[String(o.id).slice(0, 30)] = { nota: +o.v.nota, em: String(o.v.em || '').slice(0, 10) }; ok = true;
         }
@@ -733,16 +1094,17 @@
     var so = function (obj) { var o = {}; o[pid] = (obj || {})[pid]; return o; };
     var e = D.empresa || {};
     return {
-      empresa: { nome: e.nome, razao: e.razao, cnpj: e.cnpj, cidade: e.cidade, endereco: e.endereco, codigo: e.codigo }, tipo: D.tipo, plano: D.plano, hoje: D.hoje, real: true, agencia: D.agencia,
+      empresa: { nome: e.nome, razao: e.razao, cnpj: e.cnpj, cidade: e.cidade, endereco: e.endereco, codigo: e.codigo, ponto: e.ponto }, tipo: D.tipo, plano: D.plano, hoje: D.hoje, real: true, agencia: D.agencia,
       pessoas: equipe ? (D.pessoas || []).map(pub) : [eu], ponto: tem('ponto') ? D.ponto : so(D.ponto), marcacoesMetodo: tem('ponto') ? D.marcacoesMetodo : so(D.marcacoesMetodo),
       atestados: (D.atestados || []).filter(dono), advertencias: (D.advertencias || []).filter(dono), faltas: (D.faltas || []).filter(dono), horasExtras: so(D.horasExtras),
       holerites: D.holerites, vales: (D.vales || []).filter(dono),
       produtos: tem('estoque') ? D.produtos : (D.produtos || []).map(function (p) { return { id: p.id, nome: p.nome, un: p.un, qtd: p.qtd, min: p.min, ideal: p.ideal, validade: p.validade, lote: p.lote, cod: p.cod, fornecedor: p.fornecedor }; }),
-      compras: { itens: ((D.compras || {}).itens || []).filter(function (i) { return tem('estoque') || i.por === pid; }) },
+      compras: { itens: ((D.compras || {}).itens || []).filter(function (i) { return tem('estoque') || i.por === pid; }).map(function (i) { if (tem('estoque')) return i; var c = {}; Object.keys(i).forEach(function (k) { if (k !== 'custo') c[k] = i[k]; }); return c; }) },
       checklists: (D.checklists || []).filter(function (c) { return tem('checklists') || c.resp === pid || c.setor === eu.setor; }),
       vagas: [], admissoes: [], clientes: [], treinos: so(D.treinos), banco: (D.banco || []).filter(function (b) { return tem('banco') || dono(b); }),
       bp: D.bp ? { ativo: D.bp.ativo, equip: D.bp.equip, temps: (D.bp.temps || []).slice(-60), docs: [] } : undefined,
-      acessos: (function () { var a = {}; a[pid] = { papel: papel, perms: perms || [] }; return a; })(), auditoria: []
+      acessos: (function () { var a = {}; a[pid] = { papel: papel, perms: perms || [] }; return a; })(), auditoria: [], turnos: D.turnos || [],
+      contratos: (D.contratos || []).filter(function (c) { return c.pessoa === pid; }), modelosCt: (D.modelosCt || []).filter(function (m) { return (D.contratos || []).some(function (c) { return c.pessoa === pid && c.modelo === m.id; }); })
     };
   }
   // Publica a parte de cada pessoa com acesso ao app (mesmo antes do primeiro acesso: o banco só entrega a ela).
@@ -795,7 +1157,7 @@
       return cs.reduce(function (p, c) {
         return p.then(function () { var v = S.vagas.filter(function (x) { return x.id === c.vaga_id; })[0]; if (v) { v.cands.push(candidatoDe(c.dados || {})); mudou = true; } return Nuvem.marcarCandidatura(c.id); });
       }, Promise.resolve());
-    }).then(function () { return carregarEnvios(); }).then(function () { if (mudou) sincronizar(); if (mudou || /selecao|vagas/.test(location.hash)) render(); }).catch(function () { /* tenta no próximo ciclo */ });
+    }).then(function () { return carregarEnvios(); }).then(carregarReais).then(function (novos) { if (mudou) sincronizar(); if ((mudou || novos || /selecao|vagas/.test(location.hash)) && !$('.overlay')) render(); }).catch(function () { /* tenta no próximo ciclo */ });
   }
   // O que o dono definiu em Equipe e acessos vale também no banco (ex.: quem virou gerente antes do primeiro acesso).
   function sincronizarAcessos() {
@@ -820,9 +1182,11 @@
       }
       ['pessoas', 'atestados', 'advertencias', 'faltas', 'vales', 'produtos', 'checklists', 'vagas', 'admissoes', 'banco', 'auditoria'].forEach(function (k) { if (!Array.isArray(S[k])) S[k] = []; });
       ['ponto', 'marcacoesMetodo', 'horasExtras', 'treinos', 'acessos'].forEach(function (k) { if (!S[k] || typeof S[k] !== 'object') S[k] = {}; });
+      ['turnos', 'modelosCt', 'contratos'].forEach(function (k) { if (!Array.isArray(S[k])) S[k] = []; });
+      var migrou = false; if (Nuvem.papel === 'empresa' && !S.v2) { S.pessoas.forEach(function (p) { p.celular = true; }); S.v2 = true; migrou = true; }
       S.compras = S.compras || { itens: [] }; S.holerites = S.holerites || { competencia: hojeISO().slice(0, 7), status: 'aguardando', lancadoEm: '', aprovados: [] }; S.empresa = S.empresa || { nome: 'Empresa' };
-      if (ehFunc()) return Nuvem.meusEventosPendentes().then(function (evs) { evs.forEach(function (ev) { aplicarOps(S, ev.ops, S.nuvemPessoa, Nuvem.papel, Nuvem.perms, ev.criado_em, true); }); SNAP = clone(S); render(); });
-      return Nuvem.membros().then(function (ms) { MEMBROS = ms || []; return carregarEnvios(); }).then(function () { SNAP = clone(S); render(); sincronizarAcessos(); return processarPendencias(); }).then(function () { publicarDocs(true); clearInterval(tPend); tPend = setInterval(processarPendencias, 45000); });
+      if (ehFunc()) return Nuvem.meusEventosPendentes().then(function (evs) { evs.forEach(function (ev) { aplicarOps(S, ev.ops, S.nuvemPessoa, Nuvem.papel, Nuvem.perms, ev.criado_em, true); }); }).then(carregarReais).then(function () { SNAP = clone(S); render(); clearInterval(tPend); tPend = setInterval(function () { carregarReais().then(function (mudou) { if (mudou && !$('.overlay')) render(); }); }, 60000); });
+      return Nuvem.membros().then(function (ms) { MEMBROS = ms || []; return carregarEnvios(); }).then(carregarReais).then(function () { SNAP = clone(S); render(); if (migrou) save(); sincronizarAcessos(); return processarPendencias(); }).then(function () { publicarDocs(true); clearInterval(tPend); tPend = setInterval(processarPendencias, 45000); });
     });
   }
   function criarEmpresaNuvem(nome, tipo) {
@@ -888,18 +1252,15 @@
   function vEquipe() {
     var rows = S.pessoas.map(function (p) {
       var a = acessoDe(p.id), papel = a.papel === 'nenhum' ? pill('mute', 'Sem acesso') : a.papel === 'gerente' ? pill('ok', 'Gerente') : pill('mute', 'Funcionário');
-      return '<tr><td><strong>' + esc(p.nome) + '</strong><span class="sub">' + esc(p.funcao || '') + ' · ' + esc(p.setor || '') + '</span></td><td class="num hide-sm">' + brl(p.salario || 0) + '</td><td class="num hide-sm">' + esc(p.escala || '') + '</td><td>' + papel + (a.papel === 'gerente' && a.perms.length ? '<span class="sub">' + a.perms.map(function (k) { return esc(PERMS[k] || k); }).join('; ') + '</span>' : '') + '</td>' +
+      return '<tr><td><strong>' + esc(p.nome) + '</strong><span class="sub">' + esc(p.funcao || '') + ' · ' + esc(p.setor || '') + '</span></td><td class="num hide-sm">' + brl(p.salario || 0) + '</td><td class="hide-sm">' + esc(turnoCurto(p)) + '</td><td>' + papel + (a.papel === 'gerente' && a.perms.length ? '<span class="sub">' + a.perms.map(function (k) { return esc(PERMS[k] || k); }).join('; ') + '</span>' : '') + '</td>' +
         '<td><span class="actions"><button type="button" class="btn btn-sm" data-act="pessoa-editar" data-id="' + p.id + '">Editar</button><button type="button" class="btn btn-sm" data-act="acesso-editar" data-id="' + p.id + '">Acesso</button></span></td></tr>';
     }).join('');
     var e = S.empresa;
-    var emp = '<form class="card card-pad stack" data-form="empresa-dados"><h2 class="sec">Dados da empresa</h2><div class="field"><label for="ed-n">Nome</label><input id="ed-n" name="n" maxlength="80" value="' + esc(e.nome) + '" required></div><div class="field"><label for="ed-r">Razão social</label><input id="ed-r" name="r" maxlength="120" value="' + esc(e.razao || '') + '"></div>' +
-      '<div class="form-grid"><div class="field"><label for="ed-c">CNPJ</label><input id="ed-c" name="c" maxlength="18" inputmode="numeric" value="' + esc(e.cnpj || '') + '"></div><div class="field"><label for="ed-ci">Cidade/UF</label><input id="ed-ci" name="ci" maxlength="60" value="' + esc(e.cidade || '') + '"></div></div>' +
-      '<div class="field"><label for="ed-e">Endereço</label><input id="ed-e" name="e" maxlength="140" value="' + esc(e.endereco || '') + '"></div><button class="btn" type="submit">Salvar dados da empresa</button></form>';
     var aud = (S.auditoria || []).slice(0, 25).map(function (x) { return '<li><span>' + esc(x.acao) + '<span class="sub">' + esc(x.detalhe) + ' · ' + esc(x.por) + ' · ' + esc(x.em) + '</span></span></li>'; }).join('');
     return titleRow('Equipe e acessos', 'Cadastro das pessoas, o que cada uma pode fazer no app e o registro de alterações', '<button type="button" class="btn" data-act="convite-contador">Convidar contador</button><button type="button" class="btn btn-primary" data-act="pessoa-editar">Cadastrar pessoa</button>') +
-      '<div class="grid-main"><div class="stack"><div class="card"><div class="table-box"><table class="t"><thead><tr><th>Pessoa</th><th class="num hide-sm">Salário</th><th class="num hide-sm">Entrada</th><th>Acesso ao app</th><th></th></tr></thead><tbody>' + (rows || '<tr><td colspan="5">Nenhuma pessoa cadastrada ainda.</td></tr>') + '</tbody></table></div></div>' +
+      '<div class="grid-main"><div class="stack"><div class="card"><div class="table-box"><table class="t"><thead><tr><th>Pessoa</th><th class="num hide-sm">Salário</th><th class="hide-sm">Turno</th><th>Acesso ao app</th><th></th></tr></thead><tbody>' + (rows || '<tr><td colspan="5">Nenhuma pessoa cadastrada ainda.</td></tr>') + '</tbody></table></div></div>' +
       '<div class="card"><div class="card-head"><h2>Registro de alterações</h2><span class="ui-sub">Acessos, permissões e banco de horas</span></div>' + (aud ? '<ul class="list">' + aud + '</ul>' : '<p class="card-pad ui-sub">Nenhuma alteração registrada.</p>') + '</div></div>' +
-      '<div class="stack">' + emp + '<div class="notice info"><div><strong>Gerente</strong>Um funcionário pode virar gerente e receber permissões, como lançar no banco de horas da equipe. Tudo que ele faz fica registrado com nome, data e hora.</div></div></div></div>';
+      '<div class="stack"><div class="card card-pad stack"><h2 class="sec">Dados da empresa</h2><p class="ui-sub">Cadastro, local do ponto e turnos de trabalho ficam numa aba própria.</p><div><a class="btn" href="#/empresa">Abrir Dados da empresa</a></div></div><div class="notice info"><div><strong>Gerente</strong>Um funcionário pode virar gerente e receber permissões, como lançar no banco de horas da equipe. Tudo que ele faz fica registrado com nome, data e hora.</div></div></div></div>';
   }
   function pessoaForm(p) {
     p = p || {}; var cgs = CARGOS.map(function (c) { return '<option value="' + c.id + '"' + (c.id === p.cargo ? ' selected' : '') + '>' + esc(c.cargo) + ' · CBO ' + esc(c.cbo) + '</option>'; }).join('');
@@ -908,8 +1269,16 @@
       '<div class="form-grid">' + f('pe-c', 'CPF (para o login no app)', 'c', p.cpf && p.cpf.indexOf('[') < 0 ? p.cpf : '', ' maxlength="14" inputmode="numeric"') + f('pe-t', 'WhatsApp', 't', p.fone, ' maxlength="20" inputmode="tel"') + '</div>' +
       '<div class="form-grid">' + f('pe-f', 'Função na empresa', 'f', p.funcao, ' maxlength="60" required') + f('pe-s', 'Setor', 's', p.setor, ' maxlength="40"') + '</div>' +
       '<div class="field"><label for="pe-g">Cargo (base com CBO, usado no contrato)</label><select id="pe-g" name="g">' + cgs + '</select></div>' +
-      '<div class="form-grid">' + f('pe-sa', 'Salário (R$)', 'sa', p.salario, ' type="number" min="0" step="0.01"') + f('pe-e', 'Entrada (escala)', 'e', p.escala || '08:00', ' type="time"') + f('pe-a', 'Admissão', 'a', p.admissao || S.hoje, ' type="date"') + '</div>' +
+      '<div class="form-grid">' + f('pe-sa', 'Salário (R$)', 'sa', p.salario, ' type="number" min="0" step="0.01"') + f('pe-a', 'Admissão', 'a', p.admissao || S.hoje, ' type="date"') + '</div>' +
+      turnoCampos(p) +
       '<button class="btn btn-primary" type="submit">' + (p.id ? 'Salvar' : 'Cadastrar') + '</button></form>';
+  }
+  function turnoCampos(p) {
+    var ts = S.turnos || [], manual = !(p.turno && turnoDe(p.turno));
+    var j = p.jornada || { e: p.escala || '08:00', si: '12:00', vi: '13:00', s: '17:48', dias: [1, 2, 3, 4, 5] };
+    return '<div class="field"><label for="pe-tu">Turno</label><select id="pe-tu" name="tu" data-in="pe-turno">' + ts.map(function (t) { return '<option value="' + esc(t.id) + '"' + (t.id === p.turno ? ' selected' : '') + '>' + esc(t.nome) + ' · ' + esc(horarioTxt(t)) + '</option>'; }).join('') + '<option value=""' + (manual ? ' selected' : '') + '>Horário próprio (digitar abaixo)</option></select>' +
+      (ts.length ? '' : '<span class="sub">Cadastre os turnos da empresa uma vez em <a href="#/empresa">Dados da empresa</a> e depois só escolha aqui.</span>') + '</div>' +
+      '<fieldset class="stack manual-j" data-manual' + (manual ? '' : ' hidden') + '><legend class="lbl-s">Horário desta pessoa</legend>' + camposHorario('pe-', j) + '</fieldset>';
   }
   function cpfValido(c) {
     c = String(c || '').replace(/\D/g, ''); if (c.length !== 11 || /^(\d)\1+$/.test(c)) return false;
@@ -927,40 +1296,48 @@
     s.checklists = (s.checklists || []).map(function (c) { return { id: c.id, setor: c.setor, nome: c.nome, hora: c.hora, resp: '', foto: c.foto, itens: c.itens.map(function (i) { return { t: i.t, foto: i.foto, feito: false }; }) }; });
     if (s.bp) { s.bp.temps = []; s.bp.docs.forEach(function (d) { d.ult = ''; if (d.venc) d.venc = ''; }); }
     if (s.agencia) { s.clientes = []; } delete s.envSeed;
+    s.nsr = 0; s.turnos = []; s.modelosCt = []; s.contratos = []; s.registros = []; s.docsArq = []; s.holArq = []; s.v2 = true; s.empresa.ponto = {};
     s.hoje = hojeISO(); s.agoraDemo = null; s.real = true; s.plano = 'avaliacao';
     return s;
   }
 
   /* ---------- Ponto ---------- */
-  var METODO = { celular: 'Celular autorizado', 'fixo-rosto': 'Aparelho fixo · rosto', 'fixo-digital': 'Aparelho fixo · digital' };
+  var METODO = { celular: 'Celular autorizado', fixo: 'Aparelho da empresa', 'fixo-rosto': 'Aparelho fixo · rosto', 'fixo-digital': 'Aparelho fixo · digital' };
   function vPonto() {
-    var func = ehFunc() && !pode('ponto');
-    var quem = func ? P(ME) : (P(S.ui.pontoPessoa) || P('e3') || S.pessoas[0]);
-    var metodo = S.ui.metodo || (quem.celular ? 'celular' : 'fixo');
-    var bloqueado = metodo === 'celular' && !quem.celular;
+    var real = !!S.real, eu = ehFunc() && (real || !pode('ponto')), equipe = !ehFunc() || pode('ponto');
+    var quem = eu ? P(ME) : (P(S.ui.pontoPessoa) || P('e3') || S.pessoas[0]);
+    var metodo = eu ? 'celular' : real ? 'fixo' : (S.ui.metodo || (quem.celular ? 'celular' : 'fixo'));
+    var bloqueado = metodo === 'celular' && !quem.celular, j = jornadaDe(quem);
     var opts = S.pessoas.map(function (p) { return '<option value="' + p.id + '"' + (p.id === quem.id ? ' selected' : '') + '>' + esc(p.nome) + '</option>'; }).join('');
     var m = S.ponto[quem.id] || ['', '', '', ''], prox = m.indexOf(''), nomes = ['entrada', 'saída para o intervalo', 'volta do intervalo', 'saída'];
-    var painel = '<div class="card card-pad stack"><h2 class="sec">' + (func ? 'Bater ponto' : 'Bater ponto (aparelho da loja)') + '</h2>' +
-      (func ? '' : '<div class="field"><label for="pp">Quem vai marcar</label><select id="pp" data-in="ponto-pessoa">' + opts + '</select></div>') +
+    var rc = S.ui.recibo;
+    var painel = '<div class="card card-pad stack"><h2 class="sec">' + (eu ? 'Bater ponto' : 'Bater ponto no aparelho da empresa') + '</h2>' +
+      (eu ? '' : '<div class="field"><label for="pp">Quem vai marcar</label><select id="pp" data-in="ponto-pessoa">' + opts + '</select></div>') +
       '<div class="clock num" id="clock" aria-live="off">--:--</div>' +
-      '<div class="seg"><button type="button" data-act="metodo" data-v="celular" aria-pressed="' + (metodo === 'celular') + '">Celular</button><button type="button" data-act="metodo" data-v="fixo" aria-pressed="' + (metodo === 'fixo') + '">Aparelho fixo</button></div>' +
-      (bloqueado ? '<div class="notice"><div><strong>Celular não autorizado para ' + esc(first(quem.nome)) + '</strong>A empresa só liberou o aparelho fixo, com rosto ou digital.</div></div>' :
-        '<div class="face' + (S.ui.faceOk ? ' ok' : '') + '" id="face">' + (S.ui.faceOk ? 'Rosto confere' : 'Validação ' + (metodo === 'celular' ? 'facial pela câmera' : 'por rosto ou digital no leitor externo')) + '</div>' +
-        '<div class="actions"><button type="button" class="btn" data-act="face">' + (metodo === 'celular' ? 'Validar rosto' : 'Ler rosto ou digital') + '</button><button type="button" class="btn btn-primary" data-act="marcar"' + (S.ui.faceOk && prox > -1 ? '' : ' disabled') + '>' + (prox > -1 ? 'Registrar ' + nomes[prox] : 'Jornada completa') + '</button></div>') +
-      (S.ui.recibo ? '<div class="receipt num"><strong>Comprovante de registro de ponto</strong><br>NSR ' + esc(S.ui.recibo.nsr) + ' · ' + esc(S.ui.recibo.quando) + '<br>' + esc(S.empresa.razao) + ' · CNPJ ' + esc(S.empresa.cnpj) + '<br>' + esc(S.ui.recibo.nome) + ' · CPF ' + esc(S.ui.recibo.cpf) + '<br>' + esc(S.ui.recibo.tipo) + ' · ' + esc(S.ui.recibo.metodo) + '<br>Programa registrado no INPI nº [a registrar]</div>' : '') +
-      '<p class="ui-sub">Ponto por programa (REP-P) segundo a Portaria MTP 671/2021. A imagem do rosto não é guardada; só o resultado da conferência.</p></div>';
-    if (func) {
-      var hist = ['Entrada', 'Saída intervalo', 'Volta', 'Saída'].map(function (n, i) { return '<li><span>' + n + '</span><span class="num">' + esc(m[i] || '·') + '</span></li>'; }).join('');
-      return titleRow('Ponto', 'Escala de hoje: entrada às ' + esc(quem.escala)) + '<div class="grid-2">' + painel + '<div class="stack"><h2 class="sec">Suas marcações de hoje</h2><div class="card"><ul class="list">' + hist + '</ul></div>' + bancoHTML() + '</div></div>';
+      (real || eu ? '' : '<div class="seg"><button type="button" data-act="metodo" data-v="celular" aria-pressed="' + (metodo === 'celular') + '">Celular</button><button type="button" data-act="metodo" data-v="fixo" aria-pressed="' + (metodo === 'fixo') + '">Aparelho fixo</button></div>') +
+      (bloqueado ? '<div class="notice"><div><strong>Celular não liberado para ' + esc(first(quem.nome)) + '</strong>' + (eu ? 'Marque no aparelho da empresa ou peça a liberação.' : 'A empresa só liberou o aparelho fixo.') + '</div></div>' :
+        '<div class="actions"><button type="button" class="btn btn-primary btn-lg" data-act="marcar"' + (prox > -1 ? '' : ' disabled') + '>' + (prox > -1 ? 'Registrar ' + nomes[prox] : 'Jornada de hoje completa') + '</button></div>') +
+      (rc ? '<div class="receipt num"><strong>Comprovante de registro de ponto</strong><br>NSR ' + esc(rc.nsr) + ' · ' + esc(rc.quando) + '<br>' + esc(S.empresa.razao || S.empresa.nome) + (S.empresa.cnpj ? ' · CNPJ ' + esc(S.empresa.cnpj) : '') + '<br>' + esc(rc.nome) + (rc.cpf ? ' · CPF ' + esc(rc.cpf) : '') + '<br>' + esc(rc.tipo) + ' · ' + esc(rc.metodo) + (rc.local ? '<br>Local: ' + esc(rc.local) : '') + (rc.foto ? '<br>Foto registrada' : '') + '<br>Programa registrado no INPI nº [a registrar]</div>' : '') +
+      '<p class="ui-sub">Ponto por programa (REP-P), Portaria MTP 671/2021. ' + (real ? 'A hora registrada é a do servidor. ' : 'No exemplo, a foto e o local ficam só neste aparelho. ') + 'A foto e o local ficam guardados como comprovante de cada marcação; não há reconhecimento facial.</p></div>';
+    var hojeRegs = function (pid) { return regsDe(pid, real ? diaAberto(pid) : hojeISO()); };
+    var porTipo = function (pid) { var o = []; hojeRegs(pid).forEach(function (r) { o[r.tipo] = r; }); return o; };
+    if (!equipe) {
+      var rs = porTipo(ME);
+      var hist = TIPOS_PONTO.map(function (n, i) { return '<li><span>' + n + (rs[i] ? '<span class="sub">' + esc(localTxt(rs[i])) + '</span>' : '') + '</span><span class="actions"><span class="num">' + esc(m[i] || '·') + '</span>' + (rs[i] && rs[i].fora_do_local ? pill('bad', 'fora do local') : '') + '</span></li>'; }).join('');
+      return titleRow('Ponto', real ? 'Seu horário: ' + esc(horarioTxt(j)) + ' · ' + esc(diasTxt(j.dias)) : 'Escala de hoje: entrada às ' + esc(quem.escala)) + '<div class="grid-2">' + painel + '<div class="stack"><h2 class="sec">Suas marcações de hoje</h2><div class="card"><ul class="list">' + hist + '</ul></div>' +
+        (real ? '<h2 class="sec">Seus últimos dias</h2><div class="card">' + espelhoHTML(ME) + '</div>' : '') + bancoHTML() + '</div></div>';
     }
     var rows = S.pessoas.map(function (p) {
-      var mk = S.ponto[p.id] || ['', '', '', ''], s = situacaoPonto(p);
-      return '<tr><td><strong>' + esc(p.nome) + '</strong><span class="sub">' + esc(p.setor) + '</span></td><td class="num">' + esc(p.escala) + '</td>' + mk.map(function (x) { return '<td class="num hide-sm">' + esc(x || '·') + '</td>'; }).join('') + '<td class="hide-sm">' + esc(METODO[S.marcacoesMetodo[p.id]] || '·') + '</td><td>' + pill(s[0], s[1]) + '</td></tr>';
+      var mk = S.ponto[p.id] || ['', '', '', ''], st = situacaoPonto(p), rr = porTipo(p.id), ult = rr.filter(Boolean).pop();
+      return '<tr><td><button type="button" class="link-btn" data-act="ponto-espelho" data-id="' + p.id + '"><strong>' + esc(p.nome) + '</strong></button><span class="sub">' + esc(real ? turnoCurto(p) : p.setor) + '</span></td><td class="num">' + esc(real ? jornadaDe(p).e : p.escala) + '</td>' + mk.map(function (x) { return '<td class="num hide-sm">' + esc(x || '·') + '</td>'; }).join('') +
+        '<td class="hide-sm">' + esc(METODO[S.marcacoesMetodo[p.id]] || '·') + (ult ? '<span class="sub">' + localPill(ult) + '</span>' : '') + '</td><td>' + pill(st[0], st[1]) + '</td></tr>';
     }).join('');
-    var aut = S.pessoas.map(function (p) { return '<li><label class="check"><input type="checkbox" data-in="aut" data-id="' + p.id + '"' + (p.celular ? ' checked' : '') + (S.role === 'empresa' ? '' : ' disabled') + '> ' + esc(p.nome) + '</label><span class="sub">' + (p.celular ? 'celular ou fixo' : 'só fixo') + '</span></li>'; }).join('');
-    return titleRow('Ponto e jornada', 'Quinta-feira, 05/11 · situação às ' + demoAgora() + ' · tolerância de 10 minutos por dia (CLT, art. 58, § 1º)', '<button type="button" class="btn" data-act="export-afd">Exportar arquivo para a fiscalização (AFD)</button>') +
-      '<div class="grid-main"><div class="card"><div class="table-box"><table class="t stack-sm"><thead><tr><th>Pessoa</th><th class="num">Escala</th><th class="num hide-sm">Entrada</th><th class="num hide-sm">Intervalo</th><th class="num hide-sm">Volta</th><th class="num hide-sm">Saída</th><th class="hide-sm">Como marcou</th><th>Situação</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>' +
-      '<div class="stack">' + painel + (S.role === 'gerente' ? '' : '<div><h2 class="sec">Quem pode marcar pelo celular</h2><div class="card"><ul class="list">' + aut + '</ul></div></div>') + '</div></div>' + bancoHTML();
+    var aut = S.pessoas.map(function (p) { return '<li><label class="check"><input type="checkbox" data-in="aut" data-id="' + p.id + '"' + (p.celular ? ' checked' : '') + (S.role === 'empresa' ? '' : ' disabled') + '> ' + esc(p.nome) + '</label><span class="sub">' + (p.celular ? 'celular ou aparelho da empresa' : 'só aparelho da empresa') + '</span></li>'; }).join('');
+    var cfg = cfgPonto(), cfgCard = real && S.role === 'empresa' ? '<div class="card card-pad stack"><h2 class="sec">Regras do ponto</h2><p>' + (cfg.lat != null ? 'Local da empresa definido · raio de ' + cfg.raio + ' m' + (cfg.bloquear ? ' · marcação fora do local é recusada' : ' · fora do local fica sinalizado') : 'Local da empresa ainda não definido') + '</p><p class="ui-sub">' + (cfg.foto ? 'Foto obrigatória' : 'Foto opcional') + ' · ' + (cfg.local ? 'localização obrigatória no celular' : 'localização opcional') + '</p><a class="btn btn-sm" href="#/empresa">Alterar em Dados da empresa</a></div>' : '';
+    var acoes = real ? '<button type="button" class="btn" data-act="ponto-csv">Exportar marcações (planilha)</button>' : '<button type="button" class="btn" data-act="export-afd">Exportar arquivo para a fiscalização (AFD)</button>';
+    return titleRow('Ponto e jornada', (real ? hoje1() : 'Quinta-feira, 05/11') + ' · situação às ' + demoAgora() + ' · tolerância de 10 minutos por dia (CLT, art. 58, § 1º)', acoes) +
+      '<div class="grid-main"><div class="stack"><div class="card"><div class="table-box"><table class="t stack-sm"><thead><tr><th>Pessoa</th><th class="num">Entra</th><th class="num hide-sm">Entrada</th><th class="num hide-sm">Intervalo</th><th class="num hide-sm">Volta</th><th class="num hide-sm">Saída</th><th class="hide-sm">Como e onde</th><th>Situação</th></tr></thead><tbody>' + rows + '</tbody></table></div></div><p class="ui-sub">Toque no nome para ver o espelho de ponto com as fotos e os locais.</p></div>' +
+      '<div class="stack">' + painel + cfgCard + (S.role === 'empresa' ? '<div><h2 class="sec">Quem pode marcar pelo celular</h2><div class="card"><ul class="list">' + aut + '</ul></div></div>' : '') + '</div></div>' + bancoHTML();
   }
   var clockTimer;
   function tickClock() { clearInterval(clockTimer); var f = function () { var c = $('#clock'); if (!c) { clearInterval(clockTimer); return; } c.textContent = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }); }; f(); clockTimer = setInterval(f, 1000); }
@@ -976,7 +1353,7 @@
         var p = P(a.pessoa), venc = a.original !== 'entregue' && diffDays(S.hoje, a.prazo) < 0;
         var orig = a.original === 'entregue' ? pill('ok', 'Entregue em ' + dmy(a.entregueEm)) : venc ? pill('bad', 'Vencido em ' + dmy(a.prazo)) : pill('warn', 'Entregar até ' + dmy(a.prazo));
         var acao = S.role === 'empresa' && a.original !== 'entregue' ? '<button type="button" class="btn btn-sm" data-act="orig" data-id="' + a.id + '">Registrar entrega</button>' : '';
-        return '<tr><td><strong>' + esc(p.nome) + '</strong><span class="sub">' + esc(p.funcao) + '</span></td><td class="num">' + dmy(a.inicio) + ' · ' + a.dias + (a.dias > 1 ? ' dias' : ' dia') + '</td><td class="hide-sm">Foto em ' + esc(dmy(a.foto)) + '</td><td>' + orig + '</td><td class="num">' + acao + '</td></tr>';
+        return '<tr><td><strong>' + esc(p.nome) + '</strong><span class="sub">' + esc(p.funcao) + '</span></td><td class="num">' + dmy(a.inicio) + ' · ' + a.dias + (a.dias > 1 ? ' dias' : ' dia') + '</td><td class="hide-sm">Foto em ' + esc(dmy(a.foto)) + (a.arquivo ? ' <button type="button" class="link-btn" data-act="arq-ver" data-path="' + esc(a.arquivo) + '" data-t="Foto do atestado">ver</button>' : '') + '</td><td>' + orig + '</td><td class="num">' + acao + '</td></tr>';
       }).join('');
       return titleRow('Atestados e advertências', func ? 'Seus atestados' : 'Ciência imediata pela foto, validade com o original', func ? '<span class="btn btn-primary file-btn">Enviar foto do atestado<input type="file" accept="image/*" capture="environment" data-in="novo-atestado" aria-label="Enviar foto do atestado"></span>' : '') + tabs + '<div class="stack">' + aviso +
         '<div class="card"><div class="table-box"><table class="t stack-sm"><thead><tr><th>Pessoa</th><th class="num">Período</th><th class="hide-sm">Ciência</th><th>Original físico</th><th class="num">Ação</th></tr></thead><tbody>' + (rows || '<tr><td>Nenhum atestado.</td></tr>') + '</tbody></table></div></div>' +
@@ -1001,6 +1378,7 @@
       '<p class="ui-sub">FGTS do mês depositado pela empresa: R$ ' + brl(h.fgts) + '. Valores de exemplo; no sistema, quem lança é o contador.</p></article>';
   }
   function vHolerites() {
+    if (S.real) return vHoleritesReal();
     var comp = 'outubro de 2026';
     if (ehFunc()) {
       var st = statusHolerite(ME);
@@ -1031,7 +1409,7 @@
     var tabs = S.checklists.map(function (x) { return '<button type="button" role="tab" data-act="ck" data-id="' + x.id + '" aria-selected="' + (x.id === c.id) + '">' + esc(x.setor) + '</button>'; }).join('');
     var feitos = c.itens.filter(function (i) { return i.feito; }).length, fotosReq = c.itens.filter(function (i) { return i.foto; }).length, fotos = c.itens.filter(function (i) { return i.foto && i.fotoEm; }).length;
     var itens = c.itens.map(function (it, i) {
-      var foto = it.foto ? (it.fotoEm ? (it.thumb ? '<img src="' + esc(it.thumb) + '" alt="Foto do item">' : '') + pill('ok', 'foto ' + it.fotoEm) : '<span class="btn btn-sm file-btn">Enviar foto<input type="file" accept="image/*" capture="environment" data-in="ck-foto" data-i="' + i + '" aria-label="Enviar foto: ' + esc(it.t) + '"></span>') : pill('mute', 'sem foto');
+      var foto = it.foto ? (it.fotoEm ? (it.thumb && !S.real ? '<img src="' + esc(it.thumb) + '" alt="Foto do item">' : it.arquivo ? '<button type="button" class="link-btn" data-act="arq-ver" data-path="' + esc(it.arquivo) + '" data-t="Foto do item">ver foto</button> ' : '') + pill('ok', 'foto ' + it.fotoEm) : '<span class="btn btn-sm file-btn">Enviar foto<input type="file" accept="image/*" capture="environment" data-in="ck-foto" data-i="' + i + '" aria-label="Enviar foto: ' + esc(it.t) + '"></span>') : pill('mute', 'sem foto');
       var cfg = !func && c.foto === 'parcial' ? '<label class="check ui-sub"><input type="checkbox" data-in="ck-req" data-i="' + i + '"' + (it.foto ? ' checked' : '') + '> exige foto</label>' : '';
       return '<div class="ck-item"><input type="checkbox" aria-label="Feito: ' + esc(it.t) + '" data-in="ck-feito" data-i="' + i + '"' + (it.feito ? ' checked' : '') + '><div>' + esc(it.t) + (cfg ? '<div>' + cfg + '</div>' : '') + '</div><div class="photo">' + foto + '</div></div>';
     }).join('');
@@ -1064,7 +1442,7 @@
     var lista = S.vales.filter(function (v) { return !func || v.pessoa === ME; }).slice().sort(function (a, b) { return a.data < b.data ? 1 : -1; });
     var rows = lista.map(function (v) {
       var aut = v.assinado ? pill('ok', 'Assinado ' + dmy(v.assinado)) : pill('warn', 'Aguardando assinatura');
-      var folha = v.assinado ? (v.comp === '2026-10' ? 'Folha de outubro' : 'Folha de novembro') : 'Bloqueado até assinar';
+      var folha = v.assinado ? (S.real ? 'Folha de ' + compTxt(v.comp) : v.comp === '2026-10' ? 'Folha de outubro' : 'Folha de novembro') : 'Bloqueado até assinar';
       var acao = func && !v.assinado ? '<button type="button" class="btn btn-sm btn-primary" data-act="assinar" data-id="' + v.id + '">Assinar autorização</button>' : '';
       return '<tr><td class="num">' + dmy(v.data) + '</td><td><strong>' + esc(P(v.pessoa).nome) + '</strong><span class="sub">' + esc(v.desc) + '</span></td><td class="hide-sm">' + (v.tipo === 'adiantamento' ? 'Adiantamento' : 'Produto da loja') + '</td><td class="num">' + brl(v.valor) + '</td><td>' + aut + '</td><td class="hide-sm">' + esc(folha) + '</td><td class="num">' + acao + '</td></tr>';
     }).join('');
@@ -1108,7 +1486,7 @@
     }).join('') + '<p><strong>Total estimado: R$ ' + brl(totalCompras()) + '</strong></p></article>';
   }
   function vCompras() {
-    var emp = S.role === 'empresa', itens = S.compras.itens, nSug = sugestaoCompra().length, marcados = itens.filter(function (i) { return i.comprado; }).length;
+    var emp = S.role === 'empresa', verCusto = emp || (S.role === 'gerente' && pode('estoque')), itens = S.compras.itens, nSug = sugestaoCompra().length, marcados = itens.filter(function (i) { return i.comprado; }).length;
     var producao = S.produtos.filter(function (p) { return p.qtd < p.min && p.fornecedor === 'Produção própria'; }), semCusto = itens.filter(function (i) { return !i.custo; }).length;
     var grupos = fornecedores().map(function (f) {
       var it = itens.filter(function (i) { return i.fornecedor === f; });
@@ -1116,18 +1494,18 @@
         return '<tr>' + (emp ? '<td><input type="checkbox" aria-label="Comprado: ' + esc(i.nome) + '" data-in="cmp-ok" data-id="' + esc(i.id) + '"' + (i.comprado ? ' checked' : '') + '></td>' : '') +
           '<td><strong>' + esc(i.nome) + '</strong><span class="sub">' + esc(origemTxt(i)) + '</span></td>' +
           '<td class="num">' + (emp ? '<input class="num qtd-in" type="number" min="0.5" max="9999" step="0.5" value="' + esc(i.qtd) + '" aria-label="Quantidade de ' + esc(i.nome) + '" data-in="cmp-qtd" data-id="' + esc(i.id) + '"> ' : esc(String(i.qtd).replace('.', ',')) + ' ') + esc(i.un) + '</td>' +
-          '<td class="num hide-sm">' + (i.custo ? brl(i.custo) : '·') + '</td><td class="num">' + (i.custo ? brl(i.qtd * i.custo) : 'a cotar') + '</td>' +
+          (verCusto ? '<td class="num hide-sm">' + (i.custo ? brl(i.custo) : '·') + '</td><td class="num">' + (i.custo ? brl(i.qtd * i.custo) : 'a cotar') + '</td>' : '') +
           (emp ? '<td class="num"><button type="button" class="btn btn-sm" data-act="cmp-del" data-id="' + esc(i.id) + '" aria-label="Tirar ' + esc(i.nome) + ' da lista">Tirar</button></td>' : '') + '</tr>';
       }).join('');
       var wa = 'https://wa.me/?text=' + encodeURIComponent(waTexto(f));
-      return '<div class="card"><div class="card-head"><h2>' + esc(f) + '</h2><span class="actions"><span class="ui-sub num">R$ ' + brl(totalCompras(it)) + '</span>' + (emp ? '<a class="btn btn-sm" href="' + esc(wa) + '" target="_blank" rel="noopener noreferrer">Enviar pedido no WhatsApp</a>' : '') + '</span></div>' +
-        '<div class="table-box"><table class="t stack-sm"><thead><tr>' + (emp ? '<th><span class="sr-only">Comprado</span></th>' : '') + '<th>Item</th><th class="num">Quantidade</th><th class="num hide-sm">Custo un. (R$)</th><th class="num">Subtotal (R$)</th>' + (emp ? '<th><span class="sr-only">Ação</span></th>' : '') + '</tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+      return '<div class="card"><div class="card-head"><h2>' + esc(f) + '</h2><span class="actions">' + (verCusto ? '<span class="ui-sub num">R$ ' + brl(totalCompras(it)) + '</span>' : '') + (emp ? '<a class="btn btn-sm" href="' + esc(wa) + '" target="_blank" rel="noopener noreferrer">Enviar pedido no WhatsApp</a>' : '') + '</span></div>' +
+        '<div class="table-box"><table class="t stack-sm"><thead><tr>' + (emp ? '<th><span class="sr-only">Comprado</span></th>' : '') + '<th>Item</th><th class="num">Quantidade</th>' + (verCusto ? '<th class="num hide-sm">Custo un. (R$)</th><th class="num">Subtotal (R$)</th>' : '') + (emp ? '<th><span class="sr-only">Ação</span></th>' : '') + '</tr></thead><tbody>' + rows + '</tbody></table></div></div>';
     }).join('');
     var opts = ['Distribuidora Criciúma', 'Embalagens Sul', 'Granja Rio Maina', 'Laticínios Serra Verde', 'Moinho Sul', 'Mercado (compra avulsa)'].map(function (f) { return '<option>' + esc(f) + '</option>'; }).join('');
     var form = '<div class="card card-pad"><h2 class="sec">' + (emp ? 'Adicionar item' : 'Pedir um item para a compra') + '</h2><form class="form-grid" data-form="cmp-novo"><div class="field"><label for="cn">Item</label><input id="cn" name="n" maxlength="60" required placeholder="Ex.: guardanapo"></div><div class="field"><label for="cf">Fornecedor</label><select id="cf" name="f">' + opts + '</select></div><div class="field"><label for="cq">Quantidade</label><input id="cq" name="q" type="number" min="0.5" max="9999" step="0.5" value="1" required></div><div class="field"><label for="cu">Unidade</label><input id="cu" name="u" maxlength="10" value="un" required></div>' +
       (emp ? '<div class="field"><label for="cc">Custo unitário (R$, opcional)</label><input id="cc" name="c" type="number" min="0" max="99999" step="0.01"></div>' : '') + '<div class="field"><span class="lbl-s">&nbsp;</span><button class="btn btn-primary" type="submit">' + (emp ? 'Adicionar' : 'Enviar pedido') + '</button></div></form></div>';
     var resumo = '<div class="card card-pad stack"><h2 class="sec">Como a lista funciona</h2><ul class="list"><li>1. O sistema sugere o que está abaixo do mínimo, já com a quantidade para voltar ao estoque ideal.</li><li>2. A equipe pede pelo app o que falta e não tem cadastro.</li><li>3. Você envia o pedido de cada fornecedor pelo WhatsApp ou imprime.</li><li>4. Quando a mercadoria chega, marque e clique em “Receber no estoque”: as quantidades sobem sozinhas.</li></ul>' +
-      '<div><div class="lbl-s">Total estimado</div><div class="clock num">R$ ' + brl(totalCompras()) + '</div>' + (semCusto ? '<p class="ui-sub">' + semCusto + ' item(ns) sem custo cadastrado, a cotar com o fornecedor.</p>' : '') + '</div></div>';
+      (verCusto ? '<div><div class="lbl-s">Total estimado</div><div class="clock num">R$ ' + brl(totalCompras()) + '</div>' + (semCusto ? '<p class="ui-sub">' + semCusto + ' item(ns) sem custo cadastrado, a cotar com o fornecedor.</p>' : '') + '</div>' : '') + '</div>';
     return titleRow('Lista de compras', itens.length + ' itens de ' + fornecedores().length + ' fornecedores', emp ? '<button type="button" class="btn" data-act="cmp-gerar"' + (nSug ? '' : ' disabled') + '>' + (nSug ? 'Sugerir ' + nSug + ' do estoque' : 'Estoque em dia') + '</button><button type="button" class="btn" data-act="cmp-print"' + (itens.length ? '' : ' disabled') + '>Imprimir ou PDF</button><button type="button" class="btn btn-primary" data-act="cmp-receber"' + (marcados ? '' : ' disabled') + '>Receber ' + (marcados || '') + ' no estoque</button>' : '') +
       '<div class="grid-main"><div class="stack">' + (producao.length ? '<div class="notice info"><div><strong>Repor na produção, não comprar</strong>' + producao.map(function (p) { return esc(p.nome) + ' (' + p.qtd + ' de ' + p.min + ')'; }).join(', ') + (producao.length > 1 ? ' são produção própria e ficam' : ' é produção própria e fica') + ' fora da lista.</div></div>' : '') +
       (grupos || '<div class="notice info"><div>A lista está vazia. Use “Sugerir do estoque” ou adicione um item.</div></div>') + form + '</div>' + resumo + '</div>';
@@ -1144,16 +1522,16 @@
 
   /* ---------- diálogo, impressão ---------- */
   var lastFocus;
-  function modal(title, body, foot) {
+  function modal(title, body, foot, cls) {
     closeModal(); lastFocus = doc.activeElement;
     var o = doc.createElement('div'); o.className = 'overlay';
-    o.innerHTML = '<div class="modal" role="dialog" aria-modal="true" aria-labelledby="m-t"><div class="card-head"><h2 id="m-t">' + esc(title) + '</h2><button type="button" class="btn btn-sm" data-act="fechar">Fechar</button></div><div class="modal-body">' + body + '</div>' + (foot ? '<div class="modal-foot">' + foot + '</div>' : '') + '</div>';
+    o.innerHTML = '<div class="modal' + (cls ? ' ' + cls : '') + '" role="dialog" aria-modal="true" aria-labelledby="m-t"><div class="card-head"><h2 id="m-t">' + esc(title) + '</h2><button type="button" class="btn btn-sm" data-act="fechar">Fechar</button></div><div class="modal-body">' + body + '</div>' + (foot ? '<div class="modal-foot">' + foot + '</div>' : '') + '</div>';
     o.addEventListener('click', function (e) { if (e.target === o) closeModal(); else onClick(e); });
-    o.addEventListener('submit', onSubmit);
+    o.addEventListener('submit', onSubmit); o.addEventListener('change', onInput);
     doc.body.appendChild(o);
     var f = $('input, select, textarea, .modal-foot .btn-primary', o) || $('.btn', o); if (f) f.focus();
   }
-  function closeModal() { var o = $('.overlay'); if (o) { o.remove(); if (lastFocus && lastFocus.focus) lastFocus.focus(); } }
+  function closeModal() { pararCamera(); var o = $('.overlay'); if (o) { o.remove(); if (lastFocus && lastFocus.focus) lastFocus.focus(); } }
   function imprimirNavegador(html) {
     var a = $('#print-area'); a.innerHTML = html; doc.body.classList.add('printing');
     var done = function () { doc.body.classList.remove('printing'); a.innerHTML = ''; window.removeEventListener('afterprint', done); };
@@ -1272,13 +1650,11 @@
     metodo: function (b) { S.ui.metodo = b.dataset.v; S.ui.faceOk = false; save(); render(); },
     face: function () { var f = $('#face'); if (f) f.textContent = 'Conferindo…'; setTimeout(function () { S.ui.faceOk = true; render(); }, 700); },
     marcar: function () {
-      var p = ehFunc() && !pode('ponto') ? P(ME) : (P(S.ui.pontoPessoa) || P('e3') || S.pessoas[0]), m = S.ponto[p.id] || (S.ponto[p.id] = ['', '', '', '']), i = m.indexOf('');
-      if (i < 0) return;
-      var hora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); m[i] = hora; S.nsr++;
-      var met = S.ui.metodo === 'celular' || (!S.ui.metodo && p.celular) ? 'celular' : 'fixo-rosto';
-      S.marcacoesMetodo[p.id] = met;
-      S.ui.recibo = { nsr: String(S.nsr).padStart(9, '0'), quando: '05/11/2026 ' + hora, nome: p.nome, cpf: p.cpf, tipo: ['Entrada', 'Saída para intervalo', 'Volta do intervalo', 'Saída'][i], metodo: METODO[met] };
-      S.ui.faceOk = false; save(); render(); toast('Marcação registrada. Comprovante gerado.');
+      var eu = ehFunc() && (S.real || !pode('ponto')), p = eu ? P(ME) : (P(S.ui.pontoPessoa) || P('e3') || S.pessoas[0]); if (!p) return;
+      var m = S.ponto[p.id] || (S.ponto[p.id] = ['', '', '', '']), i = m.indexOf(''); if (i < 0) return;
+      var met = eu ? 'celular' : S.real ? 'fixo' : (S.ui.metodo || (p.celular ? 'celular' : 'fixo'));
+      if (met === 'celular' && !p.celular) { toast('A empresa não liberou a marcação pelo celular para ' + first(p.nome) + '.'); return; }
+      capturarPonto(p, i, met);
     },
     'export-afd': function () {
       var linhas = ['Seu Comando · AFD de exemplo (formato simplificado, não oficial)', 'Empresa: ' + S.empresa.razao + ' ' + S.empresa.cnpj];
@@ -1288,7 +1664,7 @@
     },
     oc: function (b) { S.ui.oc = b.dataset.v; save(); render(); },
     orig: function (b) { var a = S.atestados.filter(function (x) { return x.id === b.dataset.id; })[0]; a.original = 'entregue'; a.entregueEm = S.hoje; save(); render(); toast('Original registrado. A falta passa a ser abonada.'); },
-    ciencia: function (b) { var w = S.advertencias.filter(function (x) { return x.id === b.dataset.id; })[0]; w.ciencia = 'app'; w.cienciaEm = '2026-11-05 ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); save(); render(); toast('Ciência registrada.'); },
+    ciencia: function (b) { var w = S.advertencias.filter(function (x) { return x.id === b.dataset.id; })[0]; w.ciencia = 'app'; w.cienciaEm = (S.real ? hojeISO() : '2026-11-05') + ' ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); save(); render(); toast('Ciência registrada.'); },
     recusa: function (b) { modal('Registrar recusa de ciência', '<p>Quando o funcionário se recusa a assinar, duas testemunhas confirmam que a advertência foi lida para ele.</p><form class="stack" data-form="recusa" data-id="' + esc(b.dataset.id) + '"><div class="field"><label for="t1">Testemunhas</label><input id="t1" name="t" maxlength="120" required placeholder="Nome das duas testemunhas"></div><button class="btn btn-primary" type="submit">Registrar</button></form>'); },
     'nova-adv': function () {
       modal('Nova advertência', '<form class="stack" data-form="adv"><div class="field"><label for="ap">Funcionário</label><select id="ap" name="p">' + S.pessoas.map(function (p) { return '<option value="' + p.id + '">' + esc(p.nome) + '</option>'; }).join('') + '</select></div><div class="field"><label for="am">Motivo, com data e fato</label><textarea id="am" name="m" maxlength="400" required placeholder="Ex.: atraso de 30 minutos em 05/11, sem justificativa."></textarea></div><p class="ui-sub">Descreva só o fato. O funcionário recebe no app para dar ciência.</p><button class="btn btn-primary" type="submit">Enviar para ciência</button></form>');
@@ -1366,6 +1742,45 @@
     },
     sair: function () { Nuvem.sair().then(function () { location.href = 'entrar.html'; }); },
     recarregar: function () { location.reload(); },
+    'arq-ver': function (b) { abrirArquivo(b.dataset.path, b.dataset.t); },
+    'ponto-espelho': function (b) { var p = P(b.dataset.id); if (!p) return; modal('Espelho de ponto · ' + p.nome, '<p class="ui-sub">' + esc(S.real ? turnoCurto(p) + ' · últimos 45 dias · hora do servidor' : 'Marcações feitas neste aparelho') + '</p>' + espelhoHTML(p.id), '', 'modal-largo'); },
+    'ponto-csv': function () {
+      var linhas = [['Data', 'Pessoa', 'CPF', 'Marcação', 'Hora', 'NSR', 'Como', 'Latitude', 'Longitude', 'Distância da empresa (m)', 'Fora do local'].join(';')];
+      (S.registros || []).slice().sort(function (a, b) { return a.em < b.em ? -1 : 1; }).forEach(function (r) { var p = P(r.pessoa_id) || {}; linhas.push([dmyy(r.dia), p.nome || r.pessoa_id, p.cpf || '', TIPOS_PONTO[r.tipo], hhmm(r.em), r.nsr, r.metodo === 'fixo' ? 'Aparelho da empresa' : 'Celular', r.lat == null ? '' : r.lat, r.lng == null ? '' : r.lng, r.distancia == null ? '' : r.distancia, r.fora_do_local ? 'sim' : ''].map(csvCel).join(';')); });
+      baixarTexto('Marcacoes de ponto ' + hojeISO() + '.csv', linhas.join('\r\n'));
+    },
+    'usar-local': function (b) {
+      if (!navigator.geolocation) { toast('Este navegador não informa a localização.'); return; }
+      b.disabled = true; b.textContent = 'Buscando…';
+      navigator.geolocation.getCurrentPosition(function (pos) { S.empresa.ponto = S.empresa.ponto || {}; S.empresa.ponto.lat = +pos.coords.latitude.toFixed(6); S.empresa.ponto.lng = +pos.coords.longitude.toFixed(6); auditar('Local do ponto definido', S.empresa.ponto.lat + ', ' + S.empresa.ponto.lng + ' (precisão de ' + Math.round(pos.coords.accuracy) + ' m)'); save(); render(); toast('Local da empresa salvo (precisão de ' + Math.round(pos.coords.accuracy) + ' m).'); },
+        function () { b.disabled = false; b.textContent = 'Usar a localização deste aparelho'; toast('Não foi possível pegar a localização. Permita o acesso para este site.'); }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+    },
+    'turno-editar': function (b) { var t = b.dataset.id ? turnoDe(b.dataset.id) : null; modal(t ? 'Editar turno · ' + t.nome : 'Novo turno', turnoForm(t)); },
+    'turno-del': function (b) { var t = turnoDe(b.dataset.id); if (!t) return; var n = S.pessoas.filter(function (p) { return p.turno === t.id; }); if (n.length) { toast('Troque o turno de ' + n.map(function (p) { return first(p.nome); }).join(', ') + ' antes de remover.'); return; } S.turnos = S.turnos.filter(function (x) { return x.id !== t.id; }); auditar('Turno removido', t.nome); save(); render(); toast('Turno removido.'); },
+    'doc-pessoa': function (b) { S.ui.docPessoa = b.dataset.id; save(); render(); },
+    'doc-ok': function (b) { decidirDoc(b.dataset.id, 'aprovado'); },
+    'doc-nao': function (b) { modal('Recusar documento', '<form class="stack" data-form="doc-nao" data-id="' + esc(b.dataset.id) + '"><div class="field"><label for="dn-m">Motivo (a pessoa vê no app)</label><input id="dn-m" name="m" maxlength="200" required placeholder="Ex.: foto cortada, envie de novo com o documento inteiro"></div><button class="btn btn-primary" type="submit">Recusar</button></form>'); },
+    'doc-del': function (b) { var d = (S.docsArq || []).filter(function (x) { return String(x.id) === String(b.dataset.id); })[0]; if (!d) return; (NUVEM ? Nuvem.apagarDoc(d.id) : Promise.resolve()).then(function () { Arq().apagar(d.arquivo).catch(function () { /* o registro já saiu */ }); S.docsArq = S.docsArq.filter(function (x) { return x !== d; }); save(); render(); toast('Documento apagado.'); }, function (e) { toast(erroTxt(e)); }); },
+    'hol-liberar': function (b) { liberarHol([b.dataset.id]); },
+    'hol-liberar-sel': function () { liberarHol($$('[data-in="sel-hol"]:checked:not(:disabled)').map(function (c) { return c.dataset.id; })); },
+    'hol-liberar-todos': function () { var comp = S.ui.comp || mesAnterior(); liberarHol((S.holArq || []).filter(function (h) { return h.competencia === comp && h.status === 'aguardando'; }).map(function (h) { return String(h.id); })); },
+    'ct-tab': function (b) { S.ui.ctTab = b.dataset.v; save(); render(); },
+    'ct-salvar-modelo': function () {
+      var ct = ctEstado(), html;
+      if (ct.alvo === 'novo') { var pp = $('#paper'); html = pp ? pp.innerHTML : contratoAtualHTML().corpo; }
+      else { var alvo0 = ct.alvo; ct.alvo = 'novo'; html = contratoAtualHTML().corpo; ct.alvo = alvo0; }
+      var x = contratoAtualHTML(); MODELO_PEND = limparHTML(html);
+      modal('Salvar como modelo', '<form class="stack" data-form="ct-modelo-salvar"><div class="field"><label for="cm-n">Nome do modelo</label><input id="cm-n" name="n" maxlength="80" required value="' + esc((x.ct.modelo === 'experiencia' ? 'Experiência · ' : '') + x.cargo.cargo) + '"></div><p class="ui-sub">O nome e o CPF ficam em branco no modelo e são preenchidos com os dados de cada pessoa quando você usar o modelo para a equipe. Salário, jornada e cláusulas ficam como estão agora.</p><button class="btn btn-primary" type="submit">Salvar modelo</button></form>');
+    },
+    'ct-modelo-ver': function (b) { var m = modeloCt(b.dataset.id); if (!m) return; printHTML('<article class="paper">' + marcaDagua() + htmlDoModelo(m, { nome: '[NOME DO EMPREGADO]', cpf: '[CPF]', funcao: '[FUNÇÃO]', salario: 0, admissao: '' }) + '</article>', 'Modelo ' + m.nome); },
+    'ct-modelo-del': function (b) { var m = modeloCt(b.dataset.id); if (!m) return; var n = (S.contratos || []).filter(function (c) { return c.modelo === m.id; }).length; if (n) { toast('Este modelo tem ' + n + ' contrato(s) gerado(s). Remova esses contratos antes.'); return; } S.modelosCt = S.modelosCt.filter(function (x) { return x !== m; }); auditar('Modelo de contrato removido', m.nome); save(); render(); toast('Modelo removido.'); },
+    'ct-aplicar': function (b) {
+      var m = modeloCt(b.dataset.id); if (!m) return; if (!S.pessoas.length) { toast('Cadastre a equipe primeiro.'); return; }
+      var ja = function (pid) { return (S.contratos || []).some(function (c) { return c.modelo === m.id && c.pessoa === pid; }); };
+      modal('Usar "' + m.nome + '"', '<form class="stack" data-form="ct-aplicar" data-id="' + esc(m.id) + '"><p class="ui-sub">Marque as pessoas. Cada uma recebe o próprio contrato, já com nome, CPF, função, salário e admissão do cadastro.</p><div class="stack">' + S.pessoas.map(function (p) { return '<label class="check"><input type="checkbox" name="p" value="' + esc(p.id) + '"' + (ja(p.id) ? ' disabled' : '') + '> ' + esc(p.nome) + '<span class="sub">' + (ja(p.id) ? 'já tem este contrato' : esc(p.funcao || '')) + '</span></label>'; }).join('') + '</div><button class="btn btn-primary" type="submit">Gerar contratos</button></form>');
+    },
+    'ct-ver': function (b) { var c = (S.contratos || []).filter(function (x) { return x.id === b.dataset.id; })[0], m = c && modeloCt(c.modelo), p = c && P(c.pessoa); if (!m || !p) { toast('Modelo não encontrado.'); return; } printHTML('<article class="paper">' + marcaDagua() + htmlDoModelo(m, p) + '</article>', 'Contrato ' + p.nome); },
+    'ct-del': function (b) { var c = (S.contratos || []).filter(function (x) { return x.id === b.dataset.id; })[0]; if (!c) return; S.contratos = S.contratos.filter(function (x) { return x !== c; }); auditar('Contrato removido', (P(c.pessoa) || {}).nome || ''); save(); render(); toast('Contrato removido da lista.'); },
     'pessoa-editar': function (b) { var p = b.dataset.id ? P(b.dataset.id) : null; modal(p ? 'Editar · ' + p.nome : 'Cadastrar pessoa', pessoaForm(p)); },
     'acesso-editar': function (b) {
       var p = P(b.dataset.id), a = acessoDe(p.id);
@@ -1416,7 +1831,7 @@
       S.compras.itens = S.compras.itens.filter(function (i) { return !i.comprado; }); save(); render();
       toast(ok.length + ' item(ns) recebido(s). ' + (n ? n + ' atualizaram o estoque.' : 'Itens sem cadastro saíram da lista.'));
     },
-    assinar: function (b) { var v = S.vales.filter(function (x) { return x.id === b.dataset.id; })[0]; v.assinado = '2026-11-05 ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); save(); render(); toast('Autorização assinada. O vale entra na folha de novembro.'); },
+    assinar: function (b) { var v = S.vales.filter(function (x) { return x.id === b.dataset.id; })[0]; v.assinado = (S.real ? hojeISO() : '2026-11-05') + ' ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); save(); render(); toast('Autorização assinada. O vale entra na folha de novembro.'); },
     'novo-vale': function () {
       modal('Novo vale', '<form class="stack" data-form="vale"><div class="form-grid"><div class="field"><label for="vp">Funcionário</label><select id="vp" name="p">' + S.pessoas.map(function (p) { return '<option value="' + p.id + '">' + esc(p.nome) + '</option>'; }).join('') + '</select></div><div class="field"><label for="vt">Tipo</label><select id="vt" name="t"><option value="produto">Produto da loja</option><option value="adiantamento">Adiantamento</option></select></div></div><div class="field"><label for="vd">Itens ou motivo</label><input id="vd" name="d" maxlength="80" required placeholder="Ex.: 2 bolos de fubá"></div><div class="field"><label for="vv">Valor (R$)</label><input id="vv" name="v" type="number" min="0.01" max="5000" step="0.01" required></div><p class="ui-sub">O funcionário recebe no app para assinar. Sem assinatura, o vale não entra na folha.</p><button class="btn btn-primary" type="submit">Enviar para assinatura</button></form>');
     }
@@ -1448,14 +1863,43 @@
       e2.status = 'recusado'; e2.motivo = String(d.get('m') || '').slice(0, 80); e2.decididoEm = agora(); salvaInteg(x2); closeModal(); render(); toast('Recusa registrada e enviada para a recrutadora.'); return;
     }
     if (k === 'nuvem-empresa') { var nn = String(d.get('n') || '').trim().slice(0, 80); if (nn.length < 2) return; criarEmpresaNuvem(nn, String(d.get('t') || 'padaria')).catch(function (e) { toast(e.message); }); return; }
+    if (k === 'turno') {
+      var tn = String(d.get('n') || '').trim().slice(0, 40); if (!tn) return;
+      var jt = jornadaDoForm(d), tt = f.dataset.id ? turnoDe(f.dataset.id) : null, novoT = !tt; S.turnos = S.turnos || [];
+      if (novoT) { tt = { id: 't' + Date.now().toString(36) }; S.turnos.push(tt); }
+      tt.nome = tn; tt.e = jt.e; tt.si = jt.si; tt.vi = jt.vi; tt.s = jt.s; tt.dias = jt.dias;
+      S.pessoas.forEach(function (p) { if (p.turno === tt.id) p.escala = tt.e; });
+      var alt = alertasJornada(tt); auditar(novoT ? 'Turno criado' : 'Turno alterado', tn + ': ' + horarioTxt(tt) + ', ' + diasTxt(tt.dias)); save(); closeModal(); render(); toast(alt.length ? 'Turno salvo. Atenção: ' + alt[0] + '.' : 'Turno salvo.'); return;
+    }
+    if (k === 'ponto-cfg') {
+      S.empresa.ponto = S.empresa.ponto || {}; var pc = S.empresa.ponto;
+      pc.raio = Math.max(30, Math.min(5000, +d.get('raio') || 200)); pc.foto = d.get('foto') === 'on'; pc.local = d.get('local') === 'on'; pc.bloquear = d.get('bloquear') === 'on';
+      auditar('Regras do ponto alteradas', 'raio de ' + pc.raio + ' m' + (pc.foto ? ', foto obrigatória' : ', foto opcional') + (pc.local ? ', localização obrigatória' : ', localização opcional') + (pc.bloquear ? ', recusa fora do local' : '')); save(); render(); toast('Regras do ponto salvas.'); return;
+    }
+    if (k === 'doc-nao') { var mt = String(d.get('m') || '').trim().slice(0, 200); if (mt.length < 3) return; decidirDoc(f.dataset.id, 'recusado', mt); return; }
+    if (k === 'ct-modelo-salvar') {
+      var mn = String(d.get('n') || '').trim().slice(0, 80); if (!mn || !MODELO_PEND) return; S.modelosCt = S.modelosCt || [];
+      S.modelosCt.push({ id: 'm' + Date.now().toString(36), nome: mn, tipo: 'gerado', html: MODELO_PEND, cargo: ctEstado().cargo, em: agora() }); MODELO_PEND = '';
+      S.ui.ctTab = 'modelos'; auditar('Modelo de contrato salvo', mn); save(); closeModal(); render(); toast('Modelo salvo. Em "Usar para a equipe", gere os contratos de várias pessoas de uma vez.'); return;
+    }
+    if (k === 'ct-modelo-texto') {
+      var mn2 = String(d.get('n') || '').trim().slice(0, 80), tx = String(d.get('x') || '').trim().slice(0, 60000); if (!mn2 || tx.length < 20) { toast('Cole o texto do contrato.'); return; }
+      S.modelosCt = S.modelosCt || []; S.modelosCt.push({ id: 'm' + Date.now().toString(36), nome: mn2, tipo: 'texto', texto: tx, em: agora() });
+      auditar('Modelo de contrato cadastrado', mn2); save(); render(); toast('Modelo salvo.' + (/\{\{\s*nome\s*\}\}/.test(tx) ? '' : ' Dica: escreva {{nome}} onde entra o nome de cada pessoa.')); return;
+    }
+    if (k === 'ct-aplicar') {
+      var mm = modeloCt(f.dataset.id), sel = d.getAll('p').filter(function (x) { return P(x); }); if (!mm) return; if (!sel.length) { toast('Marque ao menos uma pessoa.'); return; }
+      S.contratos = S.contratos || []; sel.forEach(function (pid, i) { S.contratos.push({ id: 'c' + Date.now().toString(36) + i, pessoa: pid, modelo: mm.id, em: agora() }); });
+      S.ui.ctTab = 'equipe'; auditar('Contratos gerados', mm.nome + ' para ' + sel.length + ' pessoa(s)'); save(); closeModal(); render(); toast(sel.length + ' contrato(s) gerado(s). Baixe, colha a assinatura e envie o assinado.'); return;
+    }
     if (k === 'pessoa') {
       var nm = String(d.get('n') || '').trim().replace(/\s+/g, ' ').slice(0, 80), cpf = String(d.get('c') || '').replace(/\D/g, '');
       if (nm.split(' ').length < 2) { toast('Informe o nome completo.'); return; }
       if (cpf && !cpfValido(cpf)) { toast('CPF inválido.'); return; }
       var pid = f.dataset.id, pe = pid ? P(pid) : null, novo = !pe;
-      if (novo) { pe = { id: 'p' + Date.now().toString(36), celular: false }; S.pessoas.push(pe); S.ponto[pe.id] = ['', '', '', '']; }
+      if (novo) { pe = { id: 'p' + Date.now().toString(36), celular: !!S.real }; S.pessoas.push(pe); S.ponto[pe.id] = ['', '', '', '']; }
       pe.nome = nm; pe.cpf = cpf ? fmtCPF(cpf) : ''; pe.fone = String(d.get('t') || '').trim().slice(0, 20); pe.funcao = String(d.get('f') || '').trim().slice(0, 60); pe.setor = String(d.get('s') || '').trim().slice(0, 40) || 'Geral';
-      pe.cargo = cargoPor(String(d.get('g'))).id; pe.salario = Math.max(0, +d.get('sa') || 0); pe.escala = /^\d\d:\d\d$/.test(d.get('e')) ? d.get('e') : '08:00'; pe.admissao = String(d.get('a') || S.hoje).slice(0, 10);
+      pe.cargo = cargoPor(String(d.get('g'))).id; pe.salario = Math.max(0, +d.get('sa') || 0); var tuSel = String(d.get('tu') || ''); if (tuSel && turnoDe(tuSel)) { pe.turno = tuSel; delete pe.jornada; pe.escala = turnoDe(tuSel).e; } else { pe.turno = ''; pe.jornada = jornadaDoForm(d); pe.escala = pe.jornada.e; } pe.admissao = String(d.get('a') || S.hoje).slice(0, 10);
       auditar(novo ? 'Pessoa cadastrada' : 'Cadastro alterado', nm); save(); closeModal(); render(); toast(novo ? nm.split(' ')[0] + ' cadastrado(a). Em "Acesso", gere o código do app.' : 'Cadastro salvo.'); return;
     }
     if (k === 'acesso') {
@@ -1477,7 +1921,9 @@
     }
     if (k === 'empresa-dados') {
       var en = String(d.get('n') || '').trim().slice(0, 80); if (en.length < 2) return;
-      S.empresa.nome = en; S.empresa.razao = String(d.get('r') || '').trim().slice(0, 120); S.empresa.cnpj = String(d.get('c') || '').trim().slice(0, 18); S.empresa.cidade = String(d.get('ci') || '').trim().slice(0, 60); S.empresa.endereco = String(d.get('e') || '').trim().slice(0, 140);
+      var cn0 = String(d.get('c') || '').replace(/\D/g, ''); if (cn0 && !cnpjValido(cn0)) { toast('CNPJ inválido. Confira os números.'); return; }
+      var g = function (k, n) { return String(d.get(k) || '').trim().slice(0, n); }, E = S.empresa;
+      E.nome = en; E.razao = g('r', 120); E.cnpj = cn0 ? cn0.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') : ''; E.ie = g('ie', 20); E.endereco = g('e', 140); E.bairro = g('b', 60); E.cep = g('cep', 9); E.cidade = g('ci', 60); E.fone = g('t', 20); E.email = g('m', 120); E.resp = g('rn', 80); E.respCargo = g('rc', 40);
       auditar('Dados da empresa alterados', en); save(); render(); toast('Dados da empresa salvos.'); return;
     }
     if (k === 'convite-contador') {
@@ -1502,7 +1948,7 @@
     }
     if (k === 'em-branco') {
       var bn = String(d.get('n') || '').trim().slice(0, 80) || 'Minha empresa', tp0 = S.tipo || 'padaria';
-      S = novoEmBranco(tp0, bn); S.role = 'empresa'; S.ui = {}; S.nsr = 1; save(); closeModal(); location.hash = '#/equipe'; render(); toast('Empresa em branco criada. Comece cadastrando a equipe.'); return;
+      S = novoEmBranco(tp0, bn); S.role = 'empresa'; S.ui = {}; save(); closeModal(); location.hash = '#/equipe'; render(); toast('Empresa em branco criada. Comece cadastrando a equipe.'); return;
     }
     if (k === 'temp') {
       var eqp = String(d.get('eq')), tv = parseFloat(String(d.get('t') || '').replace(',', '.')), ac = String(d.get('a') || '').trim().slice(0, 140);
@@ -1595,13 +2041,40 @@
       else it.feito = t.checked;
       save(); render();
     }
+    if (k === 'pe-turno') { var fs = t.form && t.form.querySelector('[data-manual]'); if (fs) fs.hidden = !!t.value; return; }
+    if (k === 'hol-comp') { if (/^\d{4}-\d{2}$/.test(t.value)) { S.ui.comp = t.value; save(); render(); } return; }
+    if (k === 'doc-enviar' && t.files && t.files.length) {
+      var tp = t.dataset.tipo, pp = t.dataset.pessoa, fl = Array.prototype.slice.call(t.files, 0, 6); toast('Enviando…');
+      fl.reduce(function (pr, file) { return pr.then(function () { return enviarArquivo(file, pp, 'docs').then(function (a) { var row = { pessoa_id: pp, tipo: tp, arquivo: a.path, nome: a.nome }; if (NUVEM) return Nuvem.enviarDoc(row); row.id = 'd' + Date.now() + rnd(); row.status = 'enviado'; row.enviado_em = new Date().toISOString(); return row; }).then(function (row) { S.docsArq = S.docsArq || []; S.docsArq.push(row); }); }); }, Promise.resolve())
+        .then(function () { save(); render(); toast(fl.length > 1 ? fl.length + ' arquivos enviados.' : 'Documento enviado. A empresa vai conferir.'); }, function (e) { save(); render(); toast(erroTxt(e)); });
+      return;
+    }
+    if (k === 'hol-enviar' && t.files && t.files[0]) {
+      var hp = t.dataset.id, hc = S.ui.comp || mesAnterior(); toast('Enviando…');
+      enviarArquivo(t.files[0], hp, 'holerites').then(function (a) { var row = { pessoa_id: hp, competencia: hc, arquivo: a.path, status: 'aguardando', liberado_em: null }; if (NUVEM) return Nuvem.enviarHolerite(row); row.id = 'h' + Date.now(); row.enviado_em = new Date().toISOString(); return row; })
+        .then(function (row) { S.holArq = (S.holArq || []).filter(function (h) { return !(h.pessoa_id === row.pessoa_id && h.competencia === row.competencia); }); S.holArq.push(row); save(); render(); toast('Holerite enviado. Falta a aprovação da empresa.'); }, function (e) { toast(erroTxt(e)); });
+      return;
+    }
+    if (k === 'ct-modelo-arq' && t.files && t.files[0]) {
+      var nmA = (($('#ma-n') || {}).value || '').trim() || t.files[0].name.replace(/\.[^.]+$/, ''); toast('Enviando…');
+      enviarArquivo(t.files[0], 'empresa', 'modelos').then(function (a) { S.modelosCt = S.modelosCt || []; S.modelosCt.push({ id: 'm' + Date.now().toString(36), nome: nmA.slice(0, 80), tipo: 'arquivo', arquivo: a.path, nomeArq: a.nome, em: agora() }); auditar('Modelo de contrato enviado', nmA); save(); render(); toast('Modelo em arquivo salvo.'); }, function (e) { toast(erroTxt(e)); });
+      return;
+    }
+    if ((k === 'ct-assinado' || k === 'ct-pronto') && t.files && t.files[0]) {
+      var cc = k === 'ct-assinado' ? (S.contratos || []).filter(function (x) { return x.id === t.dataset.id; })[0] : null, cpid = cc ? cc.pessoa : ($('#cp-p') || {}).value;
+      if (!P(cpid)) return; toast('Enviando…');
+      enviarArquivo(t.files[0], cpid, 'contratos').then(function (a) { S.contratos = S.contratos || []; if (!cc) { cc = { id: 'c' + Date.now().toString(36), pessoa: cpid, modelo: null, nomeArq: a.nome, em: agora() }; S.contratos.push(cc); } cc.arquivo = a.path; cc.assinadoEm = agora(); auditar('Contrato assinado anexado', P(cpid).nome); save(); render(); toast('Contrato assinado guardado.'); }, function (e) { toast(erroTxt(e)); });
+      return;
+    }
     if (k === 'ck-foto' && t.files && t.files[0]) {
       var c2 = S.checklists.filter(function (x) { return x.id === (S.ui.ck || 'c1'); })[0], it2 = c2.itens[+t.dataset.i];
-      it2.thumb = URL.createObjectURL(t.files[0]); it2.fotoEm = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); it2.feito = true;
+      if (S.real) { var ckf = t.files[0]; enviarArquivo(ckf, ehFunc() ? ME : 'empresa', 'checklists').then(function (a) { it2.arquivo = a.path; save(); render(); }, function (e) { toast('Não foi possível guardar a foto: ' + erroTxt(e)); }); } else it2.thumb = URL.createObjectURL(t.files[0]);
+      it2.fotoEm = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); it2.feito = true;
       save(); render(); toast('Foto anexada ao item.');
     }
     if (k === 'novo-atestado' && t.files && t.files[0]) {
-      S.atestados.unshift({ id: 'a' + Date.now(), pessoa: ME, inicio: S.hoje, dias: 1, foto: '2026-11-05 ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }), original: 'pendente', prazo: addDays(S.hoje, 2), ciencia: true });
+      S.atestados.unshift({ id: 'a' + Date.now(), pessoa: ME, inicio: S.hoje, dias: 1, foto: (S.real ? hojeISO() : '2026-11-05') + ' ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }), original: 'pendente', prazo: addDays(S.hoje, 2), ciencia: true });
+      if (S.real) { var at0 = S.atestados[0]; enviarArquivo(t.files[0], ME, 'atestados').then(function (a) { at0.arquivo = a.path; save(); render(); }, function (e) { toast('Não foi possível enviar a foto: ' + erroTxt(e)); }); }
       save(); render(); toast('Foto recebida. Entregue o original em papel ao RH até ' + dmy(addDays(S.hoje, 2)) + '.');
     }
     if (k === 'doc') {
@@ -1625,7 +2098,7 @@
   $('#reset').addEventListener('click', function () { try { localStorage.removeItem(KEY); } catch (e) { /* ignora */ } var nome = S.empresa.nome, razao = S.empresa.razao, tp = S.tipo; S = novoExemplo(tp || 'padaria'); S.empresa.nome = nome; S.empresa.razao = razao; semearInteg(); save(); render(); toast('Dados de exemplo restaurados.'); });
   var dl = $('#q-list'); dl.innerHTML = S.pessoas.map(function (p) { return '<option value="' + esc(p.nome) + '">'; }).join('') + S.produtos.map(function (p) { return '<option value="' + esc(p.nome) + '">'; }).join('');
   $('#q').addEventListener('change', function (e) { var v = e.target.value.trim(); if (!v) return; S.ui.q = v.slice(0, 60); save(); if (location.hash === '#/busca') render(); else location.hash = '#/busca'; });
-  window.addEventListener('hashchange', function () { var o = $('.overlay'); if (o) o.remove(); fecharDoc(); render(); view.focus({ preventScroll: true }); window.scrollTo(0, 0); });
+  window.addEventListener('hashchange', function () { pararCamera(); var o = $('.overlay'); if (o) o.remove(); fecharDoc(); render(); view.focus({ preventScroll: true }); window.scrollTo(0, 0); });
   if (NUVEM) {
     $('#role').addEventListener('change', function (e) { if (!VINCULOS.length) return; var v = VINCULOS.filter(function (x) { return x.empresa_id === e.target.value; })[0]; if (v) { Nuvem.escolher(v); carregarNuvem(); } }, true);
     bootNuvem();

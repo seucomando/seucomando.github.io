@@ -9,7 +9,9 @@
     'User already registered': 'Este e-mail já tem conta. Use "Entrar" ou "Esqueci a senha".', conflito_versao: 'Outra pessoa salvou alterações ao mesmo tempo.',
     codigo_invalido: 'Código inválido, vencido ou já usado. Peça um novo para a empresa.', sem_permissao: 'Você não tem permissão para isso.', cpf_invalido: 'CPF inválido.',
     limite_empresas: 'Esta conta já tem 5 empresas.', senha_fraca: 'Senha fraca: use pelo menos 8 caracteres, misturando letras e números.', conta_existe: 'Você já tem conta no app. Entre com seu CPF e senha e digite o código em "Tenho um código".',
-    dados_invalidos: 'Confira o CPF e o código (formato ABCD-EF2345).', vaga_inexistente: 'Esta vaga não está mais aberta.', muitas_respostas: 'Muitas respostas agora. Tente de novo em alguns minutos.'
+    dados_invalidos: 'Confira o CPF e o código (formato ABCD-EF2345).', vaga_inexistente: 'Esta vaga não está mais aberta.', muitas_respostas: 'Muitas respostas agora. Tente de novo em alguns minutos.',
+    sem_foto: 'Tire a foto para registrar o ponto.', sem_local: 'Permita a localização para registrar o ponto.', fora_do_local: 'Você está fora do local de trabalho. A empresa só aceita marcação no local.', foto_invalida: 'A foto não confere com a marcação. Tente de novo.',
+    registros_ponto_unico: 'Essa marcação já foi registrada hoje. Atualize a tela.', 'mime type': 'Tipo de arquivo não aceito. Envie foto, PDF ou Word.', 'maximum allowed size': 'Arquivo maior que 10 MB.', 'row-level security': 'Você não tem permissão para isso.'
   };
   function erro(e) { var m = (e && (e.erro || e.message || e.error_description)) || String(e); var k = Object.keys(TRAD).filter(function (x) { return m.indexOf(x) > -1; })[0]; var er = new Error(k ? TRAD[k] : m); er.codigo = k || m; return er; }
   function r(p) { return p.then(function (x) { if (x && x.error) throw erro(x.error); return x ? x.data : x; }); }
@@ -55,5 +57,20 @@
   N.envios = function (codigo) { return r(sb.from('envios').select('id, de_empresa, de_nome, para_codigo, dados, status, motivo, criado_em, decidido_em').or('de_empresa.eq.' + N.empresa + ',para_codigo.eq.' + codigo).order('criado_em').limit(500)); };
   N.enviar = function (deNome, para, dados, id) { var row = { de_empresa: N.empresa, de_nome: deNome, para_codigo: para, dados: dados }; if (id) row.id = id; return r(sb.from('envios').insert(row)); };
   N.decidir = function (id, status, motivo) { return r(sb.rpc('decidir_envio', { p_id: id, p_status: status, p_motivo: motivo || '' })); };
+  // Arquivos no depósito privado "arquivos": <empresa>/<pessoa>/<área>/<arquivo>; o link aberto vale por 1 hora.
+  N.arquivo = {
+    enviar: function (path, blob) { return r(sb.storage.from('arquivos').upload(path, blob, { contentType: blob.type || 'application/octet-stream', upsert: false })).then(function () { return path; }); },
+    url: function (path) { return r(sb.storage.from('arquivos').createSignedUrl(path, 3600)).then(function (d) { return d.signedUrl; }); },
+    apagar: function (path) { return r(sb.storage.from('arquivos').remove([path])); }
+  };
+  N.baterPonto = function (row) { row.empresa_id = N.empresa; return r(sb.from('registros_ponto').insert(row).select().single()); };
+  N.registros = function (desde) { return r(sb.from('registros_ponto').select('*').eq('empresa_id', N.empresa).gte('dia', desde).order('em').limit(5000)); };
+  N.documentos = function () { return r(sb.from('documentos_pessoa').select('*').eq('empresa_id', N.empresa).order('enviado_em').limit(3000)); };
+  N.enviarDoc = function (row) { row.empresa_id = N.empresa; return r(sb.from('documentos_pessoa').insert(row).select().single()); };
+  N.decidirDoc = function (id, status, motivo, por) { return r(sb.from('documentos_pessoa').update({ status: status, motivo: motivo, decidido_em: new Date().toISOString(), decidido_por: por }).eq('id', id).select().single()); };
+  N.apagarDoc = function (id) { return r(sb.from('documentos_pessoa').delete().eq('id', id)); };
+  N.holeritesPdf = function () { return r(sb.from('holerites').select('*').eq('empresa_id', N.empresa).order('competencia', { ascending: false }).limit(3000)); };
+  N.enviarHolerite = function (row) { row.empresa_id = N.empresa; return r(sb.from('holerites').upsert(row, { onConflict: 'empresa_id,pessoa_id,competencia' }).select().single()); };
+  N.liberarHolerites = function (ids) { return r(sb.from('holerites').update({ status: 'liberado', liberado_em: new Date().toISOString() }).in('id', ids).select()); };
   g.Nuvem = N;
 })(window);
