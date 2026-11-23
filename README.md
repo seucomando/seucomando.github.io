@@ -36,7 +36,7 @@ Publicação: GitHub Pages a partir da branch `main`, na raiz. A cada versão, a
 | Holerite aprovado pela empresa | Holerites | O contador lança, a empresa aprova e só então o funcionário vê |
 | Faltas não abonadas | Holerites e Início | Alerta antes da aprovação, cruzando faltas com atestados sem o original |
 | Bater ponto pelo celular ou em aparelho fixo | Ponto e jornada | Autorização por pessoa, foto, localização e reconhecimento facial configurável (cadastro do rosto na primeira marcação, rigor e bloqueio escolhidos pela empresa), fuso horário da empresa ou da pessoa, até 4 intervalos fixos ou flexíveis por jornada, turno que passa da meia-noite e comprovante com NSR |
-| Checklists com horário | Checklists | Etapas totalmente editáveis (abertura, preparo, fechamento), horário de abertura e limite, hora de cada marcação, justificativa depois do limite, foto tirada na hora pela câmera (sem galeria) e calendário do mês com cores |
+| Checklists com horário | Checklists | Tela enxuta com as etapas do dia; edição guiada (cada etapa abre as opções só ao configurar), mudança só para hoje ou para sempre, horário de abertura e limite, hora de cada marcação, justificativa depois do limite, foto tirada na hora pela câmera (sem galeria) e calendário do mês com cores |
 | Etiquetas e estoque | Estoque e etiquetas | Mínimo, validade e etiquetas com código de barras Code 39 real, prontas para imprimir |
 | Lista de compras | Lista de compras (e botão no Estoque) | Sugere o que está abaixo do mínimo com a quantidade até o estoque ideal, recebe pedidos da equipe, agrupa por fornecedor, envia o pedido pelo WhatsApp, imprime e, no recebimento, soma ao estoque |
 | Vales descontados em folha | Vales | Assinatura do funcionário obrigatória, alerta em 60% e trava em 70% do salário |
@@ -54,7 +54,8 @@ Publicação: GitHub Pages a partir da branch `main`, na raiz. A cada versão, a
 - **Banco de dados:** Supabase (PostgreSQL, região São Paulo) com regras por empresa e por papel (RLS). Tabelas, regras e funções em `supabase/schema.sql`, testadas num Postgres em memória.
 - **Papéis:** empresário, contador, gerente (com permissões escolhidas pelo dono, como banco de horas) e funcionário. Mudanças de acesso e lançamentos de banco de horas ficam registrados.
 - **Menu por categoria:** o menu lateral mostra só a categoria atual (Pessoas, Rotina, Folha, Loja, Alimentos) e o botão "Trocar" leva para outra.
-- **Passo a passo:** o Início tem os primeiros passos de cada papel e o painel de setores com ícones fixos; turno, checklist e contrato são montados em assistentes de etapas.
+- **Empresa nova vem zerada:** sem checklist, equipamento ou dado de exemplo; os modelos prontos aparecem só na hora de criar.
+- **Passo a passo:** abre ao entrar (dá para desligar) e fica no botão "Passo a passo" no alto; o Início tem os primeiros passos de cada papel e o painel de setores com ícones fixos; turno, checklist e contrato são montados em assistentes de etapas.
 - **App:** instalável no celular e no computador (PWA), abre sem internet e avisa "Nova versão disponível" quando sai atualização.
 - **Como ligar:** siga `SETUP-SUPABASE.md`. Sem configuração, o app roda só com o exemplo local.
 

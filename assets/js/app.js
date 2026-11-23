@@ -145,6 +145,8 @@
     $('#side').classList.remove('open'); $('#menu-btn').setAttribute('aria-expanded', 'false');
     if (R.after) R.after();
     if (r === 'ponto') tickClock();
+    if (!GUIA_JA && S.real && (!NUVEM || SNAP)) { GUIA_JA = true; setTimeout(guiaAoEntrar, 500); }
+    var gb = $('#guia-btn'); if (gb) gb.hidden = !S.real && !EXEMPLO;
   }
   // Menu lateral por categoria: mostra só os itens da categoria atual e um botão para trocar de categoria.
   var COR_CAT = { Pessoas: 'verde', Rotina: 'azul', Folha: 'ambar', Loja: 'roxo', Alimentos: 'teal' };
@@ -268,8 +270,35 @@
     return '<section class="card passos" aria-labelledby="pas-t"><div class="card-head"><h2 id="pas-t">' + esc(titulo) + '</h2><span class="passos-prog"><span class="num">' + feitos + ' de ' + ps.length + '</span><progress max="' + ps.length + '" value="' + feitos + '">' + feitos + '</progress></span></div><ol class="passos-lista">' + ps.map(function (p, i) {
       var atual = p === prox, cls = 'btn' + (atual ? ' btn-primary btn-lg' : ' btn-sm');
       var bt = p[5] ? '<button type="button" class="' + cls + '" data-act="' + p[5] + '">' + esc(p[4]) + '</button>' : '<a class="' + cls + '" href="' + p[3] + '">' + esc(p[4]) + '</a>';
-      return '<li class="' + (p[2] ? 'feito' : atual ? 'atual' : '') + '"><span class="passo-n" aria-hidden="true">' + (p[2] ? '✓' : i + 1) + '</span><span class="passo-txt"><strong>' + esc(p[0]) + '</strong><span class="sub">' + esc(p[2] ? 'Pronto' : p[1]) + '</span></span>' + (p[2] ? '' : bt) + '</li>';
+      return '<li class="' + (p[2] ? 'feito' : atual ? 'atual' : '') + '"><span class="passo-n" aria-hidden="true">' + (p[2] ? '✓' : i + 1) + '</span><span class="passo-txt"><strong>' + esc(p[0]) + '</strong>' + (atual ? '<span class="sub">' + esc(p[1]) + '</span>' : p[2] ? '<span class="sub">Pronto</span>' : '') + '</span>' + (p[2] ? '' : bt) + '</li>';
     }).join('') + '</ol>' + (escondivel ? '<div class="passos-foot"><button type="button" class="link-btn" data-act="passos-esconder">Esconder por enquanto</button></div>' : '') + '</section>';
+  }
+  function passosFunc() {
+    var cfg = cfgPonto(), temReg = (S.registros || []).some(function (r) { return r.pessoa_id === ME; }) || !!mk(ME)[0], rd = S.real ? resumoDocs(ME) : { falta: 0 }, cks = ckVisiveis(), dia = ckDia();
+    return [
+      ['Bater o ponto', 'Em Ponto e jornada, toque em "Registrar entrada". A câmera abre e a hora vem do servidor.' + (cfg.rosto ? ' Na primeira vez, o app cadastra o seu rosto.' : ''), temReg, '#/ponto', 'Ir para o ponto'],
+      ['Enviar seus documentos', 'RG, carteira de trabalho, comprovante de residência e conta bancária, por foto ou PDF.', !rd.falta, '#/documentos', 'Enviar documentos'],
+      ['Fazer os checklists do seu setor', cks.length ? 'Marque cada etapa no horário. Quando pedir foto, ela é tirada na hora, pela câmera.' : 'Quando a empresa criar um checklist do seu setor, ele aparece aqui.', !cks.some(function (c) { var r = ckResumo(c, dia); return ckRoda(c, dia) && ckAberto(c, ckAgora()) && r.feitas < r.total; }), '#/checklists', 'Abrir checklists'],
+      ['Holerites e vales', 'O holerite aparece depois que a empresa aprova. Vale só é descontado com a sua assinatura.', !valesDe(ME).some(function (v) { return !v.assinado; }), '#/holerites', 'Ver holerites']
+    ];
+  }
+  var GUIA_JA = false;
+  function guiaChave() { return 'seucomando-guia:' + (NUVEM ? (Nuvem.empresa || '') : 'local') + ':' + S.role; }
+  function guiaMostrar() { try { return localStorage.getItem(guiaChave()) !== 'nao' && localStorage.getItem('seucomando-guia:todas') !== 'nao'; } catch (e) { return true; } }
+  function abrirGuia() {
+    var ps = ehFunc() ? passosFunc() : passosDe(), prox = ps.filter(function (p) { return !p[2]; })[0], feitos = ps.filter(function (p) { return p[2]; }).length;
+    modal('Passo a passo', '<p class="ui-sub">' + (prox ? 'Siga na ordem. Toque no botão de cada passo para ir direto à tela certa.' : 'Tudo pronto por aqui. Você pode voltar a qualquer passo.') + ' Este guia abre de novo pelo botão "Passo a passo", no alto da tela.</p>' +
+      '<div class="passos-prog"><span class="num">' + feitos + ' de ' + ps.length + ' prontos</span><progress max="' + ps.length + '" value="' + feitos + '">' + feitos + '</progress></div><ol class="passos-lista guia-lista">' + ps.map(function (p, i) {
+        var atual = p === prox;
+        return '<li class="' + (p[2] ? 'feito' : atual ? 'atual' : '') + '"><span class="passo-n" aria-hidden="true">' + (p[2] ? '✓' : i + 1) + '</span><span class="passo-txt"><strong>' + esc(p[0]) + '</strong>' + (atual ? '<span class="sub">' + esc(p[1]) + '</span>' : p[2] ? '<span class="sub">Pronto</span>' : '') + '</span><button type="button" class="btn' + (atual ? ' btn-primary' : ' btn-sm') + '" data-act="guia-ir" data-href="' + esc(p[3]) + '"' + (p[5] ? ' data-a="' + esc(p[5]) + '"' : '') + '>' + esc(p[2] ? 'Abrir' : p[4]) + '</button></li>';
+      }).join('') + '</ol><label class="check"><input type="checkbox" data-in="guia-entrar"' + (guiaMostrar() ? ' checked' : '') + '> Mostrar o passo a passo quando eu entrar</label>',
+      prox ? '<button type="button" class="btn" data-act="fechar">Agora não</button><button type="button" class="btn btn-primary" data-act="guia-ir" data-href="' + esc(prox[3]) + '"' + (prox[5] ? ' data-a="' + esc(prox[5]) + '"' : '') + '>Começar pelo passo ' + (ps.indexOf(prox) + 1) + '</button>' : '<button type="button" class="btn btn-primary" data-act="fechar">Fechar</button>', 'modal-largo');
+  }
+  function guiaAoEntrar() {
+    if ($('.overlay') || !S.real || !guiaMostrar()) return;
+    if (ehFunc() && !P(ME)) return;
+    var ps = ehFunc() ? passosFunc() : passosDe(); if (!ps.some(function (p) { return !p[2]; })) return;
+    abrirGuia();
   }
   function proximoFunc() {
     var itens = [], cfg = cfgPonto(), pi = proxInfo(ME);
@@ -704,6 +733,12 @@
     var topo = titleRow('Boas práticas de alimentos', (emp ? 'Adicional · R$ 49 por mês · ' : '') + 'RDC Anvisa 216/2004', acoes);
     if (!bp.ativo) return topo + '<div class="card card-pad stack"><h2 class="sec">Adicional para serviços de alimentação</h2><p>Planilha de temperaturas, prazos da vigilância sanitária e mini cursos com certificado para a equipe.</p><div><button type="button" class="btn btn-primary" data-act="bp-ativo">Ativar teste de 14 dias</button></div></div>';
     var opts = bp.equip.map(function (e) { return '<option value="' + e.id + '">' + esc(e.nome) + ' · ' + esc((LIMT[e.tipo] || LIMT.frio).r) + '</option>'; }).join('');
+    var TIPO_EQ = { frio: 'Refrigerado (geladeira, câmara fria)', congelado: 'Congelado (freezer)', quente: 'Quente (estufa, banho-maria)', oleo: 'Óleo de fritura' };
+    var MOD_EQ = [['Geladeira', 'frio'], ['Câmara fria', 'frio'], ['Freezer', 'congelado'], ['Estufa', 'quente'], ['Fritadeira', 'oleo']];
+    var equipCard = emp ? '<div class="card card-pad stack"><h2 class="sec">Equipamentos</h2>' + (bp.equip.length ? '<ul class="list">' + bp.equip.map(function (e) { return '<li><span>' + esc(e.nome) + '<span class="sub">' + esc((LIMT[e.tipo] || LIMT.frio).r) + '</span></span><button type="button" class="btn btn-sm" data-act="bp-eq-del" data-id="' + esc(e.id) + '">Remover</button></li>'; }).join('') + '</ul>' : '<p class="ui-sub">Cadastre os equipamentos que precisam de controle de temperatura.</p>') +
+      '<div class="chips">' + MOD_EQ.map(function (m) { return '<button type="button" class="chip" data-act="bp-eq-mod" data-n="' + esc(m[0]) + '" data-t="' + m[1] + '">+ ' + esc(m[0]) + '</button>'; }).join('') + '</div>' +
+      '<form class="stack" data-form="bp-eq"><div class="form-grid"><div class="field"><label for="beq-n">Nome do equipamento</label><input id="beq-n" name="n" maxlength="60" required placeholder="Ex.: Geladeira da cozinha"></div><div class="field"><label for="beq-t">Tipo</label><select id="beq-t" name="t">' + Object.keys(TIPO_EQ).map(function (k) { return '<option value="' + k + '">' + esc(TIPO_EQ[k]) + '</option>'; }).join('') + '</select></div></div><div><button type="submit" class="btn">Adicionar equipamento</button></div></form></div>' : '';
+    if (!bp.equip.length) return topo + '<div class="grid-main"><div class="stack">' + (emp ? equipCard : '<div class="notice"><div><strong>Nenhum equipamento cadastrado</strong>A empresa cadastra a geladeira, o freezer e a estufa; depois você registra as temperaturas aqui.</div></div>') + '</div><div class="stack"></div></div>';
     var form = '<div class="card card-pad stack"><h2 class="sec">Registrar temperatura</h2><form class="stack" data-form="temp"><div class="form-grid"><div class="field"><label for="bt-eq">Equipamento</label><select id="bt-eq" name="eq">' + opts + '</select></div>' +
       '<div class="field"><label for="bt-t">Temperatura (°C)</label><input id="bt-t" name="t" inputmode="decimal" maxlength="6" placeholder="Ex.: 3,5" required></div></div>' +
       '<div class="field"><label for="bt-a">Ação corretiva (obrigatória se estiver fora da faixa)</label><input id="bt-a" name="a" maxlength="140" placeholder="Ex.: porta ajustada; produtos transferidos para a câmara"></div>' +
@@ -722,7 +757,7 @@
     var cursos = '<div class="card card-pad stack"><h2 class="sec">Capacitação da equipe</h2><p class="ui-sub">A RDC 216 exige que os manipuladores sejam capacitados periodicamente em higiene pessoal, manipulação higiênica e doenças transmitidas por alimentos, com comprovação documental (item 4.6.7).</p>' +
       (emp ? '<p><strong>' + trein + ' de ' + mani.length + '</strong> manipuladores com os três cursos básicos em dia.</p>' : '') + '<a class="btn" href="#/cursos">' + (emp ? 'Abrir mini cursos' : 'Fazer meus cursos') + '</a></div>';
     var kpis = emp ? '<div class="card kpis">' + kpi('Temperaturas hoje', hoje.length, fora ? fora + ' fora da faixa' : 'todas na faixa') + kpi('Prazos sanitários', docsAlerta, docsAlerta ? 'vencendo ou vencidos' : 'tudo em dia') + kpi('Equipe treinada', trein + '/' + mani.length, 'cursos básicos em dia') + kpi('Validade', vencendo.length, 'produtos em até 2 dias') + '</div>' : '';
-    return topo + kpis + '<div class="grid-main"><div class="stack">' + form + docs + '</div><div class="stack">' + cursos + regras + val + '</div></div>';
+    return topo + kpis + '<div class="grid-main"><div class="stack">' + form + equipCard + docs + '</div><div class="stack">' + cursos + regras + val + '</div></div>';
   }
   function planilhaHTML() {
     var dias = []; for (var i = 6; i >= 0; i--) dias.push(addDays(S.hoje, -i));
@@ -1710,8 +1745,8 @@
     s.pessoas = []; s.ponto = {}; s.marcacoesMetodo = {}; s.atestados = []; s.advertencias = []; s.faltas = []; s.horasExtras = {};
     s.holerites = { competencia: hojeISO().slice(0, 7), status: 'aguardando', lancadoEm: '', aprovados: [] };
     s.vales = []; s.produtos = []; s.compras = { itens: [] }; s.vagas = []; s.admissoes = []; s.treinos = {}; s.banco = []; s.acessos = {}; s.auditoria = [];
-    s.checklists = (s.checklists || []).map(function (c) { return { id: c.id, setor: c.setor, nome: c.nome, hora: c.hora, resp: '', foto: c.foto, itens: c.itens.map(function (i) { return { t: i.t, foto: i.foto, feito: false }; }) }; });
-    if (s.bp) { s.bp.temps = []; s.bp.docs.forEach(function (d) { d.ult = ''; if (d.venc) d.venc = ''; }); }
+    s.checklists = [];
+    if (s.bp) { s.bp.temps = []; s.bp.equip = []; s.bp.docs.forEach(function (d) { d.ult = ''; if (d.venc) d.venc = ''; }); }
     if (s.agencia) { s.clientes = []; } delete s.envSeed;
     s.nsr = 0; s.turnos = []; s.modelosCt = []; s.contratos = []; s.registros = []; s.docsArq = []; s.holArq = []; s.ajustes = []; s.ckRegs = []; s.rostos = {}; s.pontoCiente = {}; s.v2 = true; s.empresa.ponto = {};
     s.hoje = hojeISO(); s.agoraDemo = null; s.real = true; s.plano = 'avaliacao';
@@ -1869,11 +1904,93 @@
   function ckRegsDe(cid, dia) { return (S.ckRegs || []).filter(function (r) { return r.checklist_id === cid && r.dia === dia; }); }
   function ckReg(cid, eid, dia) { return (S.ckRegs || []).filter(function (r) { return r.checklist_id === cid && r.etapa_id === eid && r.dia === dia; })[0]; }
   function ckLimite(c, et) { return hhOk(et && et.limite) || hhOk(c.limite) || ''; }
-  function ckAtrasado(c, et, h) { var ini = hhOk(c.inicio), lim = ckLimite(c, et); if (!lim) return false; var a = min(h), l = min(lim); if (ini && l < min(ini)) return a > l && a < min(ini); return a > l; }
-  function ckAberto(c, h) { var ini = hhOk(c.inicio), lim = hhOk(c.limite); if (!ini) return true; if (lim && min(lim) < min(ini)) return true; return min(h) >= min(ini); }
+  // Ajuste só para um dia: { inicio, limite, etapas } em c.ajustes[dia]. No dia seguinte vale o checklist normal.
+  function ckEfetivo(c, dia) {
+    var a = c && c.ajustes && c.ajustes[dia]; if (!a) return c;
+    return { id: c.id, nome: c.nome, setor: c.setor, resp: c.resp, dias: c.dias, criado: c.criado, inicio: hhOk(a.inicio) || c.inicio, limite: hhOk(a.limite) || c.limite, etapas: Array.isArray(a.etapas) ? a.etapas : c.etapas, ajustado: true };
+  }
+  function ckAtrasado(c, et, h) { c = ckEfetivo(c, ckDia()); var ini = hhOk(c.inicio), lim = ckLimite(c, et); if (!lim) return false; var a = min(h), l = min(lim); if (ini && l < min(ini)) return a > l && a < min(ini); return a > l; }
+  function ckAberto(c, h) { c = ckEfetivo(c, ckDia()); var ini = hhOk(c.inicio), lim = hhOk(c.limite); if (!ini) return true; if (lim && min(lim) < min(ini)) return true; return min(h) >= min(ini); }
   function ckResumo(c, dia) {
-    var ids = (c.etapas || []).map(function (e) { return e.id; }), fs = ckRegsDe(c.id, dia).filter(function (r) { return ids.indexOf(r.etapa_id) > -1; });
+    var ids = (ckEfetivo(c, dia).etapas || []).map(function (e) { return e.id; }), fs = ckRegsDe(c.id, dia).filter(function (r) { return ids.indexOf(r.etapa_id) > -1; });
     return { feitas: fs.length, total: ids.length, atrasos: fs.filter(function (r) { return r.atrasado; }).length, fim: fs.length === ids.length && ids.length ? fs.map(function (r) { return r.em; }).sort().pop() : null };
+  }
+  function ckSituacao(c) {
+    var dia = ckDia(), h = ckAgora(), r = ckResumo(c, dia), e = ckEfetivo(c, dia);
+    if (!ckRoda(c, dia)) return ['mute', 'Não tem hoje'];
+    if (r.total && r.feitas === r.total) return [r.atrasos ? 'warn' : 'ok', 'Concluído' + (r.atrasos ? ', ' + r.atrasos + ' com justificativa' : '')];
+    if (!ckAberto(c, h)) return ['mute', 'Abre às ' + e.inicio];
+    if (ckAtrasado(c, {}, h)) return ['bad', 'Atrasado'];
+    return ['warn', 'Até ' + e.limite];
+  }
+  function ckDiaHTML(lista, dia) {
+    return lista.map(function (c0) {
+      var c = ckEfetivo(c0, dia); if (!ckRoda(c0, dia) && !ckRegsDe(c0.id, dia).length) return '';
+      var r = ckResumo(c0, dia), est = ckEstadoDia(c0, dia);
+      return '<div class="stack"><h3 class="lbl-s">' + esc(c.nome) + ' · ' + r.feitas + ' de ' + r.total + ' ' + pill(est === 'ok' ? 'ok' : est === 'warn' ? 'warn' : est === 'bad' ? 'bad' : 'mute', CAL_TXT[est] || '') + (c.ajustado ? ' ' + pill('mute', 'ajustado só neste dia') : '') + '</h3><div class="card"><ul class="list">' + (c.etapas || []).map(function (e) {
+        var rg = ckReg(c.id, e.id, dia);
+        return '<li><span>' + esc(e.t) + '<span class="sub">' + (rg ? 'Feita às ' + esc(ckHora(rg)) + ' por ' + esc(rg.por_nome || '') + (rg.atrasado ? ' · depois do limite (' + esc(ckLimite(c, e)) + ')' : '') + (rg.justificativa ? ' · Justificativa: ' + esc(rg.justificativa) : '') : 'Não feita' + (ckLimite(c, e) ? ' · limite ' + esc(ckLimite(c, e)) : '')) + '</span></span><span class="actions">' +
+          (rg && rg.foto ? '<button type="button" class="btn btn-sm" data-act="arq-ver" data-path="' + esc(rg.foto) + '" data-t="' + esc(e.t) + '">Foto</button>' : '') + (rg ? pill(rg.atrasado ? 'warn' : 'ok', rg.atrasado ? 'Com justificativa' : 'No horário') : pill('bad', 'Não feita')) + '</span></li>';
+      }).join('') + '</ul></div></div>';
+    }).join('') || '<p class="ui-sub">Nada registrado neste dia.</p>';
+  }
+  function vChecklists() {
+    var lista = ckVisiveis(), edita = S.role === 'empresa';
+    var acoes = edita ? '<button type="button" class="btn btn-primary" data-act="ck-editar">Novo checklist</button>' : '';
+    if (!lista.length) return titleRow('Checklists', 'Rotinas do dia, etapa por etapa', acoes) + vazioHTML(edita ? 'Nenhum checklist ainda' : 'Nenhum checklist para você', edita ? 'Crie o checklist de abertura, de preparo de materiais ou de fechamento. Há modelos prontos para começar.' : 'Quando a empresa criar um checklist do seu setor, ele aparece aqui.', edita ? '<button type="button" class="btn btn-primary btn-lg" data-act="ck-editar">Criar o primeiro checklist</button>' : '');
+    var base = lista.filter(function (x) { return x.id === S.ui.ck; })[0] || lista[0], dia = ckDia(), c = ckEfetivo(base, dia), agoraH = ckAgora(), roda = ckRoda(base, dia), aberto = ckAberto(base, agoraH), r = ckResumo(base, dia), st = ckSituacao(base);
+    var tabs = lista.length > 1 ? '<div class="tabs" role="tablist">' + lista.map(function (x) { var rx = ckResumo(x, dia); return '<button type="button" role="tab" data-act="ck" data-id="' + esc(x.id) + '" aria-selected="' + (x.id === base.id) + '">' + esc(x.nome) + ' <span class="pill ' + ckSituacao(x)[0] + '">' + rx.feitas + '/' + rx.total + '</span></button>'; }).join('') + '</div>' : '';
+    var proxima = (c.etapas || []).filter(function (e) { return !ckReg(c.id, e.id, dia); })[0];
+    var etapas = (c.etapas || []).map(function (e, i) {
+      var rg = ckReg(c.id, e.id, dia), lim = ckLimite(c, e), late = !rg && roda && aberto && ckAtrasado(base, e, agoraH), agora = e === proxima && roda && aberto;
+      var info = rg ? '<span class="sub">Feita às ' + esc(ckHora(rg)) + ' · ' + esc(rg.por_nome || '') + '</span>' + (rg.justificativa ? '<span class="sub">Justificativa: ' + esc(rg.justificativa) + '</span>' : '')
+        : (late ? '<span class="sub ck-late">Passou das ' + esc(lim) + ': vai pedir justificativa</span>' : agora && lim !== c.limite && lim ? '<span class="sub">até ' + esc(lim) + '</span>' : '');
+      var bt = rg ? (rg.foto ? '<button type="button" class="btn btn-sm" data-act="arq-ver" data-path="' + esc(rg.foto) + '" data-t="' + esc(e.t) + '">Foto</button>' : '') + (rg.atrasado ? pill('warn', 'Com justificativa') : '') + (edita ? '<button type="button" class="link-btn" data-act="ck-desfazer" data-id="' + esc(rg.id) + '">desfazer</button>' : '')
+        : !roda || !aberto ? '' : '<button type="button" class="btn' + (agora ? ' btn-primary btn-lg' : '') + '" data-act="ck-marcar" data-id="' + esc(c.id) + '" data-e="' + esc(e.id) + '">' + (e.foto ? 'Tirar foto e marcar' : 'Marcar') + '</button>';
+      return '<li class="ck-etapa' + (rg ? ' feita' : agora ? ' agora' : '') + (late ? ' atrasada' : '') + '"><span class="ld-ic" aria-hidden="true">' + (rg ? '✓' : i + 1) + '</span><span class="ck-t"><strong>' + esc(e.t) + '</strong>' + info + '</span><span class="actions">' + bt + '</span></li>';
+    }).join('');
+    var meta = [c.inicio && c.limite ? c.inicio + ' às ' + c.limite : '', c.resp ? nomeDe(c.resp) : c.setor].filter(Boolean).join(' · ');
+    var aviso = !roda ? '<p class="ck-aviso">Este checklist não acontece hoje.</p>' : !aberto ? '<p class="ck-aviso">Abre às ' + esc(c.inicio) + '. Até lá, as etapas ficam fechadas.</p>' : '';
+    var head = '<div class="ck-topo"><div><h2>' + esc(c.nome) + (c.ajustado ? ' ' + pill('warn', 'ajustado só hoje') : '') + '</h2><span class="ui-sub">' + esc(meta) + '</span></div>' + pill(st[0], st[1]) + '</div>' +
+      '<div class="ck-prog"><progress max="' + (r.total || 1) + '" value="' + r.feitas + '">' + r.feitas + '</progress><span class="num">' + r.feitas + ' de ' + r.total + '</span></div>' + aviso;
+    var rod = '<div class="ck-acoes">' + (edita ? '<button type="button" class="btn" data-act="ck-editar-escolha" data-id="' + esc(base.id) + '">Editar</button>' : '') + '<button type="button" class="btn" data-act="ck-hist" data-id="' + esc(base.id) + '">Histórico</button>' + (edita && c.ajustado ? '<button type="button" class="link-btn" data-act="ck-hoje-desfazer" data-id="' + esc(base.id) + '">Voltar ao normal hoje</button>' : '') + '</div>';
+    return titleRow('Checklists', 'Rotinas do dia, etapa por etapa', acoes) + tabs + '<div class="ck-wrap"><div class="card">' + head + '<ol class="ck-lista">' + etapas + '</ol>' + rod + '</div></div>';
+  }
+  var ET_N = 0;
+  function etTags(e) { return (e.foto ? '<span class="pill mute">foto</span>' : '') + (hhOk(e.limite) ? '<span class="pill mute">até ' + esc(e.limite) + '</span>' : ''); }
+  function etLinha(e) {
+    e = e || {}; var id = 'et' + (++ET_N);
+    return '<div class="et-row" data-et><input type="hidden" name="et_id" value="' + esc(e.id || '') + '"><span class="et-n" aria-hidden="true"></span>' +
+      '<input class="et-txt" id="' + id + 't" name="et_t" maxlength="120" value="' + esc(e.t || '') + '" placeholder="O que fazer nesta etapa" aria-label="O que fazer nesta etapa" required>' +
+      '<span class="et-tags">' + etTags(e) + '</span><button type="button" class="btn btn-sm" data-act="et-cfg" aria-expanded="false" aria-controls="' + id + 'm">Configurar</button>' +
+      '<div class="et-mais" id="' + id + 'm" hidden><div class="form-grid"><div class="field"><label for="' + id + 'f">Foto</label><select id="' + id + 'f" name="et_f"><option value="0">Sem foto</option><option value="1"' + (e.foto ? ' selected' : '') + '>Exige foto tirada na hora</option></select></div>' +
+      '<div class="field"><label for="' + id + 'l">Horário limite desta etapa (se for diferente)</label><input id="' + id + 'l" name="et_l" type="time" value="' + esc(e.limite || '') + '"></div></div>' +
+      '<div class="et-acoes"><button type="button" class="btn btn-sm" data-act="et-mover" data-d="-1">Subir</button><button type="button" class="btn btn-sm" data-act="et-mover" data-d="1">Descer</button><button type="button" class="btn btn-sm" data-act="et-del">Remover etapa</button></div></div></div>';
+  }
+  function ckForm(c, escopo) {
+    var novo = !c, hoje = escopo === 'hoje', dia = ckDia(); c = c ? (hoje ? ckEfetivo(c, dia) : c) : { nome: '', setor: '', resp: '', dias: [1, 2, 3, 4, 5, 6], inicio: '', limite: '', etapas: [] };
+    var horas = '<div class="form-grid"><div class="field"><label for="ck-i">Abre às</label><input id="ck-i" name="ini" type="time" required value="' + esc(c.inicio) + '"></div><div class="field"><label for="ck-l">Horário limite</label><input id="ck-l" name="lim" type="time" required value="' + esc(c.limite) + '"></div></div>';
+    var etapas = '<div class="stack et-lista" data-ets>' + ((c.etapas || []).length ? c.etapas.map(etLinha).join('') : etLinha()) + '</div><div><button type="button" class="btn" data-act="et-add">+ Adicionar etapa</button></div>';
+    if (hoje) return '<form class="stack wiz" novalidate data-form="ck" data-escopo="hoje" data-id="' + esc(c.id) + '">' + wizBarra(['Horário de hoje', 'Etapas de hoje', 'Conferir']) +
+      wizPasso(1, 'Horário só de hoje (' + dmy(dia) + ')', '<p class="ui-sub">Amanhã o checklist volta ao normal.</p>' + horas) +
+      wizPasso(2, 'Etapas só de hoje', '<p class="ui-sub">Escreva, tire ou acrescente etapas. Toque em "Configurar" para foto e horário de uma etapa.</p>' + etapas) +
+      wizPasso(3, 'Conferir e salvar', '<div data-ckresumo></div>') + wizNav('Salvar só para hoje') + '</form>';
+    var setores = {}; S.pessoas.forEach(function (p) { if (p.setor) setores[p.setor] = 1; }); (S.checklists || []).forEach(function (x) { if (x.setor) setores[x.setor] = 1; });
+    var modelos = novo ? '<div class="field"><span class="lbl-s">Comece por um modelo (dá para mudar tudo depois) ou do zero</span><div class="preset-grid">' + CK_MODELOS.map(function (m, i) { return '<button type="button" class="preset" data-act="ck-modelo" data-i="' + i + '"><strong>' + esc(m[0]) + '</strong><span>' + esc(m[1] + ' às ' + m[2] + ' · ' + m[3].length + ' etapas') + '</span></button>'; }).join('') + '</div></div>' : '';
+    return '<form class="stack wiz" novalidate data-form="ck" data-escopo="sempre" data-id="' + esc(c.id || '') + '">' + wizBarra(['Nome e horário', 'Etapas', 'Conferir']) +
+      wizPasso(1, 'Nome, setor e horário', modelos + '<div class="field"><label for="ck-n">Nome do checklist</label><input id="ck-n" name="n" maxlength="60" required value="' + esc(c.nome) + '" placeholder="Ex.: Abertura da loja"></div>' +
+        '<div class="form-grid"><div class="field"><label for="ck-s">Setor</label><input id="ck-s" name="s" maxlength="40" list="ck-setores" value="' + esc(c.setor) + '" placeholder="Ex.: Atendimento"><datalist id="ck-setores">' + Object.keys(setores).map(function (s) { return '<option value="' + esc(s) + '">'; }).join('') + '</datalist></div>' +
+        '<div class="field"><label for="ck-r">Quem faz</label><select id="ck-r" name="r"><option value="">Qualquer pessoa do setor</option>' + S.pessoas.map(function (p) { return '<option value="' + esc(p.id) + '"' + (p.id === c.resp ? ' selected' : '') + '>' + esc(p.nome) + '</option>'; }).join('') + '</select></div></div>' +
+        '<div class="field"><span class="lbl-s">Dias em que acontece</span>' + diasChips('ckd', c.dias) + '</div>' + horas) +
+      wizPasso(2, 'Etapas, na ordem', '<p class="ui-sub">Escreva cada etapa. Toque em "Configurar" quando a etapa precisar de foto ou de um horário próprio.</p>' + etapas) +
+      wizPasso(3, 'Conferir e salvar', '<div data-ckresumo></div>' + (novo ? '' : '<p><button type="button" class="link-btn" data-act="ck-del" data-id="' + esc(c.id) + '">Remover este checklist</button></p>')) + wizNav('Salvar checklist') + '</form>';
+  }
+  function atualizaCkResumo(f) {
+    var box = $('[data-ckresumo]', f); if (!box) return;
+    var d = new FormData(f), hoje = f.dataset.escopo === 'hoje', tx = d.getAll('et_t'), fs = d.getAll('et_f'), ls = d.getAll('et_l'), ds = d.getAll('ckd').map(Number), resp = P(String(d.get('r') || '')), base = ckPorId(f.dataset.id) || {};
+    var ets = tx.map(function (t, i) { return { t: String(t).trim(), foto: fs[i] === '1', limite: hhOk(ls[i]) }; }).filter(function (e) { return e.t; });
+    box.innerHTML = '<div class="conf-j"><p><strong>' + esc(hoje ? base.nome : String(d.get('n') || '')) + '</strong> · ' + esc(hoje ? 'só hoje, ' + dmy(ckDia()) + '; amanhã volta ao normal' : String(d.get('s') || 'Geral') + ' · ' + (resp ? resp.nome : 'qualquer pessoa do setor')) + '</p><p class="ui-sub">' + esc((hoje ? '' : diasTxt(ds.length ? ds : [0, 1, 2, 3, 4, 5, 6]) + ' · ') + 'abre às ' + hhOk(d.get('ini')) + ' · limite ' + hhOk(d.get('lim'))) + '</p>' +
+      '<ol class="linha-dia">' + ets.map(function (e, i) { return '<li><span class="ld-ic" aria-hidden="true">' + (i + 1) + '</span><span class="ld-t">' + esc(e.t) + (e.foto || e.limite ? '<span class="sub">' + esc((e.foto ? 'foto tirada na hora' : '') + (e.foto && e.limite ? ' · ' : '') + (e.limite ? 'limite ' + e.limite : '')) + '</span>' : '') + '</span></li>'; }).join('') + '</ol></div>';
   }
   // Situação de um dia: ok (no horário), warn (com justificativa), bad (incompleto ou não feito), hoje, futuro, folga, vazio.
   function ckEstadoDia(c, dia) {
@@ -1884,14 +2001,6 @@
     if (dia === hoje) return ckAtrasado(c, {}, ckAgora()) ? 'bad' : 'hoje';
     if (r.feitas) return 'bad';
     return c.criado && dia >= c.criado ? 'bad' : 'vazio';
-  }
-  function ckSituacao(c) {
-    var dia = ckDia(), h = ckAgora(), r = ckResumo(c, dia);
-    if (!ckRoda(c, dia)) return ['mute', 'Não tem hoje'];
-    if (r.total && r.feitas === r.total) return [r.atrasos ? 'warn' : 'ok', 'Concluído' + (r.atrasos ? ', ' + r.atrasos + ' com justificativa' : '')];
-    if (!ckAberto(c, h)) return ['mute', 'Abre às ' + c.inicio];
-    if (ckAtrasado(c, {}, h)) return ['bad', 'Atrasado · ' + r.feitas + ' de ' + r.total];
-    return ['warn', (r.feitas ? r.feitas + ' de ' + r.total + ' · ' : '') + 'até ' + c.limite];
   }
   function ckHora(r) { return hhmm(r.em, fusoEmp()); }
   var MES_N = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
@@ -1912,40 +2021,6 @@
     return '<div class="card cal-card"><div class="card-head"><h2>Calendário</h2><div class="cal-nav"><button type="button" class="btn btn-sm" data-act="ck-mes" data-v="' + pa + '"' + (pa < lim ? ' disabled' : '') + ' aria-label="Mês anterior">‹</button><strong>' + esc(MES_N[mes - 1] + ' de ' + ano) + '</strong><button type="button" class="btn btn-sm" data-act="ck-mes" data-v="' + pp + '"' + (pp > hoje.slice(0, 7) ? ' disabled' : '') + ' aria-label="Próximo mês">›</button></div></div>' +
       '<div class="card-pad"><div class="cal-sem" aria-hidden="true">' + ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map(function (x) { return '<span>' + x + '</span>'; }).join('') + '</div><div class="cal-grid">' + cel + '</div>' +
       '<ul class="cal-leg"><li><span class="cal-dot cal-ok"></span>No horário</li><li><span class="cal-dot cal-warn"></span>Com justificativa</li><li><span class="cal-dot cal-bad"></span>Incompleto ou não feito</li><li><span class="cal-dot cal-hoje"></span>Hoje</li></ul><p class="ui-sub">Toque no dia para ver etapas, horários, justificativas e fotos.</p></div></div>';
-  }
-  function ckDiaHTML(lista, dia) {
-    return lista.map(function (c) {
-      if (!ckRoda(c, dia) && !ckRegsDe(c.id, dia).length) return '';
-      var r = ckResumo(c, dia), est = ckEstadoDia(c, dia);
-      return '<div class="stack"><h3 class="lbl-s">' + esc(c.nome) + ' · ' + esc(c.setor) + ' · ' + r.feitas + ' de ' + r.total + ' ' + pill(est === 'ok' ? 'ok' : est === 'warn' ? 'warn' : est === 'bad' ? 'bad' : 'mute', CAL_TXT[est] || '') + '</h3><div class="card"><ul class="list">' + (c.etapas || []).map(function (e) {
-        var rg = ckReg(c.id, e.id, dia);
-        return '<li><span>' + esc(e.t) + '<span class="sub">' + (rg ? 'Feita às ' + esc(ckHora(rg)) + ' por ' + esc(rg.por_nome || '') + (rg.atrasado ? ' · fora do horário (limite ' + esc(ckLimite(c, e)) + ')' : '') + (rg.justificativa ? ' · Justificativa: ' + esc(rg.justificativa) : '') : 'Não feita' + (ckLimite(c, e) ? ' · limite ' + esc(ckLimite(c, e)) : '')) + '</span></span><span class="actions">' +
-          (rg && rg.foto ? '<button type="button" class="btn btn-sm" data-act="arq-ver" data-path="' + esc(rg.foto) + '" data-t="' + esc(e.t) + '">Foto</button>' : '') + (rg ? pill(rg.atrasado ? 'warn' : 'ok', rg.atrasado ? 'Com justificativa' : 'No horário') : pill('bad', 'Não feita')) + '</span></li>';
-      }).join('') + '</ul></div></div>';
-    }).join('') || '<p class="ui-sub">Nada registrado neste dia.</p>';
-  }
-  function vChecklists() {
-    var lista = ckVisiveis(), edita = S.role === 'empresa';
-    var acoes = edita ? '<button type="button" class="btn btn-primary" data-act="ck-editar">Novo checklist</button>' : '';
-    if (!lista.length) return titleRow('Checklists', 'Rotinas do dia com horário, foto e justificativa', acoes) + vazioHTML(edita ? 'Nenhum checklist ainda' : 'Nenhum checklist para você', edita ? 'Crie o checklist de abertura, de preparo de materiais ou de fechamento. Cada etapa pode exigir foto tirada na hora.' : 'Quando a empresa criar um checklist do seu setor, ele aparece aqui.', edita ? '<button type="button" class="btn btn-primary btn-lg" data-act="ck-editar">Criar o primeiro checklist</button>' : '');
-    var c = lista.filter(function (x) { return x.id === S.ui.ck; })[0] || lista[0], dia = ckDia(), agoraH = ckAgora(), roda = ckRoda(c, dia), aberto = ckAberto(c, agoraH), r = ckResumo(c, dia), st = ckSituacao(c);
-    var tabs = lista.map(function (x) { var s = ckSituacao(x), rx = ckResumo(x, dia); return '<button type="button" role="tab" data-act="ck" data-id="' + esc(x.id) + '" aria-selected="' + (x.id === c.id) + '">' + esc(x.nome) + ' <span class="pill ' + s[0] + '">' + rx.feitas + '/' + rx.total + '</span></button>'; }).join('');
-    var proxima = (c.etapas || []).filter(function (e) { return !ckReg(c.id, e.id, dia); })[0];
-    var etapas = (c.etapas || []).map(function (e, i) {
-      var rg = ckReg(c.id, e.id, dia), lim = ckLimite(c, e), late = !rg && roda && aberto && ckAtrasado(c, e, agoraH), agora = e === proxima && roda && aberto;
-      var info = rg ? '<span class="sub">Feita às ' + esc(ckHora(rg)) + ' por ' + esc(rg.por_nome || '') + (rg.atrasado ? ' · fora do horário' : '') + '</span>' + (rg.justificativa ? '<span class="sub">Justificativa: ' + esc(rg.justificativa) + '</span>' : '')
-        : '<span class="sub">' + esc((lim ? 'até ' + lim : 'sem horário limite') + (e.foto ? ' · foto tirada na hora' : '')) + '</span>' + (late ? '<span class="sub ck-late">Passou do horário: o app vai pedir a justificativa</span>' : '');
-      var bt = rg ? (rg.foto ? '<button type="button" class="btn btn-sm" data-act="arq-ver" data-path="' + esc(rg.foto) + '" data-t="' + esc(e.t) + '">Foto</button>' : '') + pill(rg.atrasado ? 'warn' : 'ok', rg.atrasado ? 'Com justificativa' : 'Feita') + (edita ? '<button type="button" class="link-btn" data-act="ck-desfazer" data-id="' + esc(rg.id) + '">desfazer</button>' : '')
-        : !roda ? pill('mute', 'não tem hoje') : !aberto ? pill('mute', 'abre às ' + c.inicio) : '<button type="button" class="btn' + (agora ? ' btn-primary btn-lg' : '') + '" data-act="ck-marcar" data-id="' + esc(c.id) + '" data-e="' + esc(e.id) + '">' + (e.foto ? 'Tirar foto e marcar' : 'Marcar como feita') + '</button>';
-      return '<li class="ck-etapa' + (rg ? ' feita' : agora ? ' agora' : '') + (late ? ' atrasada' : '') + '"><span class="ld-ic" aria-hidden="true">' + (rg ? '✓' : i + 1) + '</span><span class="ck-t"><strong>' + esc(e.t) + '</strong>' + info + '</span><span class="actions">' + bt + '</span></li>';
-    }).join('');
-    var head = '<div class="card-head ck-head"><div><h2>' + esc(c.nome) + '</h2><span class="ui-sub">' + esc([c.setor, c.inicio ? 'abre às ' + c.inicio : '', c.limite ? 'limite ' + c.limite : '', c.resp ? 'responsável: ' + nomeDe(c.resp) : 'qualquer pessoa do setor', escalaTxt({ dias: c.dias })].filter(Boolean).join(' · ')) + '</span></div>' + pill(st[0], st[1]) + '</div>';
-    var lado = '<div class="card card-pad stack"><h2 class="sec">Hoje</h2><div class="num"><strong>' + r.feitas + ' de ' + r.total + '</strong> etapas feitas' + (r.atrasos ? ' · ' + r.atrasos + ' com justificativa' : '') + '</div><progress max="' + (r.total || 1) + '" value="' + r.feitas + '">' + r.feitas + '</progress>' + (r.fim ? '<p class="ui-sub">Concluído às ' + esc(hhmm(r.fim, fusoEmp())) + '.</p>' : '') +
-      '<p class="ui-sub">A hora de cada etapa é registrada no momento da marcação' + (S.real ? ', pela hora do servidor' : '') + '. Depois do limite, só marca com justificativa. A foto é tirada na hora, pela câmera do app: não dá para escolher da galeria.</p>' +
-      (edita ? '<div class="actions"><button type="button" class="btn" data-act="ck-editar" data-id="' + esc(c.id) + '">Editar etapas e horários</button><button type="button" class="btn" data-act="ck-duplicar" data-id="' + esc(c.id) + '">Duplicar</button></div>' : '') + '</div>' +
-      '<div class="seg cal-seg" role="group" aria-label="Calendário de"><button type="button" data-act="ck-cal" data-v="um" aria-pressed="' + (S.ui.ckCal !== 'todos') + '">Este checklist</button><button type="button" data-act="ck-cal" data-v="todos" aria-pressed="' + (S.ui.ckCal === 'todos') + '">Todos</button></div>' +
-      (S.ui.ckCal === 'todos' ? ckCalendario(lista, '') : ckCalendario([c], c.id));
-    return titleRow('Checklists', 'Rotinas do dia com horário, foto e justificativa', acoes) + '<div class="tabs" role="tablist">' + tabs + '</div><div class="grid-main"><div class="card">' + head + '<ol class="ck-lista">' + etapas + '</ol></div><div class="stack">' + lado + '</div></div>';
   }
   function marcarEtapa(c, e) {
     var h = ckAgora(), late = ckAtrasado(c, e, h), lim = ckLimite(c, e);
@@ -1984,36 +2059,6 @@
     ['Preparo de materiais', '07:00', '09:00', ['Separar os insumos do dia', 'Conferir a validade e as etiquetas|1', 'Higienizar bancadas e utensílios|1', 'Preparar as bases e porcionar', 'Organizar a área de trabalho|1']],
     ['Fechamento da loja', '21:30', '22:30', ['Fechar o caixa e guardar o dinheiro', 'Limpar salão e balcão|1', 'Desligar os equipamentos', 'Conferir geladeiras e freezer fechados|1', 'Recolher o lixo', 'Ligar o alarme e trancar as portas|1']]
   ];
-  var ET_N = 0;
-  function etLinha(e) {
-    e = e || {}; var id = 'et' + (++ET_N);
-    return '<div class="et-row" data-et><input type="hidden" name="et_id" value="' + esc(e.id || '') + '"><span class="et-n" aria-hidden="true"></span>' +
-      '<div class="field et-txt"><label for="' + id + 't">O que fazer</label><input id="' + id + 't" name="et_t" maxlength="120" value="' + esc(e.t || '') + '" placeholder="Ex.: Conferir a temperatura do freezer" required></div>' +
-      '<div class="field"><label for="' + id + 'f">Foto</label><select id="' + id + 'f" name="et_f"><option value="0">Sem foto</option><option value="1"' + (e.foto ? ' selected' : '') + '>Exige foto tirada na hora</option></select></div>' +
-      '<div class="field"><label for="' + id + 'l">Limite próprio (opcional)</label><input id="' + id + 'l" name="et_l" type="time" value="' + esc(e.limite || '') + '"></div>' +
-      '<div class="et-acoes"><button type="button" class="btn btn-sm" data-act="et-mover" data-d="-1" aria-label="Subir esta etapa">↑</button><button type="button" class="btn btn-sm" data-act="et-mover" data-d="1" aria-label="Descer esta etapa">↓</button><button type="button" class="btn btn-sm" data-act="et-del">Remover</button></div></div>';
-  }
-  function ckForm(c) {
-    var novo = !c; c = c || { nome: '', setor: '', resp: '', dias: [1, 2, 3, 4, 5, 6], inicio: '', limite: '', etapas: [] };
-    var setores = {}; S.pessoas.forEach(function (p) { if (p.setor) setores[p.setor] = 1; }); (S.checklists || []).forEach(function (x) { if (x.setor) setores[x.setor] = 1; });
-    var modelos = novo ? '<div class="field"><span class="lbl-s">Comece por um modelo (dá para editar tudo depois) ou do zero</span><div class="preset-grid">' + CK_MODELOS.map(function (m, i) { return '<button type="button" class="preset" data-act="ck-modelo" data-i="' + i + '"><strong>' + esc(m[0]) + '</strong><span>' + esc(m[1] + ' às ' + m[2] + ' · ' + m[3].length + ' etapas') + '</span></button>'; }).join('') + '</div></div>' : '';
-    return '<form class="stack wiz" novalidate data-form="ck" data-id="' + esc(c.id || '') + '">' + wizBarra(['Nome e horário', 'Etapas', 'Conferir']) +
-      wizPasso(1, 'Nome, setor e horário', modelos + '<div class="field"><label for="ck-n">Nome do checklist</label><input id="ck-n" name="n" maxlength="60" required value="' + esc(c.nome) + '" placeholder="Ex.: Abertura da loja"></div>' +
-        '<div class="form-grid"><div class="field"><label for="ck-s">Setor</label><input id="ck-s" name="s" maxlength="40" list="ck-setores" value="' + esc(c.setor) + '" placeholder="Ex.: Atendimento"><datalist id="ck-setores">' + Object.keys(setores).map(function (s) { return '<option value="' + esc(s) + '">'; }).join('') + '</datalist></div>' +
-        '<div class="field"><label for="ck-r">Quem faz</label><select id="ck-r" name="r"><option value="">Qualquer pessoa do setor</option>' + S.pessoas.map(function (p) { return '<option value="' + esc(p.id) + '"' + (p.id === c.resp ? ' selected' : '') + '>' + esc(p.nome) + '</option>'; }).join('') + '</select></div></div>' +
-        '<div class="field"><span class="lbl-s">Dias em que acontece</span>' + diasChips('ckd', c.dias) + '</div>' +
-        '<div class="form-grid"><div class="field"><label for="ck-i">Abre às</label><input id="ck-i" name="ini" type="time" required value="' + esc(c.inicio) + '"></div><div class="field"><label for="ck-l">Horário limite</label><input id="ck-l" name="lim" type="time" required value="' + esc(c.limite) + '"></div></div>' +
-        '<p class="ui-sub">Antes do horário de abertura, o checklist fica fechado. Depois do limite, a pessoa só marca com justificativa.</p>') +
-      wizPasso(2, 'Etapas, na ordem em que são feitas', '<p class="ui-sub">Escreva cada etapa. Escolha "Exige foto tirada na hora" quando precisar de prova: a foto sai da câmera do app, sem galeria. Use as setas para mudar a ordem.</p><div class="stack et-lista" data-ets>' + ((c.etapas || []).length ? c.etapas.map(etLinha).join('') : etLinha()) + '</div><div><button type="button" class="btn" data-act="et-add">+ Adicionar etapa</button></div>') +
-      wizPasso(3, 'Conferir e salvar', '<div data-ckresumo></div>' + (novo ? '' : '<p><button type="button" class="link-btn" data-act="ck-del" data-id="' + esc(c.id) + '">Remover este checklist</button></p>')) + wizNav('Salvar checklist') + '</form>';
-  }
-  function atualizaCkResumo(f) {
-    var box = $('[data-ckresumo]', f); if (!box) return;
-    var d = new FormData(f), tx = d.getAll('et_t'), fs = d.getAll('et_f'), ls = d.getAll('et_l'), ds = d.getAll('ckd').map(Number), resp = P(String(d.get('r') || ''));
-    var ets = tx.map(function (t, i) { return { t: String(t).trim(), foto: fs[i] === '1', limite: hhOk(ls[i]) }; }).filter(function (e) { return e.t; });
-    box.innerHTML = '<div class="conf-j"><p><strong>' + esc(String(d.get('n') || '')) + '</strong> · ' + esc(String(d.get('s') || 'Geral')) + ' · ' + esc(resp ? resp.nome : 'qualquer pessoa do setor') + '</p><p class="ui-sub">' + esc(diasTxt(ds.length ? ds : [0, 1, 2, 3, 4, 5, 6])) + ' · abre às ' + esc(hhOk(d.get('ini'))) + ' · limite ' + esc(hhOk(d.get('lim'))) + '</p>' +
-      '<ol class="linha-dia">' + ets.map(function (e, i) { return '<li><span class="ld-ic" aria-hidden="true">' + (i + 1) + '</span><span class="ld-t">' + esc(e.t) + '<span class="sub">' + esc((e.foto ? 'foto tirada na hora' : 'sem foto') + (e.limite ? ' · limite ' + e.limite : '')) + '</span></span></li>'; }).join('') + '</ol></div>';
-  }
 
   /* ---------- Estoque e etiquetas ---------- */
   function labelHTML(p, n) { var out = ''; for (var i = 0; i < n; i++) out += '<div class="label"><strong>' + esc(p.nome) + '</strong><span class="sub num">' + esc(p.cod) + ' · lote ' + esc(p.lote) + ' · val. ' + dmyy(p.validade) + '</span><div class="bc">' + window.Code39.svg(p.cod, 48) + '</div><span class="price num">' + (p.preco == null ? 'Uso interno' : 'R$ ' + brl(p.preco)) + '</span></div>'; return out; }
@@ -2127,7 +2172,10 @@
     $$('form[data-jornada]', o).forEach(atualizaConf); $$('form.wiz', o).forEach(function (w) { wizIr(w, 1); });
     var f = $('input, select, textarea, .modal-foot .btn-primary', o) || $('.btn', o); if (f) f.focus();
   }
-  function onVivo(e) { var t = e.target, f = t && t.closest && t.closest('form'); if (f && f.hasAttribute('data-jornada') && !t.closest('[data-conf]')) atualizaConf(f); }
+  function onVivo(e) {
+    var t = e.target, f = t && t.closest && t.closest('form'); if (f && f.hasAttribute('data-jornada') && !t.closest('[data-conf]')) atualizaConf(f);
+    var row = t && t.closest && t.closest('[data-et]'); if (row && (t.name === 'et_f' || t.name === 'et_l')) { var tg = $('.et-tags', row); if (tg) tg.innerHTML = etTags({ foto: ($('[name=et_f]', row) || {}).value === '1', limite: ($('[name=et_l]', row) || {}).value }); }
+  }
   function closeModal() { pararCamera(); var o = $('.overlay'); if (o) { o.remove(); if (lastFocus && lastFocus.focus) lastFocus.focus(); } }
   function imprimirNavegador(html) {
     var a = $('#print-area'); a.innerHTML = html; doc.body.classList.add('printing');
@@ -2265,6 +2313,9 @@
     },
     'rosto-del': function (b) { var p = P(b.dataset.id); if (!p) return; modal('Apagar o rosto de ' + first(p.nome) + '?', '<p>O cadastro do rosto de ' + esc(p.nome) + ' será apagado. Na próxima marcação, o app cadastra o rosto de novo.</p><p class="ui-sub">As marcações já feitas continuam guardadas, com a foto.</p>', '<button type="button" class="btn" data-act="fechar">Cancelar</button><button type="button" class="btn btn-primary" data-act="rosto-del-ok" data-id="' + esc(p.id) + '">Apagar e recadastrar</button>'); },
     'rosto-del-ok': function (b) { var pid = b.dataset.id, p = P(pid); (NUVEM ? Nuvem.apagarRosto(pid) : Promise.resolve()).then(function () { if (S.rostos) delete S.rostos[pid]; auditar('Cadastro de rosto apagado', (p || {}).nome || pid); save(); closeModal(); render(); toast('Rosto apagado. O cadastro é refeito na próxima marcação.'); }, function (e) { toast(erroTxt(e)); }); },
+    'guia-ir': function (b) { var a = b.dataset.a, h = b.dataset.href; closeModal(); if (a && A[a]) { if (h && location.hash !== h) location.hash = h; setTimeout(function () { A[a]({ dataset: {} }); }, 60); } else if (h) { if (location.hash !== h) location.hash = h; else render(); } },
+    'bp-eq-del': function (b) { var e = S.bp && S.bp.equip.filter(function (x) { return x.id === b.dataset.id; })[0]; if (!e) return; S.bp.equip = S.bp.equip.filter(function (x) { return x !== e; }); auditar('Equipamento removido', e.nome); save(); render(); toast('Equipamento removido. Os registros antigos continuam na planilha.'); },
+    'bp-eq-mod': function (b) { if (!S.bp) return; var n = b.dataset.n, k = 2, nome = n; while (S.bp.equip.some(function (x) { return x.nome === nome; })) nome = n + ' ' + k++; S.bp.equip.push({ id: 'q' + Date.now().toString(36), nome: nome, tipo: b.dataset.t }); auditar('Equipamento cadastrado', nome); save(); render(); toast(nome + ' cadastrado. Dá para mudar o nome removendo e cadastrando de novo.'); },
     'passos-esconder': function () { S.ui.semPassos = true; save(); render(); },
     'passos-mostrar': function () { S.ui.semPassos = false; save(); render(); },
     'ct-wiz': function () {
@@ -2277,7 +2328,18 @@
         wizPasso(3, 'Conferir e gerar', '<div data-ctresumo></div>') + wizNav('Gerar contratos') + '</form>', '', 'modal-largo');
     },
     'ct-ir': function (b) { closeModal(); S.ui.ctTab = b.dataset.v; save(); if (location.hash !== '#/contratos') location.hash = '#/contratos'; else render(); },
-    'ck-editar': function (b) { var c = b.dataset.id ? ckPorId(b.dataset.id) : null; modal(c ? 'Editar checklist · ' + c.nome : 'Novo checklist', ckForm(c), '', 'modal-largo'); },
+    'ck-editar': function (b) { var c = b.dataset.id ? ckPorId(b.dataset.id) : null, h = c && b.dataset.escopo === 'hoje'; modal(c ? (h ? 'Ajustar só hoje · ' : 'Editar checklist · ') + c.nome : 'Novo checklist', ckForm(c, h ? 'hoje' : 'sempre'), '', 'modal-largo'); },
+    'ck-editar-escolha': function (b) {
+      var c = ckPorId(b.dataset.id); if (!c) return;
+      modal('Editar "' + c.nome + '"', '<p class="ui-sub">A mudança vale para quando?</p><div class="acao-cards acao-2"><button type="button" class="acao-card" data-act="ck-editar" data-escopo="hoje" data-id="' + esc(c.id) + '"><span class="acao-t">Só hoje</span><span class="acao-d">Muda horário e etapas apenas em ' + esc(dmy(ckDia())) + '. Amanhã volta ao normal.</span></button>' +
+        '<button type="button" class="acao-card" data-act="ck-editar" data-escopo="sempre" data-id="' + esc(c.id) + '"><span class="acao-t">Sempre</span><span class="acao-d">Muda o checklist daqui para frente: nome, setor, dias, horário e etapas.</span></button></div><p><button type="button" class="link-btn" data-act="ck-duplicar" data-id="' + esc(c.id) + '">Fazer uma cópia deste checklist</button></p>');
+    },
+    'ck-hist': function (b) {
+      var id = b.dataset.id || S.ui.ckHist, c = ckPorId(id); if (!c) return; S.ui.ckHist = id; var todos = S.ui.ckCal === 'todos';
+      modal('Histórico · ' + (todos ? 'todos os checklists' : c.nome), '<div class="seg" role="group" aria-label="Mostrar"><button type="button" data-act="ck-cal" data-v="um" aria-pressed="' + !todos + '">Este checklist</button><button type="button" data-act="ck-cal" data-v="todos" aria-pressed="' + todos + '">Todos</button></div>' + ckCalendario(todos ? ckVisiveis() : [c], todos ? '' : c.id), '', 'modal-largo');
+    },
+    'ck-hoje-desfazer': function (b) { var c = ckPorId(b.dataset.id), dia = ckDia(); if (!c || !c.ajustes || !c.ajustes[dia]) return; delete c.ajustes[dia]; auditar('Ajuste de hoje desfeito', c.nome); save(); render(); toast('Hoje volta ao checklist normal.'); },
+    'et-cfg': function (b) { var row = b.closest('[data-et]'), m = row && $('.et-mais', row); if (!m) return; m.hidden = !m.hidden; b.setAttribute('aria-expanded', String(!m.hidden)); b.textContent = m.hidden ? 'Configurar' : 'Fechar'; row.classList.toggle('aberta', !m.hidden); if (!m.hidden) { var x = $('select', m); if (x) x.focus(); } },
     'ck-modelo': function (b) {
       var m = CK_MODELOS[+b.dataset.i], f = b.closest('form'); if (!m || !f) return;
       $('[name=n]', f).value = m[0]; $('[name=ini]', f).value = m[1]; $('[name=lim]', f).value = m[2];
@@ -2286,16 +2348,16 @@
     'et-add': function (b) { var f = b.closest('form'), box = f && $('[data-ets]', f); if (!box) return; if ($$('[data-et]', box).length >= 40) { toast('No máximo 40 etapas.'); return; } box.insertAdjacentHTML('beforeend', etLinha()); var nv = box.lastElementChild.querySelector('[name=et_t]'); if (nv) nv.focus(); },
     'et-del': function (b) { var row = b.closest('[data-et]'), box = row && row.parentNode; if (!row) return; row.remove(); if (box && !$('[data-et]', box)) box.insertAdjacentHTML('beforeend', etLinha()); },
     'et-mover': function (b) { var row = b.closest('[data-et]'); if (!row) return; var alvo = +b.dataset.d < 0 ? row.previousElementSibling : row.nextElementSibling; if (!alvo) return; if (+b.dataset.d < 0) row.parentNode.insertBefore(row, alvo); else row.parentNode.insertBefore(alvo, row); b.focus(); },
-    'ck-marcar': function (b) { var c = ckPorId(b.dataset.id), e = c && (c.etapas || []).filter(function (x) { return x.id === b.dataset.e; })[0]; if (e) marcarEtapa(c, e); },
-    'ck-mes': function (b) { S.ui.ckMes = b.dataset.v; save(); render(); },
-    'ck-cal': function (b) { S.ui.ckCal = b.dataset.v; save(); render(); },
-    'ck-dia': function (b) { var dia = b.dataset.dia, c = b.dataset.id ? ckPorId(b.dataset.id) : null, lista = c ? [c] : ckVisiveis(); modal('Checklist · ' + dmyy(dia) + ' (' + DIAS[diaSemana(dia)] + ')', ckDiaHTML(lista, dia), '', 'modal-largo'); },
+    'ck-marcar': function (b) { var c0 = ckPorId(b.dataset.id), c = c0 && ckEfetivo(c0, ckDia()), e = c && (c.etapas || []).filter(function (x) { return x.id === b.dataset.e; })[0]; if (e) marcarEtapa(c, e); },
+    'ck-mes': function (b) { S.ui.ckMes = b.dataset.v; save(); A['ck-hist']({ dataset: {} }); },
+    'ck-cal': function (b) { S.ui.ckCal = b.dataset.v; save(); A['ck-hist']({ dataset: {} }); },
+    'ck-dia': function (b) { var dia = b.dataset.dia, c = b.dataset.id ? ckPorId(b.dataset.id) : null, lista = c ? [c] : ckVisiveis(); modal('Checklist · ' + dmyy(dia) + ' (' + DIAS[diaSemana(dia)] + ')', ckDiaHTML(lista, dia), S.ui.ckHist ? '<button type="button" class="btn" data-act="ck-hist">Voltar ao calendário</button>' : '', 'modal-largo'); },
     'ck-desfazer': function (b) { var r = (S.ckRegs || []).filter(function (x) { return String(x.id) === String(b.dataset.id); })[0]; if (!r) return; modal('Desfazer esta marcação?', '<p>A etapa volta a ficar pendente hoje. A ação fica no registro de alterações.</p>', '<button type="button" class="btn" data-act="fechar">Cancelar</button><button type="button" class="btn btn-primary" data-act="ck-desfazer-ok" data-id="' + esc(r.id) + '">Desfazer</button>'); },
     'ck-desfazer-ok': function (b) {
       var r = (S.ckRegs || []).filter(function (x) { return String(x.id) === String(b.dataset.id); })[0]; if (!r || S.role !== 'empresa') return; var c = ckPorId(r.checklist_id) || {}, e = (c.etapas || []).filter(function (x) { return x.id === r.etapa_id; })[0] || {};
       (NUVEM ? Nuvem.desfazerEtapa(r.id) : Promise.resolve()).then(function () { S.ckRegs = S.ckRegs.filter(function (x) { return x !== r; }); auditar('Etapa de checklist desfeita', (c.nome || '') + ': ' + (e.t || '') + ' (' + ckHora(r) + ', ' + (r.por_nome || '') + ')'); save(); closeModal(); render(); toast('Marcação desfeita.'); }, function (er) { toast(erroTxt(er)); });
     },
-    'ck-duplicar': function (b) { var c = ckPorId(b.dataset.id); if (!c) return; var n = clone(c), t = Date.now().toString(36); n.id = 'ck' + t; n.nome = (c.nome + ' (cópia)').slice(0, 60); n.criado = ckDia(); n.etapas = n.etapas.map(function (e, i) { e.id = 'e' + t + i; return e; }); S.checklists.push(n); S.ui.ck = n.id; auditar('Checklist criado', n.nome + ' (cópia de ' + c.nome + ')'); save(); render(); A['ck-editar']({ dataset: { id: n.id } }); },
+    'ck-duplicar': function (b) { var c = ckPorId(b.dataset.id); if (!c) return; var n = clone(c), t = Date.now().toString(36); n.id = 'ck' + t; n.nome = (c.nome + ' (cópia)').slice(0, 60); n.criado = ckDia(); delete n.ajustes; delete n.alterado; n.etapas = n.etapas.map(function (e, i) { e.id = 'e' + t + i; return e; }); S.checklists.push(n); S.ui.ck = n.id; auditar('Checklist criado', n.nome + ' (cópia de ' + c.nome + ')'); save(); render(); A['ck-editar']({ dataset: { id: n.id } }); },
     'ck-del': function (b) { var c = ckPorId(b.dataset.id); if (!c) return; modal('Remover "' + c.nome + '"?', '<p>O checklist sai da tela da equipe. O que já foi marcado continua guardado.</p>', '<button type="button" class="btn" data-act="fechar">Cancelar</button><button type="button" class="btn btn-primary" data-act="ck-del-ok" data-id="' + esc(c.id) + '">Remover</button>'); },
     'ck-del-ok': function (b) { var c = ckPorId(b.dataset.id); if (!c) return; S.checklists = S.checklists.filter(function (x) { return x !== c; }); S.ui.ck = null; auditar('Checklist removido', c.nome); save(); closeModal(); render(); toast('Checklist removido.'); },
     'export-afd': function () {
@@ -2667,11 +2729,21 @@
       S.compras.itens.push({ id: 'k' + Date.now(), prod: null, nome: String(d.get('n')).trim().slice(0, 60), qtd: q, un: String(d.get('u')).trim().slice(0, 10) || 'un', fornecedor: String(d.get('f')).slice(0, 60), custo: emp ? Math.max(0, +d.get('c') || 0) : 0, origem: emp ? 'manual' : 'pedido', por: emp ? null : ME, comprado: false });
       toast(emp ? 'Item adicionado à lista.' : 'Pedido enviado. A empresa vê na lista de compras.');
     }
+    if (k === 'bp-eq') {
+      var eqn = String(d.get('n') || '').trim().slice(0, 60), eqt = String(d.get('t') || 'frio'); if (!eqn || !S.bp) return; if (!LIMT[eqt]) eqt = 'frio';
+      S.bp.equip.push({ id: 'q' + Date.now().toString(36), nome: eqn, tipo: eqt }); auditar('Equipamento cadastrado', eqn); save(); render(); toast(eqn + ' cadastrado.'); return;
+    }
     if (k === 'ck') {
-      var cn = String(d.get('n') || '').trim().slice(0, 60), cini = hhOk(d.get('ini')), clim = hhOk(d.get('lim')); if (!cn || !cini || !clim) { toast('Preencha o nome, o horário de abertura e o limite.'); return; }
+      var cn = String(d.get('n') || '').trim().slice(0, 60), cini = hhOk(d.get('ini')), clim = hhOk(d.get('lim')); if ((!cn && f.dataset.escopo !== 'hoje') || !cini || !clim) { toast('Preencha o nome, o horário de abertura e o limite.'); return; }
       var eids = d.getAll('et_id'), etx = d.getAll('et_t'), efo = d.getAll('et_f'), eli = d.getAll('et_l'), ets = [], tb = Date.now().toString(36);
       etx.forEach(function (t, i) { t = String(t).trim().slice(0, 120); if (!t) return; var et = { id: String(eids[i] || '').slice(0, 40) || 'e' + tb + i, t: t, foto: efo[i] === '1' }, l = hhOk(eli[i]); if (l) et.limite = l; ets.push(et); });
       if (!ets.length) { toast('Inclua pelo menos uma etapa.'); return; }
+      if (f.dataset.escopo === 'hoje') {
+        var bh = ckPorId(f.dataset.id), hj = ckDia(); if (!bh) return; bh.ajustes = bh.ajustes || {};
+        Object.keys(bh.ajustes).forEach(function (x) { if (x < addDays(hj, -14)) delete bh.ajustes[x]; });
+        bh.ajustes[hj] = { inicio: cini, limite: clim, etapas: ets }; S.ui.ck = bh.id;
+        auditar('Checklist ajustado só para hoje', bh.nome + ' (' + dmy(hj) + '): ' + ets.length + ' etapa(s), ' + cini + ' às ' + clim); save(); closeModal(); render(); toast('Ajuste salvo só para hoje. Amanhã volta ao normal.'); return;
+      }
       var ckx = f.dataset.id ? ckPorId(f.dataset.id) : null, novoC = !ckx; S.checklists = S.checklists || [];
       if (novoC) { ckx = { id: 'ck' + tb, criado: ckDia() }; S.checklists.push(ckx); } else ckx.alterado = ckDia();
       ckx.nome = cn; ckx.setor = String(d.get('s') || '').trim().slice(0, 40) || 'Geral'; ckx.resp = P(String(d.get('r') || '')) ? String(d.get('r')) : '';
@@ -2737,6 +2809,7 @@
       else it.feito = t.checked;
       save(); render();
     }
+    if (k === 'guia-entrar') { try { if (t.checked) localStorage.removeItem(guiaChave()); else localStorage.setItem(guiaChave(), 'nao'); } catch (er) { /* sem armazenamento */ } toast(t.checked ? 'O passo a passo vai aparecer quando você entrar.' : 'Certo. Ele continua no botão "Passo a passo", no alto da tela.'); return; }
     if (k === 'pe-turno') { var fs = t.form && t.form.querySelector('[data-manual]'); if (fs) { fs.hidden = !!t.value; fs.disabled = !!t.value; } return; }
     if (k === 'hol-comp') { if (/^\d{4}-\d{2}$/.test(t.value)) { S.ui.comp = t.value; save(); render(); } return; }
     if (k === 'doc-enviar' && t.files && t.files.length) {
@@ -2802,6 +2875,7 @@
     doc.addEventListener('click', function (e) { if (!li.hidden && !e.target.closest('#cat-troca')) catAbre(false); });
     doc.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !li.hidden) { catAbre(false); bt.focus(); } });
   })();
+  var gbt = $('#guia-btn'); if (gbt) gbt.addEventListener('click', function () { abrirGuia(); });
   $('#menu-btn').addEventListener('click', function () { var s = $('#side'), o = s.classList.toggle('open'); this.setAttribute('aria-expanded', String(o)); });
   $('#reset').addEventListener('click', function () { try { localStorage.removeItem(KEY); } catch (e) { /* ignora */ } var nome = S.empresa.nome, razao = S.empresa.razao, tp = S.tipo; S = novoExemplo(tp || 'padaria'); S.empresa.nome = nome; S.empresa.razao = razao; semearInteg(); save(); render(); toast('Dados de exemplo restaurados.'); });
   var dl = $('#q-list'); dl.innerHTML = S.pessoas.map(function (p) { return '<option value="' + esc(p.nome) + '">'; }).join('') + S.produtos.map(function (p) { return '<option value="' + esc(p.nome) + '">'; }).join('');

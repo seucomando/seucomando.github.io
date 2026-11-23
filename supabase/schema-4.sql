@@ -135,6 +135,7 @@ end $$;
 
 -- 5) Checklists: cada etapa marcada vira um registro do dia, com a hora do servidor e sem edição.
 --    O modelo do checklist (etapas, abertura, limite e foto) fica no documento da empresa; o banco confere por ele.
+--    Um ajuste só para o dia (checklists[].ajustes["AAAA-MM-DD"]) vale no lugar do modelo naquele dia.
 create table if not exists public.checklist_registros (
   id bigint generated always as identity primary key,
   empresa_id uuid not null references public.empresas(id) on delete cascade,
@@ -160,6 +161,12 @@ begin
   begin new.dia := (now() at time zone tz)::date; exception when others then tz := 'America/Sao_Paulo'; new.dia := (now() at time zone tz)::date; end;
   select x into c from jsonb_array_elements(case when jsonb_typeof(d -> 'checklists') = 'array' then d -> 'checklists' else '[]'::jsonb end) x where x ->> 'id' = new.checklist_id limit 1;
   if c is null then raise exception 'checklist_inexistente'; end if;
+  -- ajuste só para o dia: vale o horário e as etapas do ajuste
+  if jsonb_typeof(c -> 'ajustes' -> (new.dia::text)) = 'object' then
+    c := c || jsonb_build_object('etapas', coalesce(c -> 'ajustes' -> (new.dia::text) -> 'etapas', c -> 'etapas'),
+                                 'inicio', coalesce(c -> 'ajustes' -> (new.dia::text) ->> 'inicio', c ->> 'inicio'),
+                                 'limite', coalesce(c -> 'ajustes' -> (new.dia::text) ->> 'limite', c ->> 'limite'));
+  end if;
   select x into et from jsonb_array_elements(case when jsonb_typeof(c -> 'etapas') = 'array' then c -> 'etapas' else '[]'::jsonb end) x where x ->> 'id' = new.etapa_id limit 1;
   if et is null then raise exception 'etapa_inexistente'; end if;
   agora := (now() at time zone tz)::time;
