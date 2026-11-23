@@ -137,7 +137,7 @@
       a.hidden = !ok;
       if (a.getAttribute('href') === '#/' + r) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     });
-    $$('#nav [data-group]').forEach(function (g) { g.hidden = !$$('a', g).some(function (a) { return !a.hidden; }); });
+    navCategorias(r);
     var counts = contagens();
     $$('[data-count]').forEach(function (c) { var n = counts[c.dataset.count]; c.textContent = n || ''; c.hidden = !n; });
     $('#co-name').textContent = S.empresa.nome; var cs = $('#co-sub'); if (cs) cs.textContent = [S.empresa.cidade, S.pessoas.length + (S.pessoas.length === 1 ? ' pessoa' : ' pessoas')].filter(Boolean).join(' · '); $('#co-mark').textContent = S.empresa.nome.charAt(0).toUpperCase();
@@ -146,6 +146,26 @@
     if (R.after) R.after();
     if (r === 'ponto') tickClock();
   }
+  // Menu lateral por categoria: mostra só os itens da categoria atual e um botão para trocar de categoria.
+  var COR_CAT = { Pessoas: 'verde', Rotina: 'azul', Folha: 'ambar', Loja: 'roxo', Alimentos: 'teal' };
+  function navCategorias(r) {
+    var grupos = $$('#nav [data-group]'), cs = contagens(), info = grupos.map(function (g) {
+      var vis = $$('a', g).filter(function (a) { return !a.hidden; }), nome = (($('.nav-label', g) || {}).textContent || '').trim();
+      var pend = vis.reduce(function (t, a) { var c = a.querySelector('[data-count]'); return t + (c ? +cs[c.dataset.count] || 0 : 0); }, 0);
+      return { g: g, nome: nome, vis: vis, pend: pend, atual: !!$('a[href="#/' + r + '"]', g) };
+    }).filter(function (x) { return x.vis.length; });
+    var at = info.filter(function (x) { return x.atual; })[0];
+    if (at) S.ui.cat = at.nome;
+    var sel = info.filter(function (x) { return x.nome === S.ui.cat; })[0] || info[0];
+    grupos.forEach(function (g) { g.hidden = !sel || g !== sel.g; });
+    var box = $('#cat-troca'); if (!box) return; box.hidden = !sel;
+    if (!sel) return;
+    var ic = function (x) { var s0 = x.vis[0].querySelector('svg'); return s0 ? s0.outerHTML : ''; };
+    $('#cat-nome').textContent = sel.nome; $('#cat-ic').innerHTML = ic(sel); $('#cat-ic').className = 'cat-ic cc-' + (COR_CAT[sel.nome] || 'verde');
+    $('#cat-btn').setAttribute('aria-label', 'Categoria atual: ' + sel.nome + '. Trocar de categoria');
+    $('#cat-lista').innerHTML = info.map(function (x) { return '<button type="button" class="cat-op" data-cat="' + esc(x.nome) + '"' + (x === sel ? ' aria-current="true"' : '') + '><span class="cat-op-ic cc-' + (COR_CAT[x.nome] || 'verde') + '">' + ic(x) + '</span><span class="cat-op-t"><strong>' + esc(x.nome) + '</strong><span>' + esc(x.vis.map(function (a) { return a.textContent.replace(/\d+$/, '').trim(); }).join(', ')) + '</span></span>' + (x.pend ? '<span class="count">' + x.pend + '</span>' : '') + '</button>'; }).join('');
+  }
+  function catAbre(v) { var l = $('#cat-lista'), b = $('#cat-btn'); if (!l || !b) return; l.hidden = !v; b.setAttribute('aria-expanded', String(!!v)); if (v) { var c = $('.cat-op[aria-current="true"]', l) || $('.cat-op', l); if (c) c.focus(); } }
   function contagens() { return { adm: S.admissoes.filter(function (a) { return S.role === 'contador' ? passoAdm(a) === 3 : !a.aprovada; }).length, orig: originaisPendentes().length, hol: ehFunc() ? 0 : S.real ? (S.role === 'empresa' ? holAguardando().length : 0) : S.pessoas.length - S.holerites.aprovados.length, doc: S.real && !ehFunc() ? (S.docsArq || []).filter(function (d) { return d.status === 'enviado'; }).length : 0, cmp: S.role === 'empresa' ? S.compras.itens.length : 0 }; }
   function vazioHTML(t, s, acao) { return '<div class="card card-pad stack vazio"><h2 class="sec">' + esc(t) + '</h2><p>' + esc(s) + '</p>' + (acao ? '<div>' + acao + '</div>' : '') + '</div>'; }
   function telaVazia(r) {
@@ -1563,7 +1583,7 @@
       Nuvem.alterarAcesso(m.pessoa_id, alvo, perms, (P(m.pessoa_id) || {}).nome).then(function () { m.papel = alvo; m.permissoes = perms; publicarDocs(true); }).catch(function () { /* tenta na próxima abertura */ });
     });
   }
-  function telaNuvem(html) { view.innerHTML = '<div class="view">' + html + '</div>'; $$('#nav a').forEach(function (a) { a.hidden = true; }); $$('#nav [data-group]').forEach(function (g) { g.hidden = true; }); }
+  function telaNuvem(html) { view.innerHTML = '<div class="view">' + html + '</div>'; $$('#nav a').forEach(function (a) { a.hidden = true; }); $$('#nav [data-group]').forEach(function (g) { g.hidden = true; }); var ct = $('#cat-troca'); if (ct) ct.hidden = true; }
   function carregarNuvem() {
     return Nuvem.carregar().then(function (d) {
       if (!d) { telaNuvem(titleRow('Bem-vindo(a)', '') + vazioHTML('Seu acesso está quase pronto', 'A empresa precisa abrir o app uma vez para liberar os seus dados. Tente de novo em alguns minutos.', '<button type="button" class="btn" data-act="recarregar">Tentar de novo</button>')); return; }
@@ -2770,6 +2790,18 @@
 
   var btBranco = $('#em-branco'); if (btBranco) btBranco.addEventListener('click', function () { A['em-branco'](); });
   $('#role').addEventListener('change', function (e) { if (NUVEM) return; S.role = e.target.value; S.ui.recibo = null; S.ui.faceOk = false; save(); render(); toast('Agora você vê o sistema como ' + e.target.options[e.target.selectedIndex].text.toLowerCase() + '.'); });
+  (function () {
+    var bt = $('#cat-btn'), li = $('#cat-lista'); if (!bt || !li) return;
+    bt.addEventListener('click', function (e) { e.stopPropagation(); catAbre(li.hidden); });
+    li.addEventListener('click', function (e) {
+      var o = e.target.closest('[data-cat]'); if (!o) return; var nome = o.dataset.cat; S.ui.cat = nome; save(); catAbre(false);
+      var g = $$('#nav [data-group]').filter(function (x) { return ((($('.nav-label', x) || {}).textContent) || '').trim() === nome; })[0];
+      var a = g && $$('a', g).filter(function (y) { return linkOk(y); })[0];
+      if (a && location.hash !== a.getAttribute('href')) location.hash = a.getAttribute('href'); else render();
+    });
+    doc.addEventListener('click', function (e) { if (!li.hidden && !e.target.closest('#cat-troca')) catAbre(false); });
+    doc.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !li.hidden) { catAbre(false); bt.focus(); } });
+  })();
   $('#menu-btn').addEventListener('click', function () { var s = $('#side'), o = s.classList.toggle('open'); this.setAttribute('aria-expanded', String(o)); });
   $('#reset').addEventListener('click', function () { try { localStorage.removeItem(KEY); } catch (e) { /* ignora */ } var nome = S.empresa.nome, razao = S.empresa.razao, tp = S.tipo; S = novoExemplo(tp || 'padaria'); S.empresa.nome = nome; S.empresa.razao = razao; semearInteg(); save(); render(); toast('Dados de exemplo restaurados.'); });
   var dl = $('#q-list'); dl.innerHTML = S.pessoas.map(function (p) { return '<option value="' + esc(p.nome) + '">'; }).join('') + S.produtos.map(function (p) { return '<option value="' + esc(p.nome) + '">'; }).join('');

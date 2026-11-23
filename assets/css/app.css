@@ -537,3 +537,25 @@ button.cal-d:hover { box-shadow: 0 0 0 2px var(--accent); }
 .modal-body > p { margin: 0; }
 .ck-head { flex-wrap: wrap; align-items: flex-start; }
 .ck-head > div { flex: 1 1 240px; min-width: 0; }
+
+/* Menu lateral por categoria, com botão para trocar */
+.nav-group[data-group] .nav-label { display: none; }
+.cat-troca { position: relative; margin: 8px 0 4px; }
+.cat-btn { width: 100%; display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; font: inherit; color: inherit; text-align: left; }
+.cat-btn:hover, .cat-btn[aria-expanded="true"] { border-color: var(--accent); box-shadow: 0 0 0 3px var(--tint); }
+.cat-ic, .cat-op-ic { --c: var(--accent); width: 36px; height: 36px; border-radius: 10px; background: var(--c); display: grid; place-items: center; flex: none; }
+.cat-ic svg, .cat-op-ic svg { width: 20px; height: 20px; stroke: #fff; }
+.cc-verde { --c: #1F7A4D; } .cc-azul { --c: #2160A8; } .cc-ambar { --c: #9A5B00; } .cc-roxo { --c: #6A4BB5; } .cc-teal { --c: #0E7479; }
+.cat-txt { flex: 1; min-width: 0; display: grid; line-height: 1.2; }
+.cat-lbl { font-size: 11.5px; color: var(--faint); }
+.cat-txt strong { font-size: 15.5px; font-family: var(--display); }
+.cat-seta { font-size: 12.5px; font-weight: 600; color: var(--accent-ink); border: 1px solid var(--tint-2); background: var(--tint); border-radius: 999px; padding: 3px 10px; }
+.cat-lista { position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 30; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 18px 40px -16px rgba(15, 33, 26, .4); padding: 6px; display: grid; gap: 2px; }
+.cat-op { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px; border: 0; border-radius: 9px; background: none; cursor: pointer; font: inherit; color: var(--text); text-align: left; }
+.cat-op:hover, .cat-op:focus-visible, .cat-op[aria-current="true"] { background: var(--active); }
+.cat-op .cat-op-ic { width: 32px; height: 32px; border-radius: 9px; }
+.cat-op .cat-op-ic svg { width: 18px; height: 18px; }
+.cat-op-t { flex: 1; min-width: 0; display: grid; line-height: 1.25; }
+.cat-op-t strong { font-size: 14.5px; }
+.cat-op-t span { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cat-op .count { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--pill-warn-ink); background: var(--pill-warn-bg); border-radius: 999px; padding: 1px 8px; }
