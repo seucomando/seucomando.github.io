@@ -1,6 +1,6 @@
 /* Seu Comando · service worker: deixa o app instalável, abre sem internet e avisa quando há versão nova.
    A cada publicação, aumente VERSAO: o app mostra "Nova versão disponível" e atualiza com um toque. */
-var VERSAO = '2026.11.23-4';
+var VERSAO = '2026.11.23-5';
 var CACHE = 'seucomando-' + VERSAO;
 var ARQUIVOS = ['./', 'index.html', 'app.html', 'entrar.html', 'triagem.html', 'recrutamento.html', 'manifest.webmanifest',
   'assets/css/site.css', 'assets/css/app.css', 'assets/img/logo.svg', 'assets/img/favicon.svg', 'assets/img/logo-transparente.svg', 'assets/img/icone-192.png', 'assets/img/icone-512.png',

@@ -589,3 +589,11 @@ input.et-txt { min-height: var(--control-height); border: 1px solid var(--contro
 .et-mais { grid-column: 1 / -1; display: grid; gap: 10px; padding: 8px 0 4px 38px; }
 .et-row .et-acoes { grid-column: auto; display: flex; gap: 6px; justify-content: flex-start; flex-wrap: wrap; }
 @media (max-width: 640px) { .et-row { grid-template-columns: 30px minmax(0, 1fr) auto; } .et-tags { grid-column: 2; grid-row: 2; } .et-mais { padding-left: 0; } }
+
+/* Nome da empresa no alto: toque para editar os dados */
+button.switcher { background: none; border: 0; border-left: 1px solid var(--border); font: inherit; color: inherit; text-align: left; cursor: pointer; padding-right: 8px; border-radius: 0; }
+button.switcher:not([disabled]):hover .mark { box-shadow: 0 0 0 2px var(--accent); }
+button.switcher:not([disabled]):hover strong { color: var(--accent-ink); text-decoration: underline; text-underline-offset: 3px; }
+button.switcher[disabled] { cursor: default; }
+button.switcher[disabled] .co-edit { display: none; }
+.co-edit { width: 16px; height: 16px; stroke: var(--muted); flex: none; }

@@ -114,7 +114,7 @@
     vales: { t: 'Vales', r: 'empresa contador funcionario gerente', f: vVales },
     estoque: { t: 'Estoque e etiquetas', r: 'empresa gerente', p: 'estoque', f: vEstoque },
     equipe: { t: 'Equipe e acessos', r: 'empresa', f: vEquipe },
-    empresa: { t: 'Dados da empresa', r: 'empresa', f: vEmpresa },
+    empresa: { t: 'Turnos e regras do ponto', r: 'empresa', f: vEmpresa },
     documentos: { t: 'Documentos', r: 'empresa contador funcionario gerente', f: vDocumentos },
     compras: { t: 'Lista de compras', r: 'empresa funcionario gerente', f: vCompras },
     selecao: { t: 'Processos seletivos', r: 'empresa', f: vSelecao },
@@ -147,6 +147,7 @@
     if (r === 'ponto') tickClock();
     if (!GUIA_JA && S.real && (!NUVEM || SNAP)) { GUIA_JA = true; setTimeout(guiaAoEntrar, 500); }
     var gb = $('#guia-btn'); if (gb) gb.hidden = !S.real && !EXEMPLO;
+    var cb = $('#co-btn'); if (cb) { cb.disabled = S.role !== 'empresa'; cb.title = S.role === 'empresa' ? 'Editar os dados da empresa' : ''; }
   }
   // Menu lateral por categoria: mostra só os itens da categoria atual e um botão para trocar de categoria.
   var COR_CAT = { Pessoas: 'verde', Rotina: 'azul', Folha: 'ambar', Loja: 'roxo', Alimentos: 'teal' };
@@ -229,9 +230,9 @@
 
   /* ---------- Painel de setores e passo a passo ---------- */
   function linkOk(a) { return a.dataset.roles.split(' ').indexOf(S.role) > -1 && !(S.role === 'gerente' && a.dataset.perm && !pode(a.dataset.perm)) && !(a.hasAttribute('data-food') && !S.bp) && !(a.hasAttribute('data-rs') && !S.agencia) && !(a.hasAttribute('data-nors') && S.agencia); }
-  var SETOR_INFO = { ponto: ['azul', 'Marcar e conferir horários'], ocorrencias: ['coral', 'Enviar atestado e dar ciência'], checklists: ['teal', 'Rotinas do dia por setor'], holerites: ['ambar', 'Contracheques do mês'], vales: ['ambar', 'Vales e adiantamentos'], documentos: ['verde', 'RG, carteira e comprovantes'], contratos: ['verde', 'Gerar, assinar e guardar'], admissoes: ['verde', 'Novas contratações'], vagas: ['verde', 'Pré-entrevista e candidatos'], selecao: ['verde', 'Processos dos clientes'], clientes: ['verde', 'Empresas atendidas'], equipe: ['grafite', 'Pessoas e acesso ao app'], empresa: ['grafite', 'Cadastro, ponto e turnos'], estoque: ['roxo', 'Produtos e etiquetas'], compras: ['roxo', 'O que falta comprar'], boas: ['teal', 'Temperaturas e registros'], cursos: ['teal', 'Treinamentos rápidos'] };
+  var SETOR_INFO = { ponto: ['azul', 'Marcar e conferir horários'], ocorrencias: ['coral', 'Enviar atestado e dar ciência'], checklists: ['teal', 'Rotinas do dia por setor'], holerites: ['ambar', 'Contracheques do mês'], vales: ['ambar', 'Vales e adiantamentos'], documentos: ['verde', 'RG, carteira e comprovantes'], contratos: ['verde', 'Gerar, assinar e guardar'], admissoes: ['verde', 'Novas contratações'], vagas: ['verde', 'Pré-entrevista e candidatos'], selecao: ['verde', 'Processos dos clientes'], clientes: ['verde', 'Empresas atendidas'], equipe: ['grafite', 'Pessoas e acesso ao app'], empresa: ['azul', 'Horários, fuso e rosto'], estoque: ['roxo', 'Produtos e etiquetas'], compras: ['roxo', 'O que falta comprar'], boas: ['teal', 'Temperaturas e registros'], cursos: ['teal', 'Treinamentos rápidos'] };
   function painelSetores() {
-    var cs = contagens(), tiles = '', ORDEM = ['ponto', 'checklists', 'documentos', 'holerites', 'vales', 'ocorrencias', 'contratos', 'admissoes', 'vagas', 'selecao', 'clientes', 'equipe', 'empresa', 'estoque', 'compras', 'boas', 'cursos'];
+    var cs = contagens(), tiles = '', ORDEM = ['ponto', 'empresa', 'checklists', 'documentos', 'holerites', 'vales', 'ocorrencias', 'contratos', 'admissoes', 'vagas', 'selecao', 'clientes', 'equipe', 'empresa', 'estoque', 'compras', 'boas', 'cursos'];
     $$('#nav a').sort(function (a, b) { return ORDEM.indexOf(a.getAttribute('href').replace('#/', '')) - ORDEM.indexOf(b.getAttribute('href').replace('#/', '')); }).forEach(function (a) {
       var r = (a.getAttribute('href') || '').replace('#/', ''), inf = SETOR_INFO[r]; if (!inf || !linkOk(a)) return;
       var c = a.querySelector('[data-count]'), n = c ? cs[c.dataset.count] : 0, ic = a.querySelector('svg'), nome = '';
@@ -247,7 +248,7 @@
   function passosDe() {
     var e = S.empresa, aud = function (a) { return (S.auditoria || []).some(function (x) { return x.acao === a; }); }, mem = function (ps) { return (MEMBROS || []).some(function (m) { return ps.indexOf(m.papel) > -1; }); };
     if (S.role === 'empresa') return [
-      ['Dados da empresa', 'Razão social, CNPJ e endereço entram nos contratos e nos comprovantes de ponto.', !!(e.cnpj && e.endereco), '#/empresa', 'Preencher'],
+      ['Dados da empresa', 'Toque no nome da empresa, no alto da tela: razão social, CNPJ e endereço entram nos contratos e comprovantes.', !!(e.cnpj && e.endereco), '#/inicio', 'Preencher', 'empresa-editar'],
       ['Local e regras do ponto', 'Onde a equipe marca, foto, fuso horário e reconhecimento facial.', cfgPonto().lat != null, '#/empresa', 'Configurar'],
       ['Turnos de trabalho', 'Entrada, saída e intervalos, conferidos com a CLT.', !!(S.turnos || []).length, '#/empresa', 'Criar turno', 'turno-editar'],
       ['Cadastrar a equipe', 'Nome, CPF, função, salário e turno de cada pessoa.', !!S.pessoas.length, '#/equipe', 'Cadastrar pessoa', 'pessoa-editar'],
@@ -1256,18 +1257,25 @@
     var calc = function (n) { var s = 0, p = n - 7; for (var i = 0; i < n; i++) { s += +c[i] * p--; if (p < 2) p = 9; } var r = s % 11; return r < 2 ? 0 : 11 - r; };
     return calc(12) === +c[12] && calc(13) === +c[13];
   }
-  function vEmpresa() {
-    var e = S.empresa, c = cfgPonto();
-    var f = function (id, l, n, v, extra) { return '<div class="field"><label for="' + id + '">' + l + '</label><input id="' + id + '" name="' + n + '" value="' + esc(v == null ? '' : v) + '"' + (extra || '') + '></div>'; };
-    var num = function (n, t) { return '<h2 class="sec sec-n"><span class="wiz-n">' + n + '</span>' + esc(t) + '</h2>'; };
-    var dados = '<form class="card card-pad stack" data-form="empresa-dados">' + num(1, 'Cadastro da empresa') + f('ed-n', 'Nome fantasia (aparece no app)', 'n', e.nome, ' maxlength="80" required') + f('ed-r', 'Razão social', 'r', e.razao, ' maxlength="120"') +
+  function formEmpresaHTML() {
+    var e = S.empresa, f = function (id, l, n, v, extra) { return '<div class="field"><label for="' + id + '">' + l + '</label><input id="' + id + '" name="' + n + '" value="' + esc(v == null ? '' : v) + '"' + (extra || '') + '></div>'; };
+    return '<form class="stack" data-form="empresa-dados">' + f('ed-n', 'Nome fantasia (aparece no app)', 'n', e.nome, ' maxlength="80" required') + f('ed-r', 'Razão social', 'r', e.razao, ' maxlength="120"') +
       '<div class="form-grid">' + f('ed-c', 'CNPJ', 'c', e.cnpj, ' maxlength="18" inputmode="numeric"') + f('ed-ie', 'Inscrição estadual', 'ie', e.ie, ' maxlength="20"') + '</div>' +
       f('ed-e', 'Endereço (rua e número)', 'e', e.endereco, ' maxlength="140"') + '<div class="form-grid">' + f('ed-b', 'Bairro', 'b', e.bairro, ' maxlength="60"') + f('ed-cep', 'CEP', 'cep', e.cep, ' maxlength="9" inputmode="numeric"') + '</div>' +
       '<div class="form-grid">' + f('ed-ci', 'Cidade/UF', 'ci', e.cidade, ' maxlength="60"') + f('ed-t', 'Telefone ou WhatsApp', 't', e.fone, ' maxlength="20" inputmode="tel"') + '</div>' + f('ed-m', 'E-mail', 'm', e.email, ' type="email" maxlength="120"') +
       '<div class="form-grid">' + f('ed-rn', 'Responsável legal', 'rn', e.resp, ' maxlength="80"') + f('ed-rc', 'Cargo do responsável', 'rc', e.respCargo, ' maxlength="40" placeholder="Ex.: sócio administrador"') + '</div>' +
-      '<p class="ui-sub">Esses dados entram nos contratos, nos comprovantes de ponto e nos documentos da equipe.</p><button class="btn btn-primary" type="submit">Salvar cadastro</button></form>';
+      '<p class="ui-sub">Esses dados entram nos contratos, nos comprovantes de ponto e nos documentos da equipe.</p><button class="btn btn-primary" type="submit">Salvar dados da empresa</button></form>';
+  }
+  function abrirEmpresa() {
+    if (S.role !== 'empresa') return;
+    modal('Dados da empresa', formEmpresaHTML() + '<p class="ui-sub">Ponto, fuso, reconhecimento facial e turnos ficam em <a href="#/empresa" data-act="fechar">Turnos e regras do ponto</a>.</p>', '', 'modal-largo');
+  }
+  function vEmpresa() {
+    var e = S.empresa, c = cfgPonto();
+    var f = function (id, l, n, v, extra) { return '<div class="field"><label for="' + id + '">' + l + '</label><input id="' + id + '" name="' + n + '" value="' + esc(v == null ? '' : v) + '"' + (extra || '') + '></div>'; };
+    var num = function (n, t) { return '<h2 class="sec sec-n"><span class="wiz-n">' + n + '</span>' + esc(t) + '</h2>'; };
     var rig = [['tolerante', 'Tolerante: aceita mais variação de luz e de ângulo'], ['normal', 'Normal (recomendado)'], ['rigoroso', 'Rigoroso: pede o rosto bem de frente e boa luz']];
-    var ponto = '<form class="card card-pad stack" data-form="ponto-cfg">' + num(2, 'Ponto: local, fuso e regras') +
+    var ponto = '<form class="card card-pad stack" data-form="ponto-cfg">' + num(1, 'Ponto: local, fuso e regras') +
       '<div class="field"><span class="lbl-s">Local de trabalho</span><p>' + (c.lat != null ? 'Definido: ' + c.lat + ', ' + c.lng + ' · ' + mapaLink({ lat: c.lat, lng: c.lng }) : 'Ainda não definido. Sem ele, o ponto registra o local, mas não confere a distância.') + '</p><button type="button" class="btn" data-act="usar-local">Usar a localização deste aparelho</button><span class="sub">Faça isso dentro da empresa.</span></div>' +
       '<div class="field"><label for="pc-r">Raio aceito (metros)</label><input id="pc-r" name="raio" type="number" min="30" max="5000" step="10" value="' + esc(c.raio) + '"></div>' +
       '<div class="field"><label for="pc-fu">Fuso horário da empresa</label><select id="pc-fu" name="fu">' + fusoOpts(fusoEmp(), false) + '</select><span class="sub">Define o dia e a hora do ponto e dos checklists. Quem trabalha em outro estado pode ter fuso próprio no cadastro da pessoa.</span></div>' +
@@ -1284,14 +1292,14 @@
         cj.graves.map(pw('bad')).join(' ') + (cj.graves.length && t.aceite ? '<span class="sub">Mantido pela empresa: ' + esc(t.aceite.por) + ', ' + esc(t.aceite.em) + '</span>' : '') + ' ' + cj.avisos.map(pw('warn')).join(' ') + (cj.graves.length || cj.avisos.length ? '' : pill('ok', 'Dentro da CLT')) + '<span class="sub">' + n + (n === 1 ? ' pessoa' : ' pessoas') + '</span></td>' +
         '<td class="num"><span class="actions"><button type="button" class="btn btn-sm" data-act="turno-editar" data-id="' + esc(t.id) + '">Editar</button><button type="button" class="btn btn-sm" data-act="turno-del" data-id="' + esc(t.id) + '">Remover</button></span></td></tr>';
     }).join('');
-    var cardT = '<div class="card"><div class="card-head"><h2 class="sec-n"><span class="wiz-n">3</span>Turnos de trabalho</h2><button type="button" class="btn btn-primary" data-act="turno-editar">Novo turno</button></div>' +
+    var cardT = '<div class="card"><div class="card-head"><h2 class="sec-n"><span class="wiz-n">2</span>Turnos de trabalho</h2><button type="button" class="btn btn-primary" data-act="turno-editar">Novo turno</button></div>' +
       (turnos ? '<div class="table-box"><table class="t stack-sm"><thead><tr><th>Turno</th><th>Horário e carga</th><th>Conferência com a CLT</th><th class="num">Ação</th></tr></thead><tbody>' + turnos + '</tbody></table></div>' : '<div class="card-pad stack"><p class="ui-sub">Nenhum turno ainda. Cadastre os horários da empresa uma vez, com quantos intervalos precisar, e escolha o turno ao cadastrar cada pessoa.</p><div><button type="button" class="btn btn-primary btn-lg" data-act="turno-editar">Criar o primeiro turno</button></div></div>') + '</div>';
     var rs = S.rostos || {}, nr = S.pessoas.filter(function (p) { return rs[p.id]; }).length;
     var rostos = c.rosto ? '<div class="card"><div class="card-head"><h2>Rostos cadastrados</h2>' + pill(nr && nr === S.pessoas.length ? 'ok' : 'mute', nr + ' de ' + S.pessoas.length) + '</div><ul class="list">' + (S.pessoas.map(function (p) {
       var r = rs[p.id];
       return '<li><span>' + esc(p.nome) + '<span class="sub">' + (r ? 'cadastrado em ' + esc(quandoTxt(r.em)) : 'ainda não: cadastra na primeira marcação') + '</span></span>' + (r ? '<span class="actions">' + (r.foto ? '<button type="button" class="btn btn-sm" data-act="arq-ver" data-path="' + esc(r.foto) + '" data-t="Rosto de ' + esc(p.nome) + '">Foto</button>' : '') + '<button type="button" class="btn btn-sm" data-act="rosto-del" data-id="' + esc(p.id) + '">Apagar e recadastrar</button></span>' : '') + '</li>';
     }).join('') || '<li>Cadastre a equipe primeiro.</li>') + '</ul></div>' : '';
-    return titleRow('Dados da empresa', 'Três passos: cadastro, regras do ponto e turnos de trabalho') + '<div class="grid-main"><div class="stack">' + dados + cardT + '</div><div class="stack">' + ponto + rostos + '</div></div>';
+    return titleRow('Turnos e regras do ponto', 'Dois passos: as regras do ponto e os turnos de trabalho', '<button type="button" class="btn" data-act="empresa-editar">Dados da empresa</button>') + '<div class="grid-main"><div class="stack">' + cardT + '</div><div class="stack">' + ponto + rostos + '</div></div>';
   }
 
   /* Documentos da pessoa */
@@ -2316,6 +2324,7 @@
     'guia-ir': function (b) { var a = b.dataset.a, h = b.dataset.href; closeModal(); if (a && A[a]) { if (h && location.hash !== h) location.hash = h; setTimeout(function () { A[a]({ dataset: {} }); }, 60); } else if (h) { if (location.hash !== h) location.hash = h; else render(); } },
     'bp-eq-del': function (b) { var e = S.bp && S.bp.equip.filter(function (x) { return x.id === b.dataset.id; })[0]; if (!e) return; S.bp.equip = S.bp.equip.filter(function (x) { return x !== e; }); auditar('Equipamento removido', e.nome); save(); render(); toast('Equipamento removido. Os registros antigos continuam na planilha.'); },
     'bp-eq-mod': function (b) { if (!S.bp) return; var n = b.dataset.n, k = 2, nome = n; while (S.bp.equip.some(function (x) { return x.nome === nome; })) nome = n + ' ' + k++; S.bp.equip.push({ id: 'q' + Date.now().toString(36), nome: nome, tipo: b.dataset.t }); auditar('Equipamento cadastrado', nome); save(); render(); toast(nome + ' cadastrado. Dá para mudar o nome removendo e cadastrando de novo.'); },
+    'empresa-editar': function () { abrirEmpresa(); },
     'passos-esconder': function () { S.ui.semPassos = true; save(); render(); },
     'passos-mostrar': function () { S.ui.semPassos = false; save(); render(); },
     'ct-wiz': function () {
@@ -2670,7 +2679,7 @@
       var cn0 = String(d.get('c') || '').replace(/\D/g, ''); if (cn0 && !cnpjValido(cn0)) { toast('CNPJ inválido. Confira os números.'); return; }
       var g = function (k, n) { return String(d.get(k) || '').trim().slice(0, n); }, E = S.empresa;
       E.nome = en; E.razao = g('r', 120); E.cnpj = cn0 ? cn0.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') : ''; E.ie = g('ie', 20); E.endereco = g('e', 140); E.bairro = g('b', 60); E.cep = g('cep', 9); E.cidade = g('ci', 60); E.fone = g('t', 20); E.email = g('m', 120); E.resp = g('rn', 80); E.respCargo = g('rc', 40);
-      auditar('Dados da empresa alterados', en); save(); render(); toast('Dados da empresa salvos.'); return;
+      auditar('Dados da empresa alterados', en); save(); closeModal(); render(); toast('Dados da empresa salvos.'); return;
     }
     if (k === 'convite-contador') {
       var cn = String(d.get('n') || '').trim().slice(0, 80); if (!cn) return;
@@ -2876,6 +2885,7 @@
     doc.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !li.hidden) { catAbre(false); bt.focus(); } });
   })();
   var gbt = $('#guia-btn'); if (gbt) gbt.addEventListener('click', function () { abrirGuia(); });
+  var cob = $('#co-btn'); if (cob) cob.addEventListener('click', function () { if (S.role === 'empresa') abrirEmpresa(); });
   $('#menu-btn').addEventListener('click', function () { var s = $('#side'), o = s.classList.toggle('open'); this.setAttribute('aria-expanded', String(o)); });
   $('#reset').addEventListener('click', function () { try { localStorage.removeItem(KEY); } catch (e) { /* ignora */ } var nome = S.empresa.nome, razao = S.empresa.razao, tp = S.tipo; S = novoExemplo(tp || 'padaria'); S.empresa.nome = nome; S.empresa.razao = razao; semearInteg(); save(); render(); toast('Dados de exemplo restaurados.'); });
   var dl = $('#q-list'); dl.innerHTML = S.pessoas.map(function (p) { return '<option value="' + esc(p.nome) + '">'; }).join('') + S.produtos.map(function (p) { return '<option value="' + esc(p.nome) + '">'; }).join('');
