@@ -26,7 +26,7 @@
     s.auditoria = [{ em: '2026-11-01 15:10', por: g ? s.pessoas[8].nome : 'Empresário', acao: 'Banco de horas', detalhe: (s.pessoas[3] || {}).nome + ' +2h00: Cobriu a folga de um colega' }];
     return s;
   }
-  function demoAgora() { return S.real ? new Date().toTimeString().slice(0, 5) : (S.agoraDemo || '10:40'); } // horário fixo da situação do ponto no exemplo
+  function demoAgora() { return S.real ? agoraEm(fusoEmp()) : (S.agoraDemo || '10:40'); } // horário fixo da situação do ponto no exemplo
   function save() { if (typeof NUVEM !== 'undefined' && NUVEM) { agendarSync(); return; } try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* ignora */ } }
   function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function brl(v) { return Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
@@ -87,15 +87,17 @@
     return Math.round(((v + f) / p.salario) * 100);
   }
   function situacaoPonto(p) {
-    var m = S.ponto[p.id] || ['', '', '', ''];
+    var m = mk(p.id), j = jornadaDe(p), tz = fusoDe(p), agoraP = S.real ? agoraEm(tz) : demoAgora();
     var at = S.atestados.filter(function (a) { return a.pessoa === p.id && diffDays(a.inicio, S.hoje) >= 0 && diffDays(a.inicio, S.hoje) < a.dias; })[0];
     if (at) return ['mute', 'Atestado até ' + dmy(addDays(at.inicio, at.dias - 1))];
-    var esc0 = S.real ? jornadaDe(p).e : p.escala;
-    if (S.real && !m[0] && (jornadaDe(p).dias || []).indexOf(new Date().getDay()) < 0) return ['mute', 'Folga hoje'];
-    if (!m[0]) return (S.real ? min(esc0) + 10 >= min(demoAgora()) : min(esc0) > min(demoAgora())) ? ['mute', 'Entra às ' + esc0] : ['bad', S.real ? 'Sem marcação' : 'Ausente'];
+    var esc0 = S.real ? j.e : p.escala;
+    if (S.real && !m[0] && !j.x1236 && (j.dias || []).indexOf(diaSemana(hojeEm(tz))) < 0) return ['mute', 'Folga hoje'];
+    if (!m[0]) return (S.real ? min(esc0) + 10 >= min(agoraP) : min(esc0) > min(agoraP)) ? ['mute', 'Entra às ' + esc0] : ['bad', S.real ? 'Sem marcação' : 'Ausente'];
+    if (m[SAIDA]) return ['mute', 'Jornada encerrada'];
+    var ult = -1; m.forEach(function (h, i) { if (h && i < SAIDA) ult = i; });
+    if (ult % 2 === 1) return ['mute', 'No intervalo desde ' + m[ult]];
     var atraso = min(m[0]) - min(esc0);
-    if (m[3]) return ['mute', 'Jornada encerrada'];
-    if (atraso > 10) return ['warn', 'Atraso de ' + atraso + ' min'];
+    if (atraso > 10 && atraso < 720) return ['warn', 'Atraso de ' + atraso + ' min'];
     return ['ok', 'Presente'];
   }
 
@@ -123,7 +125,7 @@
   };
   function route() { var h = location.hash.replace(/^#\/?/, '').split('?')[0]; return ROUTES[h] ? h : 'inicio'; }
   function render() {
-    ajustaME();
+    ajustaME(); if (normalizaChecklists() && S.role === 'empresa') save();
     var r = route(), R = ROUTES[r];
     if (!can(R.r, R.p)) { location.hash = '#/inicio'; return; }
     var vazio = telaVazia(r), corpo;
@@ -131,12 +133,12 @@
     view.innerHTML = '<div class="view">' + corpo + '</div>';
     doc.title = R.t + ' · Seu Comando';
     $$('#nav a').forEach(function (a) {
-      var ok = a.dataset.roles.split(' ').indexOf(S.role) > -1 && !(S.role === 'gerente' && a.dataset.perm && !pode(a.dataset.perm)) && !(a.hasAttribute('data-food') && !S.bp) && !(a.hasAttribute('data-rs') && !S.agencia) && !(a.hasAttribute('data-nors') && S.agencia);
+      var ok = linkOk(a);
       a.hidden = !ok;
       if (a.getAttribute('href') === '#/' + r) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     });
     $$('#nav [data-group]').forEach(function (g) { g.hidden = !$$('a', g).some(function (a) { return !a.hidden; }); });
-    var counts = { adm: S.admissoes.filter(function (a) { return S.role === 'contador' ? passoAdm(a) === 3 : !a.aprovada; }).length, orig: originaisPendentes().length, hol: ehFunc() ? 0 : S.real ? (S.role === 'empresa' ? holAguardando().length : 0) : S.pessoas.length - S.holerites.aprovados.length, doc: S.real && !ehFunc() ? (S.docsArq || []).filter(function (d) { return d.status === 'enviado'; }).length : 0, cmp: S.role === 'empresa' ? S.compras.itens.length : 0 };
+    var counts = contagens();
     $$('[data-count]').forEach(function (c) { var n = counts[c.dataset.count]; c.textContent = n || ''; c.hidden = !n; });
     $('#co-name').textContent = S.empresa.nome; var cs = $('#co-sub'); if (cs) cs.textContent = [S.empresa.cidade, S.pessoas.length + (S.pessoas.length === 1 ? ' pessoa' : ' pessoas')].filter(Boolean).join(' · '); $('#co-mark').textContent = S.empresa.nome.charAt(0).toUpperCase();
     $('#role').value = NUVEM ? (Nuvem.empresa || '') : S.role;
@@ -144,15 +146,15 @@
     if (R.after) R.after();
     if (r === 'ponto') tickClock();
   }
+  function contagens() { return { adm: S.admissoes.filter(function (a) { return S.role === 'contador' ? passoAdm(a) === 3 : !a.aprovada; }).length, orig: originaisPendentes().length, hol: ehFunc() ? 0 : S.real ? (S.role === 'empresa' ? holAguardando().length : 0) : S.pessoas.length - S.holerites.aprovados.length, doc: S.real && !ehFunc() ? (S.docsArq || []).filter(function (d) { return d.status === 'enviado'; }).length : 0, cmp: S.role === 'empresa' ? S.compras.itens.length : 0 }; }
   function vazioHTML(t, s, acao) { return '<div class="card card-pad stack vazio"><h2 class="sec">' + esc(t) + '</h2><p>' + esc(s) + '</p>' + (acao ? '<div>' + acao + '</div>' : '') + '</div>'; }
   function telaVazia(r) {
     var R = ROUTES[r], emp = S.role === 'empresa';
     if (ehFunc() && !P(ME)) return titleRow(R.t, '') + vazioHTML('Seu cadastro ainda não está ligado ao app', 'Peça para a empresa conferir o seu acesso em Equipe e acessos.', '');
-    if (!S.pessoas.length && ['inicio', 'ponto', 'holerites', 'vales', 'ocorrencias'].indexOf(r) > -1) return titleRow(R.t, S.empresa.nome) + vazioHTML('Comece cadastrando a equipe', 'Com as pessoas cadastradas, o ponto, os holerites, os vales e os atestados passam a funcionar. Depois, gere o código de acesso de cada uma para o app.', emp ? '<a class="btn btn-primary" href="#/equipe">Cadastrar a equipe</a>' : '');
+    if (!S.pessoas.length && ['inicio', 'ponto', 'holerites', 'vales', 'ocorrencias'].indexOf(r) > -1 && !(r === 'inicio' && emp && S.real)) return titleRow(R.t, S.empresa.nome) + vazioHTML('Comece cadastrando a equipe', 'Com as pessoas cadastradas, o ponto, os holerites, os vales e os atestados passam a funcionar. Depois, gere o código de acesso de cada uma para o app.', emp ? '<a class="btn btn-primary" href="#/equipe">Cadastrar a equipe</a>' : '');
     if (r === 'vagas' && !S.vagas.length) return titleRow(R.t, '') + vazioHTML('Nenhuma vaga aberta', 'Abra uma vaga para gerar o link da pré-entrevista e receber candidatos.', '<button type="button" class="btn btn-primary" data-act="vaga-nova">Abrir vaga</button>');
     if (r === 'selecao' && !S.vagas.length) return titleRow(R.t, '') + vazioHTML('Nenhum processo seletivo', 'Cadastre um cliente e abra o primeiro processo.', '<button type="button" class="btn btn-primary" data-act="rs-novo">Novo processo</button>');
     if (r === 'admissoes' && !S.admissoes.length) return titleRow(R.t, '') + vazioHTML('Nenhuma admissão em andamento', 'Quando um candidato for aprovado na entrevista, a admissão aparece aqui.', '');
-    if (r === 'checklists' && !S.checklists.length) return titleRow(R.t, '') + vazioHTML('Nenhum checklist', 'Crie o primeiro checklist do seu setor.', '');
     return '';
   }
   function titleRow(t, sub, actions) { return '<div class="title-row"><div><h1>' + esc(t) + '</h1>' + (sub ? '<p>' + sub + '</p>' : '') + '</div><div class="actions">' + (actions || '') + '</div></div>'; }
@@ -161,8 +163,8 @@
   function vInicio() {
     if (ehFunc()) {
       var me = P(ME), h = holerite(ME), st = statusHolerite(ME), pend = valesDe(ME).filter(function (v) { return !v.assinado; });
-      return titleRow(me.nome, esc(me.funcao) + ' · ' + esc(S.empresa.nome), '<a class="btn btn-primary" href="#/ponto">Bater ponto</a>') +
-        '<div class="stack">' +
+      return titleRow('Olá, ' + first(me.nome), esc(me.funcao) + ' · ' + esc(S.empresa.nome)) +
+        '<div class="stack">' + proximoFunc() + painelSetores() +
         '<div class="notice info"><div><strong>Atestado médico: entregue o original em papel</strong>A foto enviada pelo app só avisa a empresa da sua ausência. Para ter validade, o atestado original precisa ser entregue fisicamente ao RH em até 48 horas.</div></div>' +
         '<div class="card kpis"><div class="kpi"><div class="lbl">Entrada de hoje</div><div class="val num">' + esc((S.ponto[ME] || [])[0] || 'pendente') + '</div><div class="cap">escala às ' + esc(me.escala) + '</div></div>' +
         (S.real ? kpiHolFunc() : '<div class="kpi"><div class="lbl">Holerite de outubro</div><div class="val num">' + (st === 'liberado' ? 'R$ ' + brl(h.liq) : 'em aprovação') + '</div><div class="cap">' + (st === 'liberado' ? 'liberado pela empresa' : 'aparece aqui quando a empresa aprovar') + '</div></div>') +
@@ -173,7 +175,7 @@
     originaisPendentes().forEach(function (a) { var venc = diffDays(S.hoje, a.prazo) < 0; pend.push([venc ? pill('bad', 'Vencido') : pill('warn', 'Até ' + dmy(a.prazo)), 'Atestado original de ' + P(a.pessoa).nome, 'Foto recebida em ' + dmy(a.foto) + '; falta o papel', '#/ocorrencias', 'Registrar entrega']); });
     S.vales.filter(function (v) { return !v.assinado; }).forEach(function (v) { pend.push([pill('warn', 'Sem assinatura'), 'Vale de R$ ' + brl(v.valor) + ' · ' + P(v.pessoa).nome, 'Não pode ser descontado sem autorização escrita', '#/vales', 'Ver vale']); });
     S.admissoes.forEach(function (a) { var f = a.docs.filter(function (d) { return d.st !== 'ok'; }).length, n = passoAdm(a); if (n === 5) return; pend.push(n === 2 ? [pill('warn', f + ' documento(s)'), 'Admissão de ' + a.nome, 'Aguardando documentos · início em ' + dmy(a.inicio), '#/admissoes', 'Abrir'] : n === 3 ? [pill('mute', 'Com o contador'), 'Admissão de ' + a.nome, 'Documentos completos, em conferência', '#/admissoes', 'Abrir'] : [pill('warn', 'Falta seu ok'), 'Admissão de ' + a.nome, 'Conferida pelo contador', '#/admissoes', 'Dar o ok']); });
-    S.checklists.forEach(function (c) { var f = c.itens.filter(function (i) { return i.foto && !i.fotoEm; }).length; if (f) pend.push([pill('mute', f + ' foto(s)'), c.nome + ' · ' + c.setor, 'Responsável: ' + nomeDe(c.resp), '#/checklists', 'Ver checklist']); });
+    if (S.role !== 'contador') ckVisiveis().forEach(function (c) { var s = ckSituacao(c); if (s[0] === 'bad') pend.push([pill('bad', 'Atrasado'), c.nome + ' · ' + c.setor, s[1] + ' · limite ' + c.limite, '#/checklists', 'Ver checklist']); });
     var falta = sugestaoCompra().length;
     if (falta) pend.push([pill('bad', falta + ' item(ns)'), 'Abaixo do estoque mínimo', 'Ainda fora da lista de compras', '#/estoque', 'Ver estoque']);
     if (S.compras.itens.length) pend.push([pill('mute', S.compras.itens.length + ' na lista'), 'Lista de compras', 'Estimativa de R$ ' + brl(totalCompras()), '#/compras', 'Abrir lista']);
@@ -191,6 +193,7 @@
     var validade = S.produtos.filter(function (p) { return diffDays(S.hoje, p.validade) <= 3; }).map(function (p) { return '<li><span>' + esc(p.nome) + '<span class="sub">lote ' + esc(p.lote) + '</span></span>' + pill('warn', 'vence ' + dmy(p.validade)) + '</li>'; }).join('');
     var act = S.real ? '<a class="btn btn-primary" href="#/ponto">Ver o ponto de hoje</a>' : S.role === 'empresa' ? '<a class="btn btn-primary" href="#/holerites">Aprovar holerites de outubro</a>' : '<a class="btn btn-primary" href="#/holerites">Lançar holerites</a>';
     return titleRow(S.empresa.nome, (S.real ? hoje1() : 'Quinta-feira, 5 de novembro de 2026') + (S.role === 'contador' ? ' · você está vendo como contador' : ''), act) +
+      (S.real ? passosHTML(S.role === 'contador' ? 'O que fazer agora' : 'Primeiros passos', passosDe(), S.role === 'empresa') : '') + painelSetores() +
       '<div class="grid-main"><div class="stack">' +
       '<div class="card kpis">' +
       '<div class="kpi"><div class="lbl">Pessoas ativas</div><div class="val num">' + S.pessoas.length + '</div><div class="cap">' + S.admissoes.length + ' admissões em andamento</div></div>' +
@@ -200,6 +203,64 @@
       '<div class="card"><div class="card-head"><h2>Pendências da semana</h2><span class="pill mute">' + pend.length + ' no total</span></div><div class="table-box"><table class="t stack-sm"><thead><tr><th>O que falta</th><th>Situação</th><th class="num">Ação</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>' +
       '</div><div class="stack"><div><h2 class="sec">Ponto agora</h2><div class="card"><ul class="list">' + pontoRail + '</ul></div></div>' +
       '<div><h2 class="sec">Validade nos próximos 3 dias</h2><div class="card"><ul class="list">' + (validade || '<li>Nada vencendo.</li>') + '</ul></div><a class="btn btn-sm" href="#/estoque">Ver estoque</a></div></div></div>';
+  }
+
+  /* ---------- Painel de setores e passo a passo ---------- */
+  function linkOk(a) { return a.dataset.roles.split(' ').indexOf(S.role) > -1 && !(S.role === 'gerente' && a.dataset.perm && !pode(a.dataset.perm)) && !(a.hasAttribute('data-food') && !S.bp) && !(a.hasAttribute('data-rs') && !S.agencia) && !(a.hasAttribute('data-nors') && S.agencia); }
+  var SETOR_INFO = { ponto: ['azul', 'Marcar e conferir horários'], ocorrencias: ['coral', 'Enviar atestado e dar ciência'], checklists: ['teal', 'Rotinas do dia por setor'], holerites: ['ambar', 'Contracheques do mês'], vales: ['ambar', 'Vales e adiantamentos'], documentos: ['verde', 'RG, carteira e comprovantes'], contratos: ['verde', 'Gerar, assinar e guardar'], admissoes: ['verde', 'Novas contratações'], vagas: ['verde', 'Pré-entrevista e candidatos'], selecao: ['verde', 'Processos dos clientes'], clientes: ['verde', 'Empresas atendidas'], equipe: ['grafite', 'Pessoas e acesso ao app'], empresa: ['grafite', 'Cadastro, ponto e turnos'], estoque: ['roxo', 'Produtos e etiquetas'], compras: ['roxo', 'O que falta comprar'], boas: ['teal', 'Temperaturas e registros'], cursos: ['teal', 'Treinamentos rápidos'] };
+  function painelSetores() {
+    var cs = contagens(), tiles = '', ORDEM = ['ponto', 'checklists', 'documentos', 'holerites', 'vales', 'ocorrencias', 'contratos', 'admissoes', 'vagas', 'selecao', 'clientes', 'equipe', 'empresa', 'estoque', 'compras', 'boas', 'cursos'];
+    $$('#nav a').sort(function (a, b) { return ORDEM.indexOf(a.getAttribute('href').replace('#/', '')) - ORDEM.indexOf(b.getAttribute('href').replace('#/', '')); }).forEach(function (a) {
+      var r = (a.getAttribute('href') || '').replace('#/', ''), inf = SETOR_INFO[r]; if (!inf || !linkOk(a)) return;
+      var c = a.querySelector('[data-count]'), n = c ? cs[c.dataset.count] : 0, ic = a.querySelector('svg'), nome = '';
+      Array.prototype.forEach.call(a.childNodes, function (x) { if (x.nodeType === 3) nome += x.textContent; else if (x.tagName === 'SPAN' && !x.hasAttribute('data-count')) nome += x.textContent; });
+      var desc = inf[1];
+      if (r === 'ponto' && ehFunc() && P(ME)) { var pi = proxInfo(ME); desc = pi.prox > -1 ? 'Agora: ' + tipoNome(ME, pi.prox).toLowerCase() : 'Jornada de hoje completa'; }
+      if (r === 'checklists') { var fe = 0, to = 0; ckVisiveis().forEach(function (k) { if (!ckRoda(k, ckDia())) return; var rs = ckResumo(k, ckDia()); fe += rs.feitas; to += rs.total; }); if (to) desc = fe + ' de ' + to + ' etapas hoje'; }
+      tiles += '<a class="setor setor-' + inf[0] + '" href="#/' + r + '"><span class="setor-ic">' + (ic ? ic.outerHTML : '') + '</span><span class="setor-nome">' + esc(nome.trim()) + '</span><span class="setor-desc">' + esc(desc) + '</span>' + (n ? '<span class="setor-badge">' + n + '<span class="sr-only"> pendente(s)</span></span>' : '') + '</a>';
+    });
+    return tiles ? '<section class="setores-box" aria-labelledby="set-t"><h2 class="sec" id="set-t">Escolha o setor</h2><div class="setores">' + tiles + '</div></section>' : '';
+  }
+  // Passos: [título, explicação, feito, link, botão, ação (opcional, abre a janela direto)]
+  function passosDe() {
+    var e = S.empresa, aud = function (a) { return (S.auditoria || []).some(function (x) { return x.acao === a; }); }, mem = function (ps) { return (MEMBROS || []).some(function (m) { return ps.indexOf(m.papel) > -1; }); };
+    if (S.role === 'empresa') return [
+      ['Dados da empresa', 'Razão social, CNPJ e endereço entram nos contratos e nos comprovantes de ponto.', !!(e.cnpj && e.endereco), '#/empresa', 'Preencher'],
+      ['Local e regras do ponto', 'Onde a equipe marca, foto, fuso horário e reconhecimento facial.', cfgPonto().lat != null, '#/empresa', 'Configurar'],
+      ['Turnos de trabalho', 'Entrada, saída e intervalos, conferidos com a CLT.', !!(S.turnos || []).length, '#/empresa', 'Criar turno', 'turno-editar'],
+      ['Cadastrar a equipe', 'Nome, CPF, função, salário e turno de cada pessoa.', !!S.pessoas.length, '#/equipe', 'Cadastrar pessoa', 'pessoa-editar'],
+      ['Liberar o app para a equipe', 'Gere o código de primeiro acesso de cada pessoa e mande pelo WhatsApp.', aud('Código de acesso gerado') || mem(['funcionario', 'gerente']), '#/equipe', 'Gerar códigos'],
+      ['Checklists do dia', 'Abertura, preparo e fechamento, com horário e foto.', (S.checklists || []).some(function (c) { return c.criado || c.alterado; }), '#/checklists', 'Montar checklist'],
+      ['Modelo de contrato', 'Cadastre uma vez e gere o contrato de cada pessoa já preenchido.', !!(S.modelosCt || []).length, '#/contratos', 'Criar modelo'],
+      ['Convidar o contador', 'Ele envia os holerites e confere admissões e documentos.', aud('Contador convidado') || mem(['contador']), '#/equipe', 'Convidar', 'convite-contador']
+    ];
+    var comp = mesAnterior(), env = S.pessoas.filter(function (p) { return holDe(p.id, comp); }).length, docs = (S.docsArq || []).filter(function (d) { return d.status === 'enviado'; }).length, adm = contagens().adm;
+    return [
+      ['Enviar os holerites de ' + compTxt(comp), env + ' de ' + S.pessoas.length + ' enviados. A empresa aprova e a equipe recebe no app.', !!S.pessoas.length && env >= S.pessoas.length, '#/holerites', 'Enviar holerites'],
+      ['Conferir documentos da equipe', docs ? docs + ' documento(s) aguardando conferência.' : 'Nada aguardando.', !docs, '#/documentos', 'Conferir'],
+      ['Conferir admissões', adm ? adm + ' admissão(ões) com documentos completos.' : 'Nada aguardando.', !adm, '#/admissoes', 'Abrir']
+    ];
+  }
+  function passosHTML(titulo, ps, escondivel) {
+    var feitos = ps.filter(function (p) { return p[2]; }).length, prox = ps.filter(function (p) { return !p[2]; })[0];
+    if (!prox) return '';
+    if (escondivel && S.ui.semPassos) return '<p class="ui-sub"><button type="button" class="link-btn" data-act="passos-mostrar">Mostrar os primeiros passos (' + feitos + ' de ' + ps.length + ' prontos)</button></p>';
+    return '<section class="card passos" aria-labelledby="pas-t"><div class="card-head"><h2 id="pas-t">' + esc(titulo) + '</h2><span class="passos-prog"><span class="num">' + feitos + ' de ' + ps.length + '</span><progress max="' + ps.length + '" value="' + feitos + '">' + feitos + '</progress></span></div><ol class="passos-lista">' + ps.map(function (p, i) {
+      var atual = p === prox, cls = 'btn' + (atual ? ' btn-primary btn-lg' : ' btn-sm');
+      var bt = p[5] ? '<button type="button" class="' + cls + '" data-act="' + p[5] + '">' + esc(p[4]) + '</button>' : '<a class="' + cls + '" href="' + p[3] + '">' + esc(p[4]) + '</a>';
+      return '<li class="' + (p[2] ? 'feito' : atual ? 'atual' : '') + '"><span class="passo-n" aria-hidden="true">' + (p[2] ? '✓' : i + 1) + '</span><span class="passo-txt"><strong>' + esc(p[0]) + '</strong><span class="sub">' + esc(p[2] ? 'Pronto' : p[1]) + '</span></span>' + (p[2] ? '' : bt) + '</li>';
+    }).join('') + '</ol>' + (escondivel ? '<div class="passos-foot"><button type="button" class="link-btn" data-act="passos-esconder">Esconder por enquanto</button></div>' : '') + '</section>';
+  }
+  function proximoFunc() {
+    var itens = [], cfg = cfgPonto(), pi = proxInfo(ME);
+    if (pi.prox > -1) itens.push(['Registrar ' + tipoNome(ME, pi.prox).toLowerCase(), cfg.rosto && !(S.rostos || {})[ME] ? 'Na primeira marcação, o app cadastra o seu rosto.' : 'Toque para abrir a câmera e marcar o ponto.', '#/ponto', 'Bater ponto']);
+    ckVisiveis().forEach(function (c) { var dia = ckDia(); if (!ckRoda(c, dia) || !ckAberto(c, ckAgora())) return; var r = ckResumo(c, dia); if (r.feitas < r.total) itens.push([c.nome + ': falta' + (r.total - r.feitas > 1 ? 'm ' : ' ') + (r.total - r.feitas) + ' etapa' + (r.total - r.feitas > 1 ? 's' : ''), 'Limite às ' + c.limite + (ckAtrasado(c, {}, ckAgora()) ? ': já passou, vai pedir justificativa.' : '.'), '#/checklists', 'Abrir checklist']); });
+    if (S.real) { var rd = resumoDocs(ME); if (rd.falta) itens.push([rd.falta + (rd.falta === 1 ? ' documento obrigatório falta' : ' documentos obrigatórios faltam'), 'Envie pelo app: foto nítida ou PDF.', '#/documentos', 'Enviar documentos']); }
+    var vp = valesDe(ME).filter(function (v) { return !v.assinado; }).length; if (vp) itens.push([vp + (vp === 1 ? ' vale para assinar' : ' vales para assinar'), 'Sem a sua assinatura, o vale não pode ser descontado.', '#/vales', 'Assinar']);
+    if (!itens.length) return '<div class="notice info"><div><strong>Tudo em dia</strong>Nada pendente agora.</div></div>';
+    var a = itens[0];
+    return '<div class="card proximo"><div class="proximo-main"><span class="lbl-s">O que fazer agora</span><strong class="proximo-tit">' + esc(a[0]) + '</strong><span class="ui-sub">' + esc(a[1]) + '</span></div><a class="btn btn-primary btn-xl" href="' + a[2] + '">' + esc(a[3]) + '</a></div>' +
+      (itens.length > 1 ? '<div class="card"><ul class="list">' + itens.slice(1).map(function (x) { return '<li><span>' + esc(x[0]) + '<span class="sub">' + esc(x[1]) + '</span></span><a class="btn" href="' + x[2] + '">' + esc(x[3]) + '</a></li>'; }).join('') + '</ul></div>' : '');
   }
 
   /* ---------- Vagas e pré-entrevista ---------- */
@@ -371,10 +432,26 @@
     return { pessoa: pessoa, cargo: cargo, ct: ct, corpo: corpo };
   }
   function vContratos() {
-    var tab = S.ui.ctTab || 'gerar', sub0 = 'Modelos da empresa, contratos da equipe e o gerador por função';
-    if (tab === 'modelos') return titleRow('Contratos', sub0) + abasContrato(tab) + vCtModelos();
-    if (tab === 'equipe') return titleRow('Contratos', sub0) + abasContrato(tab) + vCtEquipe();
-    return vGerador();
+    var tab = S.ui.ctTab || 'equipe';
+    if (tab === 'gerar') return vGerador();
+    return titleRow('Contratos', 'Passo a passo: escolha a pessoa e o modelo, baixe, colha a assinatura e guarde o contrato assinado') + ctAcoes() + abasContrato(tab) + (tab === 'modelos' ? vCtModelos() : vCtEquipe());
+  }
+  function ctAcoes() {
+    var nm = (S.modelosCt || []).length, falta = (S.contratos || []).filter(function (c) { return !c.arquivo; }).length;
+    var card = function (n, t, d, attrs, prim) { return '<button type="button" class="acao-card' + (prim ? ' acao-prim' : '') + '" ' + attrs + '><span class="acao-n">' + n + '</span><span class="acao-t">' + esc(t) + '</span><span class="acao-d">' + esc(d) + '</span></button>'; };
+    return '<div class="acao-cards">' +
+      card(1, nm ? 'Fazer contrato para a equipe' : 'Criar o primeiro modelo', nm ? 'Escolha a pessoa e o modelo: o contrato sai preenchido com os dados do cadastro.' : 'Monte pelo gerador por função ou cole o contrato que você já usa.', nm ? 'data-act="ct-wiz"' : 'data-act="ct-tab" data-v="modelos"', true) +
+      card(2, 'Modelos da empresa', nm ? nm + (nm === 1 ? ' modelo pronto' : ' modelos prontos') + '. Crie outro pelo gerador ou cole o texto que você usa.' : 'Cadastre uma vez e use para quantas pessoas quiser.', 'data-act="ct-tab" data-v="modelos"') +
+      card(3, 'Guardar o contrato assinado', falta ? falta + (falta === 1 ? ' contrato esperando' : ' contratos esperando') + ' a versão assinada. Envie o PDF ou a foto.' : 'Envie o PDF ou a foto do contrato já assinado.', 'data-act="ct-tab" data-v="equipe"') + '</div>';
+  }
+  function atualizaCtWiz(f) {
+    var box = $('[data-ctresumo]', f); if (!box) return;
+    var d = new FormData(f), m = modeloCt(String(d.get('m') || '')), ps = d.getAll('p').map(P).filter(Boolean);
+    if (!m || !ps.length) { box.innerHTML = '<p class="ui-sub">Volte e escolha as pessoas e o modelo.</p>'; return; }
+    var ja = ps.filter(function (p) { return (S.contratos || []).some(function (c) { return c.modelo === m.id && c.pessoa === p.id; }); }), novos = ps.filter(function (p) { return ja.indexOf(p) < 0; }), nomes = function (l) { return l.map(function (p) { return p.nome; }).join(', '); };
+    box.innerHTML = '<div class="conf-j"><p><strong>' + esc(m.nome) + '</strong> para ' + (novos.length ? esc(nomes(novos)) : 'ninguém novo') + '.</p>' +
+      (ja.length ? '<div class="notice"><div><strong>Já tem este contrato</strong>' + esc(nomes(ja)) + (ja.length === 1 ? ' já tem este contrato e fica de fora.' : ' já têm este contrato e ficam de fora.') + '</div></div>' : '') +
+      '<p class="ui-sub">Nome, CPF, função, salário e data de admissão saem do cadastro de cada pessoa.</p><ol class="mini-passos n3"><li class="atual">Gerar o contrato (agora)</li><li>Baixar, imprimir e colher a assinatura</li><li>Enviar o assinado em "Contratos da equipe"</li></ol></div>';
   }
   function vGerador() {
     var x = contratoAtualHTML(), ct = x.ct, pessoa = x.pessoa, cargo = x.cargo, ver = verificacao(ct, pessoa, cargo);
@@ -385,7 +462,7 @@
     var opt = function (obj, cur) { return Object.keys(obj).map(function (k) { return '<option value="' + k + '"' + (String(cur) === k ? ' selected' : '') + '>' + esc(Array.isArray(obj[k]) ? obj[k][0] : obj[k]) + '</option>'; }).join(''); };
     var modelos = TPL.map(function (m) { return '<option value="' + m.id + '"' + (m.id === ct.modelo ? ' selected' : '') + '>' + esc(m.nome) + '</option>'; }).join('');
     var exp = ct.modelo === 'experiencia';
-    var form = '<div class="card card-pad stack"><h2 class="sec">Enquadramento</h2>' +
+    var form = '<div class="card card-pad stack"><h2 class="sec">1. Enquadramento</h2>' +
       '<div class="field"><label for="c-modelo">Modelo</label><select id="c-modelo" data-in="ct" data-k="modelo">' + modelos + '</select></div>' +
       '<div class="field"><label for="c-alvo">Para quem</label><select id="c-alvo" data-in="ct" data-k="alvo">' + optPessoa + '</select></div>' +
       '<div class="field"><label for="c-cargo">Cargo (' + CARGOS.length + ' cargos com CBO)</label><select id="c-cargo" data-in="ct" data-k="cargo">' + optCargo + '</select></div>' +
@@ -406,7 +483,7 @@
       (cargo.flags.indexOf('TELE') > -1 ? '<div class="field"><label for="c-mod">Modalidade</label><select id="c-mod" data-in="ct" data-k="modalidade">' + opt({ presencial: 'Presencial', hibrido: 'Híbrido', tele: 'Teletrabalho' }, ct.modalidade || 'presencial') + '</select></div>' : '') +
       '<div class="field"><label for="c-cct">Convenção coletiva (sindicato)</label><input id="c-cct" maxlength="80" value="' + esc(ct.cct) + '" placeholder="Ex.: CCT 2026 do sindicato da categoria" data-in="ct" data-k="cct"></div></div>';
     var OPC = window.CENTRALIZAR_OPCIONAIS || [], simples = ct.modelo !== 'experiencia' && ct.modelo !== 'indeterminado';
-    var extras = '<div class="card card-pad stack" id="ct-extras"><h2 class="sec">Cláusulas adicionais</h2><p class="ui-sub">Inclua cláusulas prontas ou escreva as suas. Elas entram numeradas antes das disposições finais e passam pela verificação.</p>' +
+    var extras = '<div class="card card-pad stack" id="ct-extras"><h2 class="sec">2. Cláusulas adicionais</h2><p class="ui-sub">Inclua cláusulas prontas ou escreva as suas. Elas entram numeradas antes das disposições finais e passam pela verificação.</p>' +
       (simples ? '<p class="ui-sub">As cláusulas prontas são do contrato CLT (experiência ou prazo indeterminado). Neste modelo, só as cláusulas próprias entram.</p>' : '<div class="opc-list">' + OPC.map(function (o) { var on = !!(ct.opc || {})[o.k];
         return '<label class="check opc"><input type="checkbox" data-in="ct-opc" data-k="' + o.k + '"' + (on ? ' checked' : '') + '> <span><strong>' + esc(o.nome) + '</strong><span class="sub">' + esc(o.base) + '</span></span></label>' +
           (on && o.k === 'naoconcorrencia' ? '<div class="field opc-par"><label for="c-nc">Prazo da restrição</label><select id="c-nc" data-in="ct" data-k="ncMeses">' + opt({ 6: '6 meses', 12: '12 meses', 24: '24 meses (máximo aceito)' }, ct.ncMeses) + '</select></div>' : '') +
@@ -419,11 +496,12 @@
       '<button type="submit" class="btn">Incluir no contrato</button></form></div>';
     var pontos = '<div class="card card-pad stack"><h2 class="sec">Pontos trabalhistas de ' + esc(cargo.cargo) + '</h2><p class="ui-sub">CBO ' + esc(cargo.cbo) + ' · ' + esc(cargo.cboNome) + ' · ' + esc(cargo.setor) + '</p><ul class="list">' +
       cargo.flags.map(function (f) { return '<li>' + esc(ALERTAS[f] || f) + '</li>'; }).join('') + '<li>Confira piso, benefícios e regras da convenção coletiva (CCT) do sindicato da categoria.</li>' + (cargo.nota ? '<li>' + esc(cargo.nota) + '</li>' : '') + '</ul></div>';
-    var verif = '<div class="card card-pad stack"><h2 class="sec">Verificação do contrato</h2>' + ver.map(function (i) { return '<div class="notice ' + (i[0] === 'bad' ? 'bad' : i[0] === 'ok' || i[0] === 'info' ? 'info' : '') + '"><div>' + i[1] + '</div></div>'; }).join('') +
+    var verif = '<div class="card card-pad stack"><h2 class="sec">3. Verificação do contrato</h2>' + ver.map(function (i) { return '<div class="notice ' + (i[0] === 'bad' ? 'bad' : i[0] === 'ok' || i[0] === 'info' ? 'info' : '') + '"><div>' + i[1] + '</div></div>'; }).join('') +
       CHECKS.map(function (c) { return '<label class="check"><input type="checkbox" data-in="ct-check" data-k="' + c[0] + '"' + (ct.checks[c[0]] ? ' checked' : '') + '> ' + esc(c[1]) + '</label>'; }).join('') + '</div>';
     var plano = '<div class="seg" role="group" aria-label="Plano"><button type="button" data-act="plano" data-v="avaliacao" aria-pressed="' + (S.plano !== 'assinante') + '">Avaliação gratuita</button><button type="button" data-act="plano" data-v="assinante" aria-pressed="' + (S.plano === 'assinante') + '">Assinante</button></div>';
     var btn = '<button type="button" class="btn btn-primary" data-act="ct-pdf"' + (conferido && !bloqueio ? '' : ' disabled') + '>' + (bloqueio ? 'Corrija os pontos em vermelho' : conferido ? 'Exportar PDF' : 'Marque a verificação para exportar') + '</button>';
-    return titleRow('Contratos', 'Escolha o enquadramento, verifique e exporte · ' + (S.plano === 'assinante' ? 'PDF sem marca d\'água' : 'no plano de avaliação o PDF sai com marca d\'água'), plano + '<button type="button" class="btn" data-act="ct-salvar-modelo">Salvar como modelo</button>' + btn) + abasContrato('gerar') +
+    return titleRow('Gerador de contrato por função', 'Monte, verifique e salve como modelo da empresa ou exporte · ' + (S.plano === 'assinante' ? 'PDF sem marca d\'água' : 'no plano de avaliação o PDF sai com marca d\'água'), plano + '<button type="button" class="btn" data-act="ct-salvar-modelo">Salvar como modelo</button>' + btn) + abasContrato('gerar') +
+      '<ol class="mini-passos"><li>Enquadramento: modelo, pessoa e cargo</li><li>Cláusulas adicionais (se quiser)</li><li>Verificação: corrija o que estiver em vermelho</li><li>Salvar como modelo ou exportar o PDF</li></ol>' +
       '<div class="doc-wrap ct-wrap"><div class="stack">' + form + extras + verif + pontos + '</div>' +
       '<article class="paper" id="paper">' + marcaDagua() + '<div class="notice sugestao"><div><strong>Sugestão de cláusulas, não é parecer jurídico</strong>Clique em qualquer cláusula para editar antes de exportar. Revise com seu advogado ou contador.</div></div>' + x.corpo + '</article></div>';
   }
@@ -737,29 +815,59 @@
     }, function (e) { var st = $('#arq-st'); if (st) st.textContent = 'Não foi possível abrir: ' + erroTxt(e); });
   }
   function quandoTxt(iso) { if (!iso) return ''; var d = new Date(iso); return isNaN(d) ? String(iso) : d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); }
-  function hoje1() { var t = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); return t.charAt(0).toUpperCase() + t.slice(1); }
+  function hoje1() { var t = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: fusoEmp() }); return t.charAt(0).toUpperCase() + t.slice(1); }
 
   // Dados que, no modo conectado, ficam em tabelas próprias (não no documento da empresa).
   function carregarReais() {
     if (!NUVEM) return Promise.resolve();
     var nada = function () { return null; };
-    return Promise.all([Nuvem.registros(addDays(hojeISO(), -45)).catch(nada), Nuvem.documentos().catch(nada), Nuvem.holeritesPdf().catch(nada), Nuvem.ajustes(addDays(hojeISO(), -45)).catch(nada)]).then(function (r) {
-      var antes = JSON.stringify([S.registros, S.docsArq, S.holArq, S.ajustes]);
-      if (r[0]) S.registros = r[0]; if (r[1]) S.docsArq = r[1]; if (r[2]) S.holArq = r[2]; if (r[3]) S.ajustes = r[3]; pontoHoje();
-      return antes !== JSON.stringify([S.registros, S.docsArq, S.holArq, S.ajustes]);
+    return Promise.all([Nuvem.registros(addDays(hojeISO(), -45)).catch(nada), Nuvem.documentos().catch(nada), Nuvem.holeritesPdf().catch(nada), Nuvem.ajustes(addDays(hojeISO(), -45)).catch(nada), Nuvem.ckRegistros(addDays(hojeISO(), -95)).catch(nada), Nuvem.rostos().catch(nada)]).then(function (r) {
+      var antes = JSON.stringify([S.registros, S.docsArq, S.holArq, S.ajustes, S.ckRegs, S.rostos]);
+      if (r[0]) S.registros = r[0]; if (r[1]) S.docsArq = r[1]; if (r[2]) S.holArq = r[2]; if (r[3]) S.ajustes = r[3]; if (r[4]) S.ckRegs = r[4];
+      if (r[5]) { var mr = {}; r[5].forEach(function (x) { mr[x.pessoa_id] = rostoDe(x); }); S.rostos = mr; }
+      pontoHoje();
+      return antes !== JSON.stringify([S.registros, S.docsArq, S.holArq, S.ajustes, S.ckRegs, S.rostos]);
     });
   }
 
   /* Ponto real */
-  var TIPOS_PONTO = ['Entrada', 'Saída para o intervalo', 'Volta do intervalo', 'Saída'];
-  function cfgPonto() { var c = (S.empresa && S.empresa.ponto) || {}; return { foto: c.foto !== false, local: c.local !== false, bloquear: !!c.bloquear, raio: +c.raio || 200, lat: typeof c.lat === 'number' ? c.lat : null, lng: typeof c.lng === 'number' ? c.lng : null }; }
+  // Marcações: 0 entrada; 1 a 8 intervalos (ímpar = saída para o intervalo, par = volta); 9 saída.
+  var SAIDA = 9;
+  function nomeTipo(t, n) { t = +t; if (t === 0) return 'Entrada'; if (t === SAIDA) return 'Saída'; var k = Math.ceil(t / 2), q = n > 1 || k > 1 ? ' ' + k : ''; return (t % 2 ? 'Saída para o intervalo' : 'Volta do intervalo') + q; }
+  function curtoTipo(t, n) { t = +t; if (t === 0) return 'Entrada'; if (t === SAIDA) return 'Saída'; var k = Math.ceil(t / 2), q = n > 1 || k > 1 ? ' ' + k : ''; return (t % 2 ? 'Saída int.' : 'Volta') + q; }
+  function nIvs(pid) { return Math.min(4, ivsDe(jornadaDe(P(pid))).length); }
+  function tipoNome(pid, t) { return nomeTipo(t, nIvs(pid)); }
+  function sequenciaDe(pid) { var s = [0], n = nIvs(pid); for (var i = 1; i <= n * 2; i++) s.push(i); s.push(SAIDA); return s; }
+  // Fuso horário: o da pessoa, se tiver; senão, o da empresa. O banco usa o mesmo para definir o dia da marcação.
+  var FUSOS = [['America/Sao_Paulo', 'Horário de Brasília (UTC−3)', 'DF, SP, RJ, MG, ES, Sul, Nordeste, GO, TO, PA e AP'], ['America/Manaus', 'Horário do Amazonas (UTC−4)', 'AM, RR, RO, MT e MS'], ['America/Rio_Branco', 'Horário do Acre (UTC−5)', 'AC e sudoeste do AM'], ['America/Noronha', 'Fernando de Noronha (UTC−2)', 'ilhas do Atlântico']];
+  function fusoOk(tz) { return FUSOS.some(function (f) { return f[0] === tz; }) ? tz : ''; }
+  function fusoEmp() { return fusoOk(S.empresa && S.empresa.fuso) || 'America/Sao_Paulo'; }
+  function fusoDe(p) { return fusoOk(p && p.fuso) || fusoEmp(); }
+  function fusoNome(tz) { var f = FUSOS.filter(function (x) { return x[0] === tz; })[0]; return f ? f[1] : tz; }
+  function fusoOpts(sel, comEmpresa) { return (comEmpresa ? '<option value="">Mesmo da empresa (' + esc(fusoNome(fusoEmp())) + ')</option>' : '') + FUSOS.map(function (f) { return '<option value="' + f[0] + '"' + (f[0] === sel ? ' selected' : '') + '>' + esc(f[1] + ' · ' + f[2]) + '</option>'; }).join(''); }
+  function partesEm(tz, d) {
+    var o = {}, n = d || new Date();
+    try { new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(n).forEach(function (x) { o[x.type] = x.value; }); }
+    catch (e) { o = { year: String(n.getFullYear()), month: ('0' + (n.getMonth() + 1)).slice(-2), day: ('0' + n.getDate()).slice(-2), hour: ('0' + n.getHours()).slice(-2), minute: ('0' + n.getMinutes()).slice(-2) }; }
+    if (o.hour === '24') o.hour = '00'; return o;
+  }
+  function hojeEm(tz) { var o = partesEm(tz); return o.year + '-' + o.month + '-' + o.day; }
+  function agoraEm(tz) { var o = partesEm(tz); return o.hour + ':' + o.minute; }
+  function diaSemana(iso) { return new Date(iso + 'T12:00:00').getDay(); }
+  // S.ponto guarda as horas do dia por tipo (0 a 9). O exemplo antigo tinha 4 posições (entrada, intervalo, volta, saída).
+  function mk(pid) { var m = (S.ponto || {})[pid] || [], o = []; if (m.length === 4) m = [m[0], m[1], m[2], '', '', '', '', '', '', m[3]]; for (var i = 0; i <= SAIDA; i++) o.push(m[i] || ''); return o; }
+  function cfgPonto() { var c = (S.empresa && S.empresa.ponto) || {}; return { foto: c.foto !== false || !!c.rosto, local: c.local !== false, bloquear: !!c.bloquear, raio: +c.raio || 200, lat: typeof c.lat === 'number' ? c.lat : null, lng: typeof c.lng === 'number' ? c.lng : null, rosto: !!c.rosto, rigor: ({ tolerante: 1, normal: 1, rigoroso: 1 })[c.rosto_rigor] ? c.rosto_rigor : 'normal', rostoBloq: c.rosto_bloquear !== false }; }
   function distM(a, b, c, d) { var r = Math.PI / 180, x = Math.sin((c - a) * r / 2), y = Math.sin((d - b) * r / 2); return Math.round(2 * 6371000 * Math.asin(Math.sqrt(x * x + Math.cos(a * r) * Math.cos(c * r) * y * y))); }
   function fmtDist(m) { return m >= 1000 ? (m / 1000).toFixed(1).replace('.', ',') + ' km' : Math.round(m) + ' m'; }
-  function hhmm(iso) { return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }); }
+  function hhmm(iso, tz) { return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: tz || fusoEmp() }); }
   function regsDe(pid, dia) { return (S.registros || []).filter(function (r) { return r.pessoa_id === pid && (!dia || r.dia === dia); }).sort(function (a, b) { return a.em < b.em ? -1 : 1; }); }
+  // Turno que passa da meia-noite: as marcações seguintes ficam no dia em que a jornada começou, até 4 horas depois do fim previsto (no máximo 24 horas).
+  function ocupados(pid, dia) { var o = {}; regsDe(pid, dia).forEach(function (r) { o[r.tipo] = 1; }); ajustesDe(pid, dia, 'aprovado').forEach(function (a) { o[a.tipo] = 1; }); return o; }
+  function limiteJornada(p) { var j = jornadaDe(p), sp = j.s ? minJ(j.e, j.s) : 0; return (sp ? Math.min(1440, sp + 240) : 960) * 60e3; }
   function diaAberto(pid) {
-    var h = hojeISO(), o = addDays(h, -1); if (regsDe(pid, h).length) return h;
-    var ro = regsDe(pid, o), ent = ro.filter(function (r) { return r.tipo === 0; })[0]; return ent && Date.now() - new Date(ent.em) < 16 * 3600e3 && !ro.some(function (r) { return r.tipo === 3; }) && !ajustesDe(pid, o, 'aprovado').some(function (a) { return a.tipo === 3 && a.acao !== 'desconsiderar'; }) ? o : h;
+    var p = P(pid), h = hojeEm(fusoDe(p)), o = addDays(h, -1); if (regsDe(pid, h).length) return h;
+    var ent = regsDe(pid, o).filter(function (r) { return r.tipo === 0; })[0];
+    return ent && !ocupados(pid, o)[SAIDA] && Date.now() - new Date(ent.em) < limiteJornada(p) ? o : h;
   }
   function pontoHoje() {
     if (!S.real) return; S.ponto = {}; S.marcacoesMetodo = {};
@@ -775,67 +883,171 @@
   function mapaLink(r) { return r && r.lat != null ? '<a href="https://www.openstreetmap.org/?mlat=' + r.lat + '&amp;mlon=' + r.lng + '#map=18/' + r.lat + '/' + r.lng + '" target="_blank" rel="noopener noreferrer">mapa</a>' : ''; }
   var CAM = null;
   function pararCamera() { if (CAM) { CAM.getTracks().forEach(function (t) { t.stop(); }); CAM = null; } }
-  // Abre a câmera frontal e pega a localização; só registra quando cumpre o que a empresa exige.
+  function abrirCamera(v, modo, ok, falha) {
+    if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) { falha('Este navegador não abre a câmera.'); return; }
+    var alta = modo === 'environment';
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: modo, width: { ideal: alta ? 1280 : 640 }, height: { ideal: alta ? 960 : 480 } }, audio: false }).then(function (s) {
+      if (!doc.body.contains(v)) { s.getTracks().forEach(function (t) { t.stop(); }); return; }
+      pararCamera(); CAM = s; v.srcObject = s;
+      var feito = false, f = function () { if (feito || !v.videoWidth) return; feito = true; ok(); };
+      v.addEventListener('loadeddata', f); v.addEventListener('playing', f); setTimeout(f, 1500);
+    }, function () { falha('Sem acesso à câmera. Permita a câmera para este site (no cadeado da barra de endereço ou nos ajustes do celular) e abra de novo.'); });
+  }
+  function capturaFrame(v, max) {
+    return new Promise(function (ok) {
+      if (!v || !v.videoWidth) return ok(null);
+      var c = doc.createElement('canvas'), k = Math.min(1, max / v.videoWidth); c.width = Math.round(v.videoWidth * k); c.height = Math.round(v.videoHeight * k);
+      c.getContext('2d').drawImage(v, 0, 0, c.width, c.height); c.toBlob(ok, 'image/jpeg', 0.78);
+    });
+  }
+  // Reconhecimento facial: lê o rosto algumas vezes seguidas e fica com a leitura mais próxima do cadastro.
+  function lerRostos(v, n) {
+    var out = [], i = 0;
+    return new Promise(function (ok) { (function prox() { if (i++ >= n || !doc.body.contains(v)) return ok(out); window.Rosto.descritor(v).then(function (d) { if (d) out.push(d); setTimeout(prox, 200); }, function () { setTimeout(prox, 200); }); })(); });
+  }
+  function conferirRosto(p, v, cad, st) {
+    var cfg = cfgPonto();
+    return lerRostos(v, cad ? 4 : 3).then(function (ds) {
+      if (cad) { if (ds.length < 3) throw new Error('Não deu para ver o rosto com nitidez. Fique de frente para a câmera, com boa luz, e toque de novo.'); return { rosto: 'cadastro', descritor: window.Rosto.media(ds), dist: null }; }
+      if (!ds.length) throw new Error('Rosto não encontrado. Fique de frente para a câmera, com o rosto dentro do círculo, e toque de novo.');
+      var ref = S.rostos[p.id].descritor, dist = Math.min.apply(null, ds.map(function (d) { return window.Rosto.distancia(d, ref); }));
+      if (dist <= window.Rosto.LIMIAR[cfg.rigor]) return { rosto: 'confere', dist: dist };
+      st.tent++;
+      if (st.tent < 3) throw new Error('O rosto não confere com o cadastro (tentativa ' + st.tent + ' de 3). Tire boné ou óculos escuros, melhore a luz e toque de novo.');
+      if (cfg.rostoBloq) throw new Error('O rosto não conferiu em ' + st.tent + ' tentativas e a marcação não foi registrada. Procure a empresa: ela pode recadastrar o seu rosto ou ajustar a marcação.');
+      return { rosto: 'nao_confere', dist: dist };
+    });
+  }
+  function rostoDe(x) { return { descritor: (x.descritor || []).map(Number), foto: x.foto || null, em: x.cadastrado_em || x.em || '' }; }
+  function salvarRosto(pid, descritor, foto) {
+    return (NUVEM ? Nuvem.cadastrarRosto({ pessoa_id: pid, descritor: descritor, foto: foto }) : Promise.resolve(null)).then(function (x) {
+      S.rostos = S.rostos || {}; S.rostos[pid] = x ? rostoDe(x) : { descritor: descritor, foto: foto, em: new Date().toISOString() };
+      if (S.role === 'empresa') auditar('Rosto cadastrado', (P(pid) || {}).nome || pid);
+    });
+  }
+  // Abre a câmera frontal, confere o rosto (se a empresa ligou) e pega a localização; só registra quando cumpre o que a empresa exige.
   function capturarPonto(p, tipo, metodo) {
-    var cfg = cfgPonto(), st = { cam: false, loc: null, locFim: false }, precisaLoc = metodo === 'celular' && cfg.local;
-    modal(TIPOS_PONTO[tipo] + ' · ' + first(p.nome), '<div class="cam"><video id="cam-v" autoplay playsinline muted></video></div><p class="ui-sub" id="cam-st">Abrindo a câmera…</p><p class="ui-sub" id="loc-st">Buscando a localização…</p>' +
-      '<p class="ui-sub">A foto e o local ficam guardados como comprovante desta marcação. Não há reconhecimento facial.</p>', '<button type="button" class="btn btn-primary" id="cam-ok" disabled>Tirar foto e registrar</button>');
+    var cfg = cfgPonto(), st = { cam: false, loc: null, locFim: false, rosto: false, modelo: false, tent: 0 }, precisaLoc = metodo === 'celular' && cfg.local;
+    var usaRosto = cfg.rosto, cad = usaRosto && !(S.rostos || {})[p.id], nome = tipoNome(p.id, tipo), rotulo = 'Registrar ' + nome.toLowerCase();
+    var chip = function (k, t) { return '<li data-cp="' + k + '">' + t + '</li>'; };
+    modal(cad ? 'Primeira marcação · cadastro do rosto' : nome + ' · ' + first(p.nome),
+      '<ol class="cam-passos">' + chip('cam', 'Câmera') + (usaRosto ? chip('rosto', cad ? 'Cadastro do rosto' : 'Rosto') : '') + chip('loc', precisaLoc ? 'Localização' : 'Localização (opcional)') + '</ol>' +
+      '<div class="cam"><video id="cam-v" autoplay playsinline muted></video>' + (usaRosto ? '<div class="cam-guia" id="cam-guia" aria-hidden="true"></div>' : '') + '</div>' +
+      '<p class="cam-st" id="cam-st" role="status">Abrindo a câmera…</p>' + (usaRosto ? '<p class="ui-sub" id="rosto-st">Carregando o reconhecimento facial…</p>' : '') + '<p class="ui-sub" id="loc-st">Buscando a localização…</p>' +
+      (cad ? '<div class="notice info"><div><strong>' + esc(first(p.nome)) + ', o seu rosto ainda não está cadastrado</strong>Nesta marcação o app cadastra o rosto: fique de frente, com o rosto inteiro dentro do círculo e boa luz. O rosto vira um código numérico, usado só para confirmar que é você quem marca o ponto (LGPD, art. 11, II, "g"). A foto fica guardada com a empresa.</div></div>'
+        : usaRosto ? '<p class="ui-sub">O app confere o rosto com o cadastro antes de registrar. A foto e o local ficam como comprovante.</p>' : '<p class="ui-sub">A foto e o local ficam guardados como comprovante desta marcação.</p>'),
+      '<button type="button" class="btn btn-primary btn-lg" id="cam-ok" disabled>' + esc(cad ? 'Cadastrar o rosto e registrar' : rotulo) + '</button>');
     var v = $('#cam-v'), bt = $('#cam-ok');
     var txt = function (id, t) { var el = $('#' + id); if (el) el.textContent = t; };
-    var atualiza = function () { var b = $('#cam-ok'); if (!b) return; b.disabled = !((st.cam || !cfg.foto) && (st.locFim || !precisaLoc) && (st.loc || !precisaLoc)); b.textContent = st.cam ? 'Tirar foto e registrar' : 'Registrar sem foto'; };
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }, audio: false }).then(function (s) {
-        if (!$('#cam-v')) { s.getTracks().forEach(function (t) { t.stop(); }); return; }
-        CAM = s; v.srcObject = s; var pronto = function () { if (st.cam || !v.videoWidth) return; st.cam = true; txt('cam-st', 'Enquadre o rosto e toque no botão.'); atualiza(); }; v.addEventListener('loadeddata', pronto); v.addEventListener('playing', pronto); setTimeout(pronto, 1500);
-      }, function () { txt('cam-st', cfg.foto ? 'Sem acesso à câmera. Permita a câmera para este site (no cadeado da barra de endereço ou nos ajustes do celular) e abra de novo.' : 'Câmera indisponível: a marcação sai sem foto.'); atualiza(); });
-    } else { txt('cam-st', 'Este navegador não abre a câmera.'); atualiza(); }
+    var marca = function (k, cls) { var li = $('[data-cp="' + k + '"]'); if (li) { li.classList.remove('feito', 'erro'); if (cls) li.classList.add(cls); } };
+    var pronto = function () { return (st.cam || !cfg.foto) && (!usaRosto || (st.cam && st.rosto)) && (st.locFim || !precisaLoc) && (st.loc || !precisaLoc); };
+    var atualiza = function () { var b = $('#cam-ok'); if (!b || b.dataset.ocupado) return; b.disabled = !pronto(); if (!usaRosto) b.textContent = st.cam || cfg.foto ? rotulo : 'Registrar sem foto'; };
+    var procura = function () { // mostra "rosto encontrado" enquanto a pessoa se posiciona
+      if (!doc.body.contains(v) || !st.cam || !st.modelo) return;
+      window.Rosto.achar(v).then(function (sc) {
+        if (!doc.body.contains(v)) return; var ok = sc >= 0.6, g = $('#cam-guia');
+        if (g) g.classList.toggle('ok', ok); st.rosto = ok; marca('rosto', ok ? 'feito' : '');
+        txt('rosto-st', ok ? 'Rosto encontrado. Pode tocar no botão.' : 'Posicione o rosto dentro do círculo, de frente e com boa luz.'); atualiza();
+        setTimeout(procura, ok ? 900 : 450);
+      }, function () { setTimeout(procura, 1000); });
+    };
+    if (usaRosto) {
+      if (!window.Rosto) { marca('rosto', 'erro'); txt('rosto-st', 'O reconhecimento facial não carregou. Feche e abra o app de novo.'); }
+      else window.Rosto.carregar().then(function () { st.modelo = true; txt('rosto-st', 'Reconhecimento facial pronto.'); procura(); }, function (e) { marca('rosto', 'erro'); txt('rosto-st', 'Não foi possível carregar o reconhecimento facial neste aparelho (' + e.message + '). Tente outro navegador ou peça à empresa para ajustar a marcação.'); });
+    }
+    abrirCamera(v, 'user', function () { st.cam = true; marca('cam', 'feito'); txt('cam-st', usaRosto ? 'Olhe para a câmera.' : 'Enquadre o rosto e toque no botão.'); procura(); atualiza(); },
+      function (m) { marca('cam', 'erro'); txt('cam-st', cfg.foto ? m : 'Câmera indisponível: a marcação sai sem foto.'); atualiza(); });
     if (navigator.geolocation) navigator.geolocation.getCurrentPosition(function (pos) {
-      st.loc = { lat: +pos.coords.latitude.toFixed(6), lng: +pos.coords.longitude.toFixed(6), prec: Math.round(pos.coords.accuracy || 0) }; st.locFim = true;
+      st.loc = { lat: +pos.coords.latitude.toFixed(6), lng: +pos.coords.longitude.toFixed(6), prec: Math.round(pos.coords.accuracy || 0) }; st.locFim = true; marca('loc', 'feito');
       var t = 'Localização obtida (precisão de ' + st.loc.prec + ' m)';
       if (cfg.lat != null) { var dd = distM(cfg.lat, cfg.lng, st.loc.lat, st.loc.lng); t += ' · ' + fmtDist(dd) + ' da empresa' + (dd > cfg.raio + st.loc.prec ? ', fora do local' + (cfg.bloquear ? ': a empresa não aceita marcação fora do local' : '') : ''); }
       txt('loc-st', t); atualiza();
-    }, function (er) { st.locFim = true; txt('loc-st', precisaLoc ? 'Sem localização (' + (er && er.code === 1 ? 'permissão negada' : 'sinal indisponível') + '). Ative a localização do aparelho, permita para este site e abra de novo.' : 'Sem localização: a marcação sai sem o local.'); atualiza(); }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+    }, function (er) { st.locFim = true; marca('loc', precisaLoc ? 'erro' : ''); txt('loc-st', precisaLoc ? 'Sem localização (' + (er && er.code === 1 ? 'permissão negada' : 'sinal indisponível') + '). Ative a localização do aparelho, permita para este site e abra de novo.' : 'Sem localização: a marcação sai sem o local.'); atualiza(); }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
     else { st.locFim = true; txt('loc-st', 'Este navegador não informa a localização.'); atualiza(); }
     bt.addEventListener('click', function () {
-      bt.disabled = true; bt.textContent = 'Registrando…';
-      var vai = function (blob) { registrarPonto(p, tipo, metodo, blob, st.loc).then(function () { pararCamera(); closeModal(); }, function (e) { bt.disabled = false; bt.textContent = 'Tentar de novo'; txt('cam-st', erroTxt(e)); }); };
-      if (st.cam && v.videoWidth) { var c = doc.createElement('canvas'), k = Math.min(1, 480 / v.videoWidth); c.width = Math.round(v.videoWidth * k); c.height = Math.round(v.videoHeight * k); c.getContext('2d').drawImage(v, 0, 0, c.width, c.height); c.toBlob(vai, 'image/jpeg', 0.75); }
-      else vai(null);
+      bt.disabled = true; bt.dataset.ocupado = '1'; bt.textContent = cad ? 'Cadastrando o rosto…' : usaRosto ? 'Conferindo o rosto…' : 'Registrando…';
+      (usaRosto ? conferirRosto(p, v, cad, st) : Promise.resolve(null)).then(function (rr) {
+        return capturaFrame(st.cam ? v : null, 480).then(function (blob) { return registrarPonto(p, tipo, metodo, blob, st.loc, rr); });
+      }).then(function () { pararCamera(); closeModal(); }, function (e) { delete bt.dataset.ocupado; atualiza(); bt.textContent = 'Tentar de novo'; txt('cam-st', erroTxt(e)); });
     });
   }
-  function registrarPonto(p, tipo, metodo, blob, loc) {
+  var ROSTO_TXT = { confere: 'Rosto conferido', nao_confere: 'Rosto não conferiu (sinalizado para a empresa)', cadastro: 'Rosto cadastrado nesta marcação' };
+  function registrarPonto(p, tipo, metodo, blob, loc, rr) {
     var cfg = cfgPonto();
     if (cfg.foto && !blob) return Promise.reject(new Error('Tire a foto para registrar o ponto.'));
+    if (cfg.rosto && !rr) return Promise.reject(new Error('A empresa exige o reconhecimento facial nesta marcação.'));
     if (metodo === 'celular' && cfg.local && !loc) return Promise.reject(new Error('Permita a localização para registrar o ponto.'));
     var dist = loc && cfg.lat != null ? distM(cfg.lat, cfg.lng, loc.lat, loc.lng) : null, fora = dist != null && dist > cfg.raio + (loc.prec || 0);
     if (fora && cfg.bloquear) return Promise.reject(new Error('Você está a ' + fmtDist(dist) + ' do local de trabalho. A empresa só aceita marcação no local.'));
     var up = blob ? Arq().enviar(caminho(p.id, 'ponto', 'jpg'), blob) : Promise.resolve(null);
     return up.then(function (path) {
-      var row = { pessoa_id: p.id, tipo: tipo, metodo: metodo, foto: path, lat: loc ? loc.lat : null, lng: loc ? loc.lng : null, precisao: loc ? loc.prec : null };
-      if (NUVEM) return Nuvem.baterPonto(row);
-      S.nsr = (S.nsr || 0) + 1;
-      row.id = 'r' + Date.now(); row.em = new Date().toISOString(); row.dia = S.real ? diaAberto(p.id) : hojeISO(); row.nsr = S.nsr; row.distancia = dist; row.fora_do_local = dist == null ? null : fora;
-      return row;
+      return (rr && rr.rosto === 'cadastro' ? salvarRosto(p.id, rr.descritor, path) : Promise.resolve()).then(function () {
+        var row = { pessoa_id: p.id, tipo: tipo, metodo: metodo, foto: path, lat: loc ? loc.lat : null, lng: loc ? loc.lng : null, precisao: loc ? loc.prec : null, dia: S.real ? diaAberto(p.id) : hojeISO() };
+        if (rr) { row.rosto = rr.rosto; if (rr.dist != null) row.rosto_dist = Math.round(rr.dist * 1000) / 1000; }
+        if (NUVEM) return Nuvem.baterPonto(row);
+        S.nsr = (S.nsr || 0) + 1;
+        row.id = 'r' + Date.now(); row.em = new Date().toISOString(); row.nsr = S.nsr; row.distancia = dist; row.fora_do_local = dist == null ? null : fora;
+        return row;
+      });
     }).then(function (row) {
       S.registros = S.registros || []; S.registros.push(row);
-      if (S.real) pontoHoje(); else { var m = S.ponto[p.id] || (S.ponto[p.id] = ['', '', '', '']); m[tipo] = hhmm(row.em); S.marcacoesMetodo[p.id] = metodo === 'celular' ? 'celular' : 'fixo'; }
-      S.ui.recibo = { nsr: String(row.nsr).padStart(9, '0'), quando: new Date(row.em).toLocaleDateString('pt-BR') + ' ' + hhmm(row.em), nome: p.nome, cpf: p.cpf, tipo: TIPOS_PONTO[tipo], metodo: METODO[metodo], local: localTxt(row) + (row.fora_do_local ? ' (fora do local)' : '') + (row.lat != null ? ' · ' + row.lat + ', ' + row.lng : ''), foto: !!row.foto };
-      save(); render(); toast(TIPOS_PONTO[tipo] + ' registrada às ' + hhmm(row.em) + '. Comprovante gerado.');
+      var tz = fusoDe(p);
+      if (S.real) pontoHoje(); else { var m = mk(p.id); m[tipo] = hhmm(row.em, tz); S.ponto[p.id] = m; S.marcacoesMetodo[p.id] = metodo === 'celular' ? 'celular' : 'fixo'; }
+      S.ui.recibo = { nsr: String(row.nsr).padStart(9, '0'), quando: new Date(row.em).toLocaleDateString('pt-BR', { timeZone: tz }) + ' ' + hhmm(row.em, tz) + ' · ' + fusoNome(tz), nome: p.nome, cpf: p.cpf, tipo: tipoNome(p.id, tipo), metodo: METODO[metodo], local: localTxt(row) + (row.fora_do_local ? ' (fora do local)' : '') + (row.lat != null ? ' · ' + row.lat + ', ' + row.lng : ''), foto: !!row.foto, rosto: row.rosto ? ROSTO_TXT[row.rosto] : '' };
+      save(); render(); toast(tipoNome(p.id, tipo) + ' registrada às ' + hhmm(row.em, tz) + '. Comprovante gerado.');
     });
   }
+  function trabalhoDia(h) {
+    var t = 0, cur = h[0] || null, pausas = [];
+    for (var k = 1; k <= 4; k++) { var s = h[2 * k - 1], v = h[2 * k]; if (s && cur) { t += minJ(cur, s); cur = null; } if (s && v) pausas.push(minJ(s, v)); if (v) cur = v; }
+    if (h[SAIDA] && cur) t += minJ(cur, h[SAIDA]);
+    return { trab: t, pausas: pausas, completo: !!(h[0] && h[SAIDA]) };
+  }
+  function difMin(a, b) { var d = min(a) - min(b); if (d > 720) d -= 1440; if (d < -720) d += 1440; return d; }
+  // O que não bate com a CLT ou com o horário previsto. Só a empresa vê; intervalo flexível cumprido não gera aviso.
+  function inconsDia(pid, dia, o) {
+    var h = o.map(function (x) { return x ? x.hora : ''; }), j = jornadaDe(P(pid)), ivs = ivsDe(j), w = trabalhoDia(h), a = [], aberto = dia === diaAberto(pid);
+    var q = function (k) { return ivs.length > 1 || k > 1 ? ' ' + k : ''; };
+    if (!h[0] && h.some(Boolean)) a.push('Sem marcação de entrada');
+    if (h[0] && !h[SAIDA] && !aberto) a.push('Sem marcação de saída');
+    for (var k = 1; k <= 4; k++) if (h[2 * k - 1] && !h[2 * k] && (h[SAIDA] || !aberto)) a.push('Sem a volta do intervalo' + q(k));
+    if (w.completo) {
+      var req = reqIntervalo(w.trab), maior = Math.max.apply(null, [0].concat(w.pausas));
+      if (!j.aceite && req && maior < req) a.push('Intervalo de ' + fmtDur(maior) + ' para ' + fmtHoras(w.trab) + ' de trabalho: a lei pede ' + fmtDur(req) + ' (intrajornada, CLT, art. 71)');
+      if (!j.aceite && w.trab > 600) a.push(fmtHoras(w.trab) + ' de trabalho: passa de 10 horas no dia (CLT, art. 59)');
+      ivs.forEach(function (iv, i) {
+        var kk = i + 1, s = h[2 * kk - 1], v = h[2 * kk]; if (!s || !v) return; var d = minJ(s, v);
+        if (iv.flex) {
+          if (d < iv.dur - 5) a.push('Intervalo' + q(kk) + ' de ' + fmtDur(d) + ': o previsto é ' + fmtDur(iv.dur));
+          if (iv.de && iv.ate && (minJ(iv.de, s) > minJ(iv.de, iv.ate) || minJ(iv.de, v) > minJ(iv.de, iv.ate))) a.push('Intervalo' + q(kk) + ' fora da janela ' + iv.de + '–' + iv.ate);
+        } else if (Math.abs(difMin(s, iv.ini)) > 10 || Math.abs(difMin(v, iv.fim)) > 10) a.push('Intervalo' + q(kk) + ' das ' + s + ' às ' + v + ': o previsto é ' + iv.ini + '–' + iv.fim);
+      });
+    }
+    var po = marcasDia(pid, addDays(dia, -1));
+    if (h[0] && po[0] && po[SAIDA]) { var fim = min(po[SAIDA].hora) + (min(po[SAIDA].hora) <= min(po[0].hora) ? 1440 : 0), desc = 1440 + min(h[0]) - fim; if (desc < 660) a.push('Descanso de ' + fmtHoras(Math.max(0, desc)) + ' desde a saída anterior: a lei pede 11 horas (interjornada, CLT, art. 66)'); }
+    return a;
+  }
   function espelhoHTML(pid) {
-    var ks = {}; regsDe(pid).forEach(function (r) { ks[r.dia] = 1; }); ajustesDe(pid, null, 'aprovado').forEach(function (a) { ks[a.dia] = 1; });
+    var ks = {}, emp = S.role === 'empresa', n = nIvs(pid), cols = {}, tz = fusoDe(P(pid));
+    regsDe(pid).forEach(function (r) { ks[r.dia] = 1; }); ajustesDe(pid, null, 'aprovado').forEach(function (a) { ks[a.dia] = 1; });
     ks = Object.keys(ks).sort().reverse();
     if (!ks.length) return '<p class="ui-sub">Nenhuma marcação ainda. As marcações aparecem aqui a partir do primeiro registro.</p>';
+    sequenciaDe(pid).forEach(function (t) { cols[t] = 1; });
+    var dias = ks.map(function (k) { var o = marcasDia(pid, k); o.forEach(function (x, t) { if (x) cols[t] = 1; }); return [k, o]; });
+    var tipos = Object.keys(cols).map(Number).sort(function (a, b) { return a - b; });
     var cel = function (x) {
       if (!x) return '<td class="num">·</td>';
-      var r = x.r || (x.antes && x.antes.r), orig = r ? '<span class="sub">' + (x.a ? 'original ' + hhmm(r.em) + ' · ' : '') + 'NSR ' + esc(r.nsr) + ' · ' + esc(localTxt(r)) + '</span>' + (r.fora_do_local ? pill('bad', 'fora do local') : '') + '<span class="sub">' + (r.foto ? '<button type="button" class="link-btn" data-act="arq-ver" data-path="' + esc(r.foto) + '" data-t="Foto da marcação">foto</button> ' : '') + mapaLink(r) + '</span>' : '';
-      if (x.a) return '<td class="num">' + (x.hora ? '<strong>' + esc(x.hora) + '</strong>' : '<s>' + (r ? hhmm(r.em) : '') + '</s>') + ' ' + pill('warn', x.a.acao === 'desconsiderar' ? 'desconsiderada' : 'ajustada') + '<span class="sub">' + esc(x.a.motivo) + (r ? '' : ' · sem marcação original') + '</span>' + orig + '</td>';
+      var r = x.r || (x.antes && x.antes.r), orig = r ? '<span class="sub">' + (x.a ? 'original ' + hhmm(r.em, tz) + ' · ' : '') + 'NSR ' + esc(r.nsr) + ' · ' + esc(localTxt(r)) + '</span>' + (r.fora_do_local ? pill('bad', 'fora do local') : '') + (r.rosto === 'nao_confere' ? pill('bad', 'rosto não conferiu') : r.rosto === 'cadastro' ? pill('mute', 'rosto cadastrado') : '') + '<span class="sub">' + (r.foto ? '<button type="button" class="link-btn" data-act="arq-ver" data-path="' + esc(r.foto) + '" data-t="Foto da marcação">foto</button> ' : '') + mapaLink(r) + '</span>' : '';
+      if (x.a) return '<td class="num">' + (x.hora ? '<strong>' + esc(x.hora) + '</strong>' : '<s>' + (r ? hhmm(r.em, tz) : '') + '</s>') + ' ' + pill('warn', x.a.acao === 'desconsiderar' ? 'desconsiderada' : 'ajustada') + '<span class="sub">' + esc(x.a.motivo) + (r ? '' : ' · sem marcação original') + '</span>' + orig + '</td>';
       return '<td class="num"><strong>' + esc(x.hora) + '</strong>' + orig + '</td>';
     };
-    var tot = function (o) { var h = o.map(function (x) { return x ? x.hora : ''; }), t = 0; if (h[0] && h[1]) t += minJ(h[0], h[1]); if (h[2] && h[3]) t += minJ(h[2], h[3]); if (h[0] && h[3] && !h[1] && !h[2]) t = minJ(h[0], h[3]); return t > 0 && t <= 960 ? fmtHoras(t) : t > 960 ? 'confira' : '·'; };
-    return '<div class="table-box"><table class="t stack-sm"><thead><tr><th>Dia</th><th class="num">Entrada</th><th class="num">Saída intervalo</th><th class="num">Volta</th><th class="num">Saída</th><th class="num">Trabalhado</th></tr></thead><tbody>' +
-      ks.map(function (k) { var o = marcasDia(pid, k); return '<tr><td><strong>' + dmyy(k) + '</strong><span class="sub">' + DIAS[new Date(k + 'T12:00:00').getDay()] + '</span></td>' + o.map(cel).join('') + '<td class="num">' + tot(o) + '</td></tr>'; }).join('') + '</tbody></table></div>';
+    var tot = function (o) { var w = trabalhoDia(o.map(function (x) { return x ? x.hora : ''; })); return w.trab > 0 && w.trab <= 960 ? fmtHoras(w.trab) : w.trab > 960 ? 'confira' : '·'; };
+    var conf = function (k, o) {
+      var a = inconsDia(pid, k, o), ci = (S.pontoCiente || {})[pid + '|' + k]; if (!a.length) return '<td>' + pill('ok', 'Ok') + '</td>';
+      return '<td><ul class="incons">' + a.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' + (ci ? '<span class="sub">Mantido por ' + esc(ci.por) + ' em ' + esc(ci.em) + '</span>' : '<button type="button" class="btn btn-sm" data-act="ponto-ciente" data-id="' + esc(pid) + '" data-dia="' + k + '">Estou ciente, manter</button>') + '</td>';
+    };
+    return '<div class="table-box"><table class="t stack-sm"><thead><tr><th>Dia</th>' + tipos.map(function (t) { return '<th class="num">' + esc(curtoTipo(t, n)) + '</th>'; }).join('') + '<th class="num">Trabalhado</th>' + (emp ? '<th>Conferência</th>' : '') + '</tr></thead><tbody>' +
+      dias.map(function (x) { var k = x[0], o = x[1]; return '<tr><td><strong>' + dmyy(k) + '</strong><span class="sub">' + DIAS[diaSemana(k)] + '</span></td>' + tipos.map(function (t) { return cel(o[t]); }).join('') + '<td class="num">' + tot(o) + '</td>' + (emp ? conf(k, o) : '') + '</tr>'; }).join('') + '</tbody></table></div>';
   }
   function csvCel(v) { var s = String(v == null ? '' : v); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
   function baixarTexto(nome, texto, tipo) { salvarArquivo(nome, new Blob(['\ufeff' + texto], { type: tipo || 'text/csv;charset=utf-8' })); }
@@ -844,34 +1056,143 @@
   var DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
   function hhOk(v) { v = String(v || ''); return /^\d\d:\d\d$/.test(v) ? v : ''; }
   function turnoDe(id) { return (S.turnos || []).filter(function (t) { return t.id === id; })[0]; }
-  function jornadaDe(p) { var t = p && p.turno && turnoDe(p.turno); if (t) return t; if (p && p.jornada && p.jornada.e) return p.jornada; return { e: (p && p.escala) || '08:00', si: '', vi: '', s: '', dias: [1, 2, 3, 4, 5, 6] }; }
+  // Intervalos: fixo { ini, fim } ou flexível { dur (minutos), de, ate (janela opcional) }. Os antigos (si/vi) viram um intervalo fixo.
+  function ivsDe(j) { if (!j) return []; if (Array.isArray(j.intervalos)) return j.intervalos.slice(0, 4); return j.si && j.vi ? [{ flex: false, ini: j.si, fim: j.vi }] : []; }
+  function durIv(iv) { return iv.flex ? Math.max(0, +iv.dur || 0) : minJ(iv.ini, iv.fim); }
+  function jornadaDe(p) { var t = p && p.turno && turnoDe(p.turno); if (t) return t; if (p && p.jornada && p.jornada.e) return p.jornada; return { e: (p && p.escala) || '08:00', s: '', intervalos: [{ flex: true, dur: 60 }], dias: [1, 2, 3, 4, 5, 6] }; }
   function minJ(a, b) { var x = min(a), y = min(b); if (x == null || y == null) return 0; return y >= x ? y - x : y + 1440 - x; }
-  function cargaDia(j) { return Math.max(0, minJ(j.e, j.s) - (j.si && j.vi ? minJ(j.si, j.vi) : 0)); }
+  function cargaDia(j) { return Math.max(0, minJ(j.e, j.s) - ivsDe(j).reduce(function (s, iv) { return s + durIv(iv); }, 0)); }
+  function passaMeiaNoite(j) { return !!(j && j.e && j.s && min(j.s) <= min(j.e)); }
   function fmtHoras(m) { return Math.floor(m / 60) + 'h' + ('0' + Math.round(m % 60)).slice(-2); }
-  function horarioTxt(j) { return j.e + (j.s ? '–' + j.s : '') + (j.si && j.vi ? ', intervalo ' + j.si + '–' + j.vi : ''); }
+  function fmtDur(m) { m = Math.max(0, Math.round(+m || 0)); return m < 60 ? m + ' min' : m % 60 ? fmtHoras(m) : (m / 60) + (m === 60 ? ' hora' : ' horas'); }
+  function ivTxt(iv) { return iv.flex ? fmtDur(iv.dur) + ' flexível' + (iv.de && iv.ate ? ' (entre ' + iv.de + ' e ' + iv.ate + ')' : '') : iv.ini + '–' + iv.fim; }
+  function horarioTxt(j) { if (!j.s) return 'entrada às ' + j.e; var iv = ivsDe(j); return j.e + '–' + j.s + (passaMeiaNoite(j) ? ' do dia seguinte' : '') + (iv.length ? ', intervalo' + (iv.length > 1 ? 's ' : ' ') + iv.map(ivTxt).join(' e ') : ', sem intervalo'); }
   function diasTxt(ds) { ds = (ds || []).slice().sort(); if (ds.length === 7) return 'todos os dias'; if (ds.join() === '1,2,3,4,5') return 'segunda a sexta'; if (ds.join() === '1,2,3,4,5,6') return 'segunda a sábado'; return ds.map(function (d) { return DIAS[d]; }).join(', '); }
+  function escalaTxt(j) { return j && j.x1236 ? 'escala 12x36 (dia sim, dia não)' : diasTxt(j && j.dias); }
   function turnoCurto(p) { var t = p.turno && turnoDe(p.turno); return t ? t.nome : horarioTxt(jornadaDe(p)); }
-  function alertasJornada(j) {
-    var a = [], dia = cargaDia(j), sem = dia * (j.dias || []).length, iv = j.si && j.vi ? minJ(j.si, j.vi) : 0;
-    if (!j.s) return a;
-    if (sem > 44 * 60) a.push('Passa de 44 horas por semana (CF, art. 7º, XIII)');
-    if (dia > 10 * 60) a.push('Mais de 10 horas por dia: só em escala 12x36 com acordo escrito ou convenção (CLT, art. 59-A)');
-    else if (dia > 8 * 60) a.push('Mais de 8 horas por dia: precisa de acordo de compensação (CLT, art. 59, §§ 2º e 6º)');
-    if (dia > 6 * 60 && iv < 60) a.push('Mais de 6 horas por dia pede intervalo de pelo menos 1 hora (CLT, art. 71)');
-    if (dia > 4 * 60 && dia <= 6 * 60 && iv < 15) a.push('De 4 a 6 horas por dia pede intervalo de 15 minutos (CLT, art. 71, § 1º)');
-    if (iv > 120) a.push('Intervalo acima de 2 horas precisa de acordo escrito ou convenção (CLT, art. 71)');
-    return a;
+  function reqIntervalo(trab) { return trab > 360 ? 60 : trab > 240 ? 15 : 0; }
+  function noturnoMin(e, s) { var a = min(e), b = min(s), t = 0; if (a == null || b == null) return 0; if (b <= a) b += 1440; for (var x = a; x < b; x += 5) { var h = x % 1440; if (h >= 1320 || h < 300) t += 5; } return t; }
+  // Conferência da jornada prevista. "graves": não bate com a CLT (a empresa só mantém se declarar que está ciente). "avisos": precisa de acordo ou gera adicional.
+  function conferirJornada(j) {
+    var g = [], av = [], ivs = ivsDe(j), r = { graves: g, avisos: av, dia: 0, semana: 0 };
+    if (!j || !j.e || !j.s) return r;
+    var span = minJ(j.e, j.s); if (!span) { g.push('Entrada e saída no mesmo horário'); return r; }
+    var dia = cargaDia(j), sem = Math.round(dia * (j.x1236 ? 3.5 : (j.dias || []).length)); r.dia = dia; r.semana = sem;
+    var dentro = function (h) { var x = minJ(j.e, h); return x > 0 && x < span; }, q = function (i) { return ivs.length > 1 ? ' ' + (i + 1) : ''; };
+    ivs.forEach(function (iv, i) {
+      if (iv.flex) { if (iv.de && iv.ate) { if (!dentro(iv.de) || !dentro(iv.ate)) g.push('A janela do intervalo' + q(i) + ' fica fora do horário de trabalho'); else if (minJ(iv.de, iv.ate) < iv.dur) g.push('A janela do intervalo' + q(i) + ' é menor que a duração dele'); } }
+      else if (!dentro(iv.ini) || !dentro(iv.fim) || minJ(j.e, iv.fim) <= minJ(j.e, iv.ini)) g.push('O intervalo' + q(i) + ' (' + iv.ini + '–' + iv.fim + ') fica fora do horário de trabalho');
+    });
+    var maior = ivs.reduce(function (m, iv) { return Math.max(m, durIv(iv)); }, 0), soma = ivs.reduce(function (s, iv) { return s + durIv(iv); }, 0), req = reqIntervalo(dia);
+    if (req && maior < req) (j.x1236 ? av : g).push((req === 60 ? 'Mais de 6 horas de trabalho pede um intervalo de pelo menos 1 hora' : 'De 4 a 6 horas de trabalho pede um intervalo de 15 minutos') + (maior ? ' (o maior é de ' + fmtDur(maior) + (soma >= req ? '; intervalos divididos não substituem o intervalo inteiro' : '') + ')' : ' (não há intervalo)') + ' · intrajornada, CLT, art. 71' + (j.x1236 ? '. Na 12x36 o intervalo pode ser indenizado, se o acordo prever (art. 59-A)' : ''));
+    if (ivs.some(function (iv) { return durIv(iv) > 120; })) av.push('Intervalo acima de 2 horas precisa de acordo escrito ou convenção (CLT, art. 71)');
+    var seguidos = !j.x1236 && (j.dias || []).some(function (d) { return (j.dias || []).indexOf((d + 1) % 7) > -1; });
+    if (seguidos && 1440 - span < 660) g.push('Descanso de ' + fmtHoras(1440 - span) + ' entre um dia e outro: a lei pede pelo menos 11 horas (interjornada, CLT, art. 66)');
+    if (j.x1236) { if (span > 720) g.push('Na escala 12x36 a jornada é de no máximo 12 horas (CLT, art. 59-A)'); av.push('Escala 12x36 precisa de acordo escrito ou convenção coletiva (CLT, art. 59-A)'); }
+    else if (dia > 600) g.push(fmtHoras(dia) + ' de trabalho por dia: passa do limite de 2 horas extras (CLT, art. 59)');
+    else if (dia > 480) av.push(fmtHoras(dia) + ' por dia: acima de 8 horas precisa de acordo de compensação (CLT, art. 59, §§ 2º e 6º)');
+    if (sem > 2640) av.push(fmtHoras(sem) + ' por semana: o que passar de 44 horas é hora extra (CF, art. 7º, XIII e XVI)');
+    var nt = noturnoMin(j.e, j.s); if (nt) av.push(fmtDur(nt) + ' entre 22h e 5h: adicional noturno de 20% e hora noturna de 52min30s (CLT, art. 73)');
+    return r;
   }
+  function alertasJornada(j) { var c = conferirJornada(j); return c.graves.concat(c.avisos); }
   function diasChips(nome, sel) { return '<div class="chips">' + DIAS.map(function (n, i) { return '<label class="chip chip-check"><input type="checkbox" name="' + nome + '" value="' + i + '"' + ((sel || []).indexOf(i) > -1 ? ' checked' : '') + '> ' + n + '</label>'; }).join('') + '</div>'; }
-  function camposHorario(pre, j) {
-    var f = function (n, l, v) { return '<div class="field"><label for="' + pre + n + '">' + l + '</label><input id="' + pre + n + '" name="' + n + '" type="time" value="' + esc(v || '') + '"' + (n === 'je' ? ' required' : '') + '></div>'; };
-    return '<div class="form-grid form-grid-4">' + f('je', 'Entrada', j.e) + f('jsi', 'Saída intervalo', j.si) + f('jvi', 'Volta', j.vi) + f('js', 'Saída', j.s) + '</div><div class="field"><span class="lbl-s">Dias de trabalho</span>' + diasChips('jd', j.dias) + '</div>';
+  var IV_N = 0, DUR_IV = [10, 15, 20, 30, 45, 60, 90, 120];
+  function ivLinha(iv) {
+    iv = iv || {}; var flex = !!iv.flex, id = 'iv' + (++IV_N), durs = DUR_IV.slice(); if (iv.dur && durs.indexOf(+iv.dur) < 0) durs.push(+iv.dur);
+    var t = function (n, l, v) { return '<div class="field"><label for="' + id + n + '">' + l + '</label><input id="' + id + n + '" type="time" name="' + n + '" value="' + esc(v || '') + '"></div>'; };
+    return '<div class="iv-row' + (flex ? ' iv-flex' : '') + '" data-iv><input type="hidden" name="iv_t" value="' + (flex ? 'flex' : 'fixo') + '">' +
+      '<div class="iv-head"><strong>' + (flex ? 'Intervalo flexível' : 'Intervalo com horário fixo') + '</strong><button type="button" class="btn btn-sm" data-act="iv-del">Remover</button></div>' +
+      (flex ? '<div class="form-grid form-grid-3"><div class="field"><label for="' + id + 'd">Duração</label><select id="' + id + 'd" name="iv_d">' + durs.sort(function (a, b) { return a - b; }).map(function (m) { return '<option value="' + m + '"' + ((+iv.dur || 60) === m ? ' selected' : '') + '>' + fmtDur(m) + '</option>'; }).join('') + '</select></div>' + t('iv_a', 'Pode sair a partir de', iv.de) + t('iv_b', 'Precisa voltar até', iv.ate) + '</div><p class="sub">A pessoa escolhe a hora; a janela é opcional. Cumprida a duração, não há aviso.</p>'
+        : '<input type="hidden" name="iv_d" value=""><div class="form-grid">' + t('iv_a', 'Sai às', iv.ini) + t('iv_b', 'Volta às', iv.fim) + '</div>') + '</div>';
   }
-  function jornadaDoForm(d) { var j = { e: hhOk(d.get('je')) || '08:00', si: hhOk(d.get('jsi')), vi: hhOk(d.get('jvi')), s: hhOk(d.get('js')), dias: d.getAll('jd').map(Number).filter(function (x) { return x >= 0 && x <= 6; }) }; if (!j.dias.length) j.dias = [1, 2, 3, 4, 5]; if (!(j.si && j.vi)) { j.si = ''; j.vi = ''; } return j; }
+  function horarioPartes(pre, j) {
+    j = j || {};
+    var f = function (n, l, v) { return '<div class="field"><label for="' + pre + n + '">' + l + '</label><input id="' + pre + n + '" name="' + n + '" type="time" value="' + esc(v || '') + '" required></div>'; };
+    return {
+      dias: '<div class="field"><span class="lbl-s">Dias de trabalho</span>' + diasChips('jd', j.dias || [1, 2, 3, 4, 5]) + '</div><label class="check"><input type="checkbox" name="j1236"' + (j.x1236 ? ' checked' : '') + '> Escala 12x36 (trabalha um dia e folga o outro)</label>',
+      horas: '<div class="form-grid">' + f('je', 'Entrada', j.e) + f('js', 'Saída', j.s) + '</div><p class="sub" data-noite' + (passaMeiaNoite(j) ? '' : ' hidden') + '>Termina no dia seguinte. As marcações depois da meia-noite ficam no dia em que a jornada começou.</p>',
+      ivs: '<div class="stack" data-ivs>' + ivsDe(j).map(ivLinha).join('') + '</div><p class="sub" data-iv-dica></p><div class="actions iv-add"><button type="button" class="btn" data-act="iv-add" data-v="fixo">+ Intervalo com horário fixo</button><button type="button" class="btn" data-act="iv-add" data-v="flex">+ Intervalo flexível</button></div>',
+      conf: '<div data-conf aria-live="polite"></div>'
+    };
+  }
+  function camposHorario(pre, j) { var x = horarioPartes(pre, j); return x.horas + '<div class="field"><span class="lbl-s">Intervalos</span>' + x.ivs + '</div>' + x.dias + x.conf; }
+  function jornadaDoForm(d) {
+    var j = { e: hhOk(d.get('je')) || '08:00', s: hhOk(d.get('js')), dias: d.getAll('jd').map(Number).filter(function (x) { return x >= 0 && x <= 6; }), intervalos: [] };
+    if (d.get('j1236') === 'on') j.x1236 = true;
+    if (!j.dias.length) j.dias = [1, 2, 3, 4, 5];
+    var ts = d.getAll('iv_t'), as = d.getAll('iv_a'), bs = d.getAll('iv_b'), ds = d.getAll('iv_d');
+    ts.forEach(function (t, i) {
+      if (j.intervalos.length >= 4) return; var a = hhOk(as[i]), b = hhOk(bs[i]);
+      if (t === 'flex') { var iv = { flex: true, dur: Math.max(5, Math.min(240, Math.round(+ds[i] || 60))) }; if (a && b) { iv.de = a; iv.ate = b; } j.intervalos.push(iv); }
+      else if (a && b) j.intervalos.push({ flex: false, ini: a, fim: b });
+    });
+    return j;
+  }
+  function confHTML(j, marcado) {
+    if (!j.s) return '<p class="ui-sub">Preencha a entrada e a saída para conferir a jornada.</p>';
+    var c = conferirJornada(j), li = function (x) { return '<li>' + esc(x) + '</li>'; };
+    return '<div class="conf-j"><div class="conf-num"><div><span class="lbl-s">Trabalho por dia</span><strong class="num">' + fmtHoras(c.dia) + '</strong></div><div><span class="lbl-s">Por semana' + (j.x1236 ? ' (média)' : '') + '</span><strong class="num">' + fmtHoras(c.semana) + '</strong></div></div>' +
+      '<p class="ui-sub">' + esc(horarioTxt(j)) + ' · ' + esc(escalaTxt(j)) + '</p>' +
+      (c.graves.length ? '<div class="notice bad"><div><strong>Não bate com a CLT</strong><ul>' + c.graves.map(li).join('') + '</ul></div></div><label class="check aceite"><input type="checkbox" name="jac"' + (marcado ? ' checked' : '') + '> <span>A empresa está ciente e quer manter este horário mesmo assim. A decisão fica registrada com nome, data e hora.</span></label>' : '') +
+      (c.avisos.length ? '<div class="notice"><div><strong>Atenção</strong><ul>' + c.avisos.map(li).join('') + '</ul></div></div>' : '') +
+      (c.graves.length || c.avisos.length ? '' : '<div class="notice info"><div><strong>Dentro da CLT</strong>Carga, intervalos e descanso entre jornadas conferem.</div></div>') + '</div>';
+  }
+  function atualizaConf(form) {
+    var box = $('[data-conf]', form); if (!box) return;
+    var man = $('[data-manual]', form); if (man && man.hidden) { box.innerHTML = ''; return; }
+    var j = jornadaDoForm(new FormData(form)), key = JSON.stringify(conferirJornada(j).graves), ck = $('[name="jac"]', box);
+    var noite = $('[data-noite]', form); if (noite) noite.hidden = !passaMeiaNoite(j);
+    var dica = $('[data-iv-dica]', form);
+    if (dica) { var tr = j.s ? minJ(j.e, j.s) - ivsDe(j).reduce(function (s, iv) { return s + durIv(iv); }, 0) : 0, rq = reqIntervalo(tr); dica.textContent = !j.s ? '' : rq ? 'Para ' + fmtHoras(tr) + ' de trabalho, a lei pede um intervalo de pelo menos ' + fmtDur(rq) + ' (CLT, art. 71).' : 'Até 4 horas de trabalho, a lei não exige intervalo.'; }
+    var marcado = ck ? ck.checked && box.dataset.k === key : form.dataset.aceite === key;
+    box.innerHTML = confHTML(j, marcado); box.dataset.k = key;
+  }
+  // A empresa só mantém um horário fora da CLT declarando que está ciente; fica registrado.
+  function aceiteJornada(j, d, nome) {
+    var c = conferirJornada(j); if (!c.graves.length) { delete j.aceite; return true; }
+    if (d.get('jac') !== 'on') { toast('Este horário não bate com a CLT. Ajuste o horário ou marque que a empresa está ciente e quer manter.'); return false; }
+    j.aceite = { em: agora(), por: quemSou(), alertas: c.graves }; auditar('Horário mantido fora da CLT', nome + ': ' + c.graves.join('; ')); return true;
+  }
+  var PRESETS_T = [
+    ['Comercial', 'seg a sex · 08:00 às 17:48 · 1 h de almoço', { e: '08:00', s: '17:48', intervalos: [{ flex: false, ini: '12:00', fim: '13:00' }], dias: [1, 2, 3, 4, 5] }],
+    ['Comercial com sábado', 'seg a sáb · 08:00 às 16:20 · 1 h de almoço', { e: '08:00', s: '16:20', intervalos: [{ flex: false, ini: '12:00', fim: '13:00' }], dias: [1, 2, 3, 4, 5, 6] }],
+    ['6 horas', 'seg a sáb · 08:00 às 14:15 · 15 min flexível', { e: '08:00', s: '14:15', intervalos: [{ flex: true, dur: 15 }], dias: [1, 2, 3, 4, 5, 6] }],
+    ['Meio período', 'seg a sáb · 08:00 às 12:00 · sem intervalo', { e: '08:00', s: '12:00', intervalos: [], dias: [1, 2, 3, 4, 5, 6] }],
+    ['Noturno', 'seg a sex · 22:00 às 05:00 · 1 h flexível', { e: '22:00', s: '05:00', intervalos: [{ flex: true, dur: 60 }], dias: [1, 2, 3, 4, 5] }],
+    ['12x36 diurno', '07:00 às 19:00 · 1 h flexível', { e: '07:00', s: '19:00', intervalos: [{ flex: true, dur: 60 }], dias: [0, 1, 2, 3, 4, 5, 6], x1236: true }],
+    ['12x36 noturno', '19:00 às 07:00 · 1 h flexível', { e: '19:00', s: '07:00', intervalos: [{ flex: true, dur: 60 }], dias: [0, 1, 2, 3, 4, 5, 6], x1236: true }]
+  ];
+  /* Passo a passo (assistente em etapas dentro da janela) */
+  function wizBarra(nomes) { return '<ol class="wiz-barra">' + nomes.map(function (n, i) { return '<li data-wb="' + (i + 1) + '"' + (i ? '' : ' aria-current="step"') + '><span>' + (i + 1) + '</span><em>' + esc(n) + '</em></li>'; }).join('') + '</ol>'; }
+  function wizPasso(n, titulo, corpo) { return '<fieldset class="wiz-passo" data-passo="' + n + '"' + (n === 1 ? '' : ' hidden') + '><legend class="wiz-tit"><span class="wiz-n">' + n + '</span>' + esc(titulo) + '</legend>' + corpo + '</fieldset>'; }
+  function wizNav(fim) { return '<div class="wiz-nav"><button type="button" class="btn btn-lg" data-act="wiz-volta" hidden>Voltar</button><button type="button" class="btn btn-primary btn-lg" data-act="wiz-prox">Continuar</button><button type="submit" class="btn btn-primary btn-lg" hidden>' + esc(fim) + '</button></div>'; }
+  function wizValida(form, n, quieto) {
+    var sel = '[data-passo="' + n + '"]', bad = $$(sel + ' input, ' + sel + ' select, ' + sel + ' textarea', form).filter(function (c) { return !c.disabled && c.willValidate && !c.checkValidity(); })[0];
+    if (bad) { if (!quieto) bad.reportValidity(); return false; }
+    var g = $(sel + ' [data-precisa]', form); if (g && !$('input:checked', g)) { if (!quieto) toast(g.dataset.precisa); return false; }
+    return true;
+  }
+  function wizIr(form, n) {
+    var ps = $$('[data-passo]', form), tot = ps.length; n = Math.max(1, Math.min(tot, n)); form.dataset.p = n;
+    ps.forEach(function (p) { p.hidden = +p.dataset.passo !== n; });
+    $$('[data-wb]', form).forEach(function (li) { var k = +li.dataset.wb; if (k === n) li.setAttribute('aria-current', 'step'); else li.removeAttribute('aria-current'); li.classList.toggle('feito', k < n); });
+    var v = $('[data-act="wiz-volta"]', form), pr = $('[data-act="wiz-prox"]', form), sb = $('.wiz-nav button[type=submit]', form);
+    if (v) v.hidden = n === 1; if (pr) pr.hidden = n === tot; if (sb) sb.hidden = n !== tot;
+    if (form.hasAttribute('data-jornada')) atualizaConf(form);
+    if (n === tot && form.hasAttribute('data-ctwiz')) atualizaCtWiz(form);
+    if (n === tot && form.dataset.form === 'ck') atualizaCkResumo(form);
+    var m = form.closest('.modal'); if (m) m.scrollTop = 0;
+    var foco = $('[data-passo="' + n + '"] input:not([type=hidden]), [data-passo="' + n + '"] select', form); if (foco && n > 1) foco.focus();
+  }
   function turnoForm(t) {
-    t = t || { nome: '', e: '08:00', si: '12:00', vi: '13:00', s: '17:48', dias: [1, 2, 3, 4, 5] };
-    return '<form class="stack" data-form="turno" data-id="' + esc(t.id || '') + '"><div class="field"><label for="tu-n">Nome do turno</label><input id="tu-n" name="n" maxlength="40" required value="' + esc(t.nome) + '" placeholder="Ex.: Manhã, Comercial, 12x36 noturno"></div>' + camposHorario('tu-', t) +
-      '<p class="ui-sub">Turno que passa da meia-noite pode ser cadastrado normalmente (ex.: 22:00 às 05:00).</p><button class="btn btn-primary" type="submit">Salvar turno</button></form>';
+    var novo = !t, x = horarioPartes('tu-', t || { dias: [1, 2, 3, 4, 5] });
+    var presets = novo ? '<div class="field"><span class="lbl-s">Comece por um modelo pronto (dá para ajustar tudo depois) ou preencha do zero</span><div class="preset-grid">' + PRESETS_T.map(function (p, i) { return '<button type="button" class="preset" data-act="turno-preset" data-i="' + i + '"><strong>' + esc(p[0]) + '</strong><span>' + esc(p[1]) + '</span></button>'; }).join('') + '</div></div>' : '';
+    return '<form class="stack wiz" novalidate data-form="turno" data-jornada data-id="' + esc(t ? t.id : '') + '" data-aceite="' + esc(t && t.aceite ? JSON.stringify(t.aceite.alertas) : '') + '">' + wizBarra(['Nome', 'Horário', 'Intervalos', 'Conferir']) +
+      wizPasso(1, 'Nome e dias de trabalho', presets + '<div class="field"><label for="tu-n">Nome do turno</label><input id="tu-n" name="n" maxlength="40" required value="' + esc(t ? t.nome : '') + '" placeholder="Ex.: Manhã, Comercial, Noturno"></div>' + x.dias) +
+      wizPasso(2, 'Entrada e saída', x.horas + '<p class="ui-sub">Passa da meia-noite? Coloque a saída normalmente (ex.: 22:00 e 05:00): o app entende que termina no dia seguinte.</p>') +
+      wizPasso(3, 'Intervalos', '<p class="ui-sub">Pode ter mais de um. <strong>Fixo:</strong> hora certa para sair e voltar. <strong>Flexível:</strong> a pessoa escolhe a hora e o app só confere a duração.</p>' + x.ivs) +
+      wizPasso(4, 'Conferir e salvar', x.conf) + wizNav('Salvar turno') + '</form>';
   }
 
   /* Dados da empresa */
@@ -883,27 +1204,39 @@
   function vEmpresa() {
     var e = S.empresa, c = cfgPonto();
     var f = function (id, l, n, v, extra) { return '<div class="field"><label for="' + id + '">' + l + '</label><input id="' + id + '" name="' + n + '" value="' + esc(v == null ? '' : v) + '"' + (extra || '') + '></div>'; };
-    var dados = '<form class="card card-pad stack" data-form="empresa-dados"><h2 class="sec">Cadastro</h2>' + f('ed-n', 'Nome fantasia (aparece no app)', 'n', e.nome, ' maxlength="80" required') + f('ed-r', 'Razão social', 'r', e.razao, ' maxlength="120"') +
+    var num = function (n, t) { return '<h2 class="sec sec-n"><span class="wiz-n">' + n + '</span>' + esc(t) + '</h2>'; };
+    var dados = '<form class="card card-pad stack" data-form="empresa-dados">' + num(1, 'Cadastro da empresa') + f('ed-n', 'Nome fantasia (aparece no app)', 'n', e.nome, ' maxlength="80" required') + f('ed-r', 'Razão social', 'r', e.razao, ' maxlength="120"') +
       '<div class="form-grid">' + f('ed-c', 'CNPJ', 'c', e.cnpj, ' maxlength="18" inputmode="numeric"') + f('ed-ie', 'Inscrição estadual', 'ie', e.ie, ' maxlength="20"') + '</div>' +
       f('ed-e', 'Endereço (rua e número)', 'e', e.endereco, ' maxlength="140"') + '<div class="form-grid">' + f('ed-b', 'Bairro', 'b', e.bairro, ' maxlength="60"') + f('ed-cep', 'CEP', 'cep', e.cep, ' maxlength="9" inputmode="numeric"') + '</div>' +
       '<div class="form-grid">' + f('ed-ci', 'Cidade/UF', 'ci', e.cidade, ' maxlength="60"') + f('ed-t', 'Telefone ou WhatsApp', 't', e.fone, ' maxlength="20" inputmode="tel"') + '</div>' + f('ed-m', 'E-mail', 'm', e.email, ' type="email" maxlength="120"') +
       '<div class="form-grid">' + f('ed-rn', 'Responsável legal', 'rn', e.resp, ' maxlength="80"') + f('ed-rc', 'Cargo do responsável', 'rc', e.respCargo, ' maxlength="40" placeholder="Ex.: sócio administrador"') + '</div>' +
       '<p class="ui-sub">Esses dados entram nos contratos, nos comprovantes de ponto e nos documentos da equipe.</p><button class="btn btn-primary" type="submit">Salvar cadastro</button></form>';
-    var ponto = '<form class="card card-pad stack" data-form="ponto-cfg"><h2 class="sec">Ponto: local e regras</h2>' +
+    var rig = [['tolerante', 'Tolerante: aceita mais variação de luz e de ângulo'], ['normal', 'Normal (recomendado)'], ['rigoroso', 'Rigoroso: pede o rosto bem de frente e boa luz']];
+    var ponto = '<form class="card card-pad stack" data-form="ponto-cfg">' + num(2, 'Ponto: local, fuso e regras') +
       '<div class="field"><span class="lbl-s">Local de trabalho</span><p>' + (c.lat != null ? 'Definido: ' + c.lat + ', ' + c.lng + ' · ' + mapaLink({ lat: c.lat, lng: c.lng }) : 'Ainda não definido. Sem ele, o ponto registra o local, mas não confere a distância.') + '</p><button type="button" class="btn" data-act="usar-local">Usar a localização deste aparelho</button><span class="sub">Faça isso dentro da empresa.</span></div>' +
       '<div class="field"><label for="pc-r">Raio aceito (metros)</label><input id="pc-r" name="raio" type="number" min="30" max="5000" step="10" value="' + esc(c.raio) + '"></div>' +
+      '<div class="field"><label for="pc-fu">Fuso horário da empresa</label><select id="pc-fu" name="fu">' + fusoOpts(fusoEmp(), false) + '</select><span class="sub">Define o dia e a hora do ponto e dos checklists. Quem trabalha em outro estado pode ter fuso próprio no cadastro da pessoa.</span></div>' +
       '<label class="check"><input type="checkbox" name="foto"' + (c.foto ? ' checked' : '') + '> Exigir foto em cada marcação</label>' +
       '<label class="check"><input type="checkbox" name="local"' + (c.local ? ' checked' : '') + '> Exigir localização na marcação pelo celular</label>' +
       '<label class="check"><input type="checkbox" name="bloquear"' + (c.bloquear ? ' checked' : '') + '> Não aceitar marcação fora do raio (sem isso, ela entra marcada como "fora do local")</label>' +
+      '<fieldset class="sec-num"><legend>Reconhecimento facial</legend><label class="check"><input type="checkbox" name="rosto"' + (c.rosto ? ' checked' : '') + '> Conferir o rosto em cada marcação</label><p class="sub">O cadastro do rosto é feito na primeira marcação de cada pessoa. A comparação roda no próprio aparelho; fica guardado só um código numérico do rosto e a foto do cadastro (LGPD, art. 11, II, "g").</p>' +
+      '<div class="field"><label for="pc-rg">Rigor da comparação</label><select id="pc-rg" name="rg">' + rig.map(function (x) { return '<option value="' + x[0] + '"' + (c.rigor === x[0] ? ' selected' : '') + '>' + esc(x[1]) + '</option>'; }).join('') + '</select></div>' +
+      '<div class="field"><span class="lbl-s">Se o rosto não conferir em 3 tentativas</span><label class="check"><input type="radio" name="rb" value="1"' + (c.rostoBloq ? ' checked' : '') + '> Não registrar a marcação</label><label class="check"><input type="radio" name="rb" value="0"' + (c.rostoBloq ? '' : ' checked') + '> Registrar e sinalizar para a empresa</label></div></fieldset>' +
       '<button class="btn btn-primary" type="submit">Salvar regras do ponto</button><p class="ui-sub">A hora vem do servidor, não do celular. As regras valem também no banco de dados, não só na tela.</p></form>';
     var turnos = (S.turnos || []).map(function (t) {
-      var al = alertasJornada(t), n = S.pessoas.filter(function (p) { return p.turno === t.id; }).length, dia = cargaDia(t);
-      return '<tr><td><strong>' + esc(t.nome) + '</strong><span class="sub">' + esc(diasTxt(t.dias)) + '</span></td><td>' + esc(horarioTxt(t)) + '<span class="sub">' + fmtHoras(dia) + ' por dia · ' + fmtHoras(dia * (t.dias || []).length) + ' por semana</span></td><td>' + (al.length ? al.map(function (x) { return '<span class="pill warn pill-wrap">' + esc(x) + '</span>'; }).join(' ') : pill('ok', 'Dentro da CLT')) + '<span class="sub">' + n + (n === 1 ? ' pessoa' : ' pessoas') + '</span></td>' +
+      var cj = conferirJornada(t), n = S.pessoas.filter(function (p) { return p.turno === t.id; }).length, pw = function (cls) { return function (x) { return '<span class="pill ' + cls + ' pill-wrap">' + esc(x) + '</span>'; }; };
+      return '<tr><td><strong>' + esc(t.nome) + '</strong><span class="sub">' + esc(escalaTxt(t)) + '</span></td><td>' + esc(horarioTxt(t)) + '<span class="sub">' + fmtHoras(cj.dia) + ' por dia · ' + fmtHoras(cj.semana) + ' por semana' + (t.x1236 ? ' (média)' : '') + '</span></td><td>' +
+        cj.graves.map(pw('bad')).join(' ') + (cj.graves.length && t.aceite ? '<span class="sub">Mantido pela empresa: ' + esc(t.aceite.por) + ', ' + esc(t.aceite.em) + '</span>' : '') + ' ' + cj.avisos.map(pw('warn')).join(' ') + (cj.graves.length || cj.avisos.length ? '' : pill('ok', 'Dentro da CLT')) + '<span class="sub">' + n + (n === 1 ? ' pessoa' : ' pessoas') + '</span></td>' +
         '<td class="num"><span class="actions"><button type="button" class="btn btn-sm" data-act="turno-editar" data-id="' + esc(t.id) + '">Editar</button><button type="button" class="btn btn-sm" data-act="turno-del" data-id="' + esc(t.id) + '">Remover</button></span></td></tr>';
     }).join('');
-    var cardT = '<div class="card"><div class="card-head"><h2>Turnos de trabalho</h2><button type="button" class="btn btn-sm btn-primary" data-act="turno-editar">Novo turno</button></div>' +
-      (turnos ? '<div class="table-box"><table class="t stack-sm"><thead><tr><th>Turno</th><th>Horário e carga</th><th>Conferência</th><th class="num">Ação</th></tr></thead><tbody>' + turnos + '</tbody></table></div>' : '<p class="card-pad ui-sub">Nenhum turno ainda. Cadastre os horários da empresa uma vez e escolha o turno ao cadastrar cada pessoa. Quem tem horário diferente recebe um horário próprio no cadastro.</p>') + '</div>';
-    return titleRow('Dados da empresa', 'Cadastro, local e regras do ponto e turnos de trabalho') + '<div class="grid-main"><div class="stack">' + dados + cardT + '</div><div class="stack">' + ponto + '</div></div>';
+    var cardT = '<div class="card"><div class="card-head"><h2 class="sec-n"><span class="wiz-n">3</span>Turnos de trabalho</h2><button type="button" class="btn btn-primary" data-act="turno-editar">Novo turno</button></div>' +
+      (turnos ? '<div class="table-box"><table class="t stack-sm"><thead><tr><th>Turno</th><th>Horário e carga</th><th>Conferência com a CLT</th><th class="num">Ação</th></tr></thead><tbody>' + turnos + '</tbody></table></div>' : '<div class="card-pad stack"><p class="ui-sub">Nenhum turno ainda. Cadastre os horários da empresa uma vez, com quantos intervalos precisar, e escolha o turno ao cadastrar cada pessoa.</p><div><button type="button" class="btn btn-primary btn-lg" data-act="turno-editar">Criar o primeiro turno</button></div></div>') + '</div>';
+    var rs = S.rostos || {}, nr = S.pessoas.filter(function (p) { return rs[p.id]; }).length;
+    var rostos = c.rosto ? '<div class="card"><div class="card-head"><h2>Rostos cadastrados</h2>' + pill(nr && nr === S.pessoas.length ? 'ok' : 'mute', nr + ' de ' + S.pessoas.length) + '</div><ul class="list">' + (S.pessoas.map(function (p) {
+      var r = rs[p.id];
+      return '<li><span>' + esc(p.nome) + '<span class="sub">' + (r ? 'cadastrado em ' + esc(quandoTxt(r.em)) : 'ainda não: cadastra na primeira marcação') + '</span></span>' + (r ? '<span class="actions">' + (r.foto ? '<button type="button" class="btn btn-sm" data-act="arq-ver" data-path="' + esc(r.foto) + '" data-t="Rosto de ' + esc(p.nome) + '">Foto</button>' : '') + '<button type="button" class="btn btn-sm" data-act="rosto-del" data-id="' + esc(p.id) + '">Apagar e recadastrar</button></span>' : '') + '</li>';
+    }).join('') || '<li>Cadastre a equipe primeiro.</li>') + '</ul></div>' : '';
+    return titleRow('Dados da empresa', 'Três passos: cadastro, regras do ponto e turnos de trabalho') + '<div class="grid-main"><div class="stack">' + dados + cardT + '</div><div class="stack">' + ponto + rostos + '</div></div>';
   }
 
   /* Documentos da pessoa */
@@ -943,10 +1276,16 @@
     var cts = contratosDe(pid).map(function (c) { var m = modeloCt(c.modelo); return '<li><span>' + esc(m ? m.nome : (c.nomeArq || 'Contrato')) + '<span class="sub">' + esc(c.em || '') + (c.arquivo ? ' · assinado enviado' : '') + '</span></span><span class="actions">' + (m && m.tipo !== 'arquivo' ? '<button type="button" class="btn btn-sm" data-act="ct-ver" data-id="' + esc(c.id) + '">Ver</button>' : '') + (m && m.tipo === 'arquivo' ? '<button type="button" class="btn btn-sm" data-act="arq-ver" data-path="' + esc(m.arquivo) + '" data-t="' + esc(m.nome) + '">Ver</button>' : '') + (c.arquivo ? '<button type="button" class="btn btn-sm" data-act="arq-ver" data-path="' + esc(c.arquivo) + '" data-t="Contrato assinado">Assinado</button>' : '') + '</span></li>'; }).join('');
     var cabeca = '<div class="card kpis"><div class="kpi"><div class="lbl">Obrigatórios aprovados</div><div class="val num">' + r.ok + ' de ' + r.total + '</div><div class="cap">' + (r.falta ? r.falta + ' ainda não enviado(s)' : 'todos enviados') + '</div></div><div class="kpi"><div class="lbl">Aguardando conferência</div><div class="val num">' + r.conferir + '</div><div class="cap">' + (decide ? 'confira e aprove' : 'a empresa confere') + '</div></div></div>';
     var aviso = '<div class="notice info"><div><strong>Seus documentos ficam protegidos</strong>Só você, a empresa e o contador da empresa veem estes arquivos. Use foto nítida ou PDF; frente e verso podem ir em dois envios.</div></div>';
-    if (func) return titleRow('Meus documentos', 'Envie os documentos da sua contratação pelo app') + '<div class="grid-main"><div class="stack">' + cabeca + '<div class="card">' + tipos + '</div></div><div class="stack">' + aviso + (cts ? '<div><h2 class="sec">Meus contratos</h2><div class="card"><ul class="list">' + cts + '</ul></div></div>' : '') + '</div></div>';
+    if (func) return titleRow('Meus documentos', 'Envie os documentos da sua contratação pelo app') + '<div class="grid-main"><div class="stack">' + proxDocHTML(pid) + cabeca + '<div class="card">' + tipos + '</div></div><div class="stack">' + aviso + (cts ? '<div><h2 class="sec">Meus contratos</h2><div class="card"><ul class="list">' + cts + '</ul></div></div>' : '') + '</div></div>';
     var lista = S.pessoas.map(function (x) { var rr = resumoDocs(x.id); return '<li><span><button type="button" class="link-btn" data-act="doc-pessoa" data-id="' + esc(x.id) + '"' + (x.id === pid ? ' aria-current="true"' : '') + '>' + esc(x.nome) + '</button><span class="sub">' + rr.ok + ' de ' + rr.total + ' obrigatórios aprovados</span></span>' + (rr.conferir ? pill('warn', rr.conferir + ' para conferir') : rr.ok === rr.total ? pill('ok', 'Completo') : pill('mute', rr.falta + ' faltando')) + '</li>'; }).join('');
     return titleRow('Documentos da equipe', 'Cada pessoa envia pelo app; você e o contador conferem') + '<div class="grid-main"><div class="stack"><h2 class="sec">' + esc(p.nome) + '</h2>' + cabeca + '<div class="card">' + tipos + '</div>' + (cts ? '<div><h2 class="sec">Contratos</h2><div class="card"><ul class="list">' + cts + '</ul></div></div>' : '') + '</div>' +
       '<div class="stack"><div><h2 class="sec">Equipe</h2><div class="card"><ul class="list">' + lista + '</ul></div></div>' + aviso.replace('Seus documentos ficam protegidos', 'Arquivos protegidos').replace('Só você, a empresa e o contador da empresa veem estes arquivos.', 'Cada pessoa só vê os próprios documentos; a empresa e o contador veem os da equipe.') + '</div></div>';
+  }
+  function proxDocHTML(pid) {
+    var ds = docsDe(pid), falta = DOCS_PESSOA.filter(function (x) { return x[2] && !ds.some(function (d) { return d.tipo === x[0] && d.status !== 'recusado'; }); }), x = falta[0];
+    if (!x) return '<div class="notice info"><div><strong>Documentos obrigatórios enviados</strong>A empresa confere. Se algum for recusado, ele volta para cá com o motivo.</div></div>';
+    var rec = ds.some(function (d) { return d.tipo === x[0] && d.status === 'recusado'; });
+    return '<div class="card proximo"><div class="proximo-main"><span class="lbl-s">Próximo passo · ' + (falta.length === 1 ? 'falta 1 obrigatório' : 'faltam ' + falta.length + ' obrigatórios') + '</span><strong class="proximo-tit">' + (rec ? 'Enviar de novo: ' : 'Enviar ') + esc(x[1]) + '</strong><span class="ui-sub">' + esc(x[3] || 'Foto nítida ou PDF') + '</span></div><span class="btn btn-primary btn-xl file-btn">Escolher foto ou PDF<input type="file" accept="image/*,application/pdf" data-in="doc-enviar" data-tipo="' + x[0] + '" data-pessoa="' + esc(pid) + '" aria-label="Enviar ' + esc(x[1]) + '"></span></div>';
   }
   function decidirDoc(id, status, motivo) {
     var d = (S.docsArq || []).filter(function (x) { return String(x.id) === String(id); })[0]; if (!d) return;
@@ -977,6 +1316,7 @@
     }).join('');
     var env = S.pessoas.filter(function (p) { return holDe(p.id, comp); }).length, lib = S.pessoas.filter(function (p) { var h = holDe(p.id, comp); return h && h.status === 'liberado'; }).length;
     return titleRow('Holerites', 'Competência de ' + esc(compTxt(comp)) + ' · o contador envia o PDF de cada pessoa, a empresa aprova e o funcionário recebe no app', emp ? '<button type="button" class="btn" data-act="hol-liberar-sel">Aprovar selecionados</button><button type="button" class="btn btn-primary" data-act="hol-liberar-todos"' + (env - lib ? '' : ' disabled') + '>Aprovar todos os enviados (' + (env - lib) + ')</button>' : '') +
+      (function () { var n = S.pessoas.length, ps = [['Escolher o mês (competência)', true], ['Contador envia o PDF de cada pessoa · ' + env + ' de ' + n, n > 0 && env >= n], ['Empresa confere e aprova · ' + lib + ' de ' + env, env > 0 && lib >= env], ['Cada pessoa recebe no app', n > 0 && lib >= n]], at = ps.filter(function (x) { return !x[1]; })[0]; return '<ol class="mini-passos">' + ps.map(function (x) { return '<li class="' + (x[1] ? 'feito' : x === at ? 'atual' : '') + '">' + esc(x[0]) + '</li>'; }).join('') + '</ol>'; })() +
       '<div class="stack"><div class="card card-pad form-grid"><div class="field"><label for="h-comp">Competência</label><input id="h-comp" type="month" value="' + esc(comp) + '" data-in="hol-comp"></div><div class="field"><span class="lbl-s">Situação</span><p class="num"><strong>' + env + ' de ' + S.pessoas.length + '</strong> enviados · <strong>' + lib + '</strong> liberados</p></div></div>' +
       '<div class="card"><div class="table-box"><table class="t stack-sm"><thead><tr>' + (emp ? '<th><span class="sr-only">Selecionar</span></th>' : '') + '<th>Pessoa</th><th>Situação</th><th class="num">Ação</th></tr></thead><tbody>' + (rows || '<tr><td colspan="4">Cadastre a equipe primeiro.</td></tr>') + '</tbody></table></div></div>' +
       '<p class="ui-sub">O PDF sai do sistema de folha do contador. O funcionário só vê o holerite depois da aprovação da empresa.</p></div>';
@@ -1024,15 +1364,16 @@
     var rows = (S.contratos || []).slice().reverse().map(function (c) {
       var p = P(c.pessoa), m = modeloCt(c.modelo); if (!p) return '';
       return '<tr><td><strong>' + esc(p.nome) + '</strong><span class="sub">' + esc(p.funcao || '') + '</span></td><td>' + esc(m ? m.nome : (c.nomeArq || 'Contrato enviado')) + '<span class="sub">' + esc(c.em || '') + '</span></td><td>' + (c.arquivo ? pill('ok', 'Assinado enviado') : pill('warn', 'Falta o assinado')) + '</td>' +
-        '<td class="num"><span class="actions">' + (m && m.tipo !== 'arquivo' ? '<button type="button" class="btn btn-sm" data-act="ct-ver" data-id="' + esc(c.id) + '">Ver e baixar</button>' : '') + (m && m.tipo === 'arquivo' ? '<button type="button" class="btn btn-sm" data-act="arq-ver" data-path="' + esc(m.arquivo) + '" data-t="' + esc(m.nome) + '">Modelo</button>' : '') +
+        '<td class="num"><span class="actions">' + (m && m.tipo !== 'arquivo' ? '<button type="button" class="btn btn-sm' + (c.arquivo ? '' : ' btn-primary') + '" data-act="ct-ver" data-id="' + esc(c.id) + '">Ver e baixar</button>' : '') + (m && m.tipo === 'arquivo' ? '<button type="button" class="btn btn-sm" data-act="arq-ver" data-path="' + esc(m.arquivo) + '" data-t="' + esc(m.nome) + '">Modelo</button>' : '') +
         (c.arquivo ? '<button type="button" class="btn btn-sm" data-act="arq-ver" data-path="' + esc(c.arquivo) + '" data-t="Contrato assinado de ' + esc(p.nome) + '">Assinado</button>' : '<span class="btn btn-sm file-btn">Enviar assinado<input type="file" accept="application/pdf,image/*" data-in="ct-assinado" data-id="' + esc(c.id) + '" aria-label="Enviar contrato assinado de ' + esc(p.nome) + '"></span>') +
         '<button type="button" class="btn btn-sm" data-act="ct-del" data-id="' + esc(c.id) + '">Remover</button></span></td></tr>';
     }).join('');
     var opts = S.pessoas.map(function (p) { return '<option value="' + esc(p.id) + '">' + esc(p.nome) + '</option>'; }).join('');
-    return '<div class="grid-main"><div class="card"><div class="card-head"><h2>Contratos da equipe</h2><span class="ui-sub">Gerados pelos modelos ou enviados já assinados</span></div>' + (rows ? '<div class="table-box"><table class="t stack-sm"><thead><tr><th>Pessoa</th><th>Contrato</th><th>Situação</th><th class="num">Ação</th></tr></thead><tbody>' + rows + '</tbody></table></div>' : '<p class="card-pad ui-sub">Nenhum contrato ainda. Em "Modelos da empresa", use um modelo para várias pessoas de uma vez, ou cadastre ao lado um contrato que já está assinado.</p>') + '</div>' +
+    var falta = (S.contratos || []).filter(function (c) { return !c.arquivo && P(c.pessoa); }).length;
+    return (falta ? '<ol class="mini-passos n3"><li class="feito">Contrato gerado</li><li class="atual">Baixar ("Ver e baixar"), imprimir e colher a assinatura</li><li>Enviar o assinado ("Enviar assinado")</li></ol>' : '') + '<div class="grid-main"><div class="card"><div class="card-head"><h2>Contratos da equipe</h2><span class="ui-sub">Gerados pelos modelos ou enviados já assinados</span></div>' + (rows ? '<div class="table-box"><table class="t stack-sm"><thead><tr><th>Pessoa</th><th>Contrato</th><th>Situação</th><th class="num">Ação</th></tr></thead><tbody>' + rows + '</tbody></table></div>' : '<p class="card-pad ui-sub">Nenhum contrato ainda. Em "Modelos da empresa", use um modelo para várias pessoas de uma vez, ou cadastre ao lado um contrato que já está assinado.</p>') + '</div>' +
       '<div class="stack"><div class="card card-pad stack"><h2 class="sec">Cadastrar contrato já assinado</h2>' + (opts ? '<div class="field"><label for="cp-p">Pessoa</label><select id="cp-p">' + opts + '</select></div><span class="btn btn-primary file-btn">Escolher o arquivo assinado<input type="file" accept="application/pdf,image/*" data-in="ct-pronto" aria-label="Enviar contrato assinado"></span><p class="ui-sub">PDF ou foto das páginas. A pessoa também vê o contrato em "Meus documentos".</p>' : '<p class="ui-sub">Cadastre a equipe primeiro.</p>') + '</div></div></div>';
   }
-  function abasContrato(atual) { return '<div class="tabs" role="tablist">' + [['gerar', 'Gerar contrato'], ['modelos', 'Modelos da empresa (' + (S.modelosCt || []).length + ')'], ['equipe', 'Contratos da equipe (' + (S.contratos || []).length + ')']].map(function (t) { return '<button type="button" role="tab" data-act="ct-tab" data-v="' + t[0] + '" aria-selected="' + (atual === t[0]) + '">' + esc(t[1]) + '</button>'; }).join('') + '</div>'; }
+  function abasContrato(atual) { return '<div class="tabs" role="tablist">' + [['equipe', 'Contratos da equipe (' + (S.contratos || []).length + ')'], ['modelos', 'Modelos da empresa (' + (S.modelosCt || []).length + ')'], ['gerar', 'Gerador por função']].map(function (t) { return '<button type="button" role="tab" data-act="ct-tab" data-v="' + t[0] + '" aria-selected="' + (atual === t[0]) + '">' + esc(t[1]) + '</button>'; }).join('') + '</div>'; }
 
   function kpiHolFunc() { var u = (S.holArq || []).filter(function (h) { return h.pessoa_id === ME && h.status === 'liberado'; }).sort(function (a, b) { return a.competencia < b.competencia ? 1 : -1; })[0]; return '<div class="kpi"><div class="lbl">Último holerite</div><div class="val num">' + (u ? esc(compTxt(u.competencia)) : 'nenhum ainda') + '</div><div class="cap">' + (u ? '<a href="#/holerites">abrir</a>' : 'aparece quando a empresa aprovar') + '</div></div>'; }
   function kpiDocsFunc() { var r = resumoDocs(ME); return '<div class="kpi"><div class="lbl">Meus documentos</div><div class="val num">' + r.ok + ' de ' + r.total + '</div><div class="cap"><a href="#/documentos">' + (r.falta ? 'enviar os que faltam' : 'ver documentos') + '</a></div></div>'; }
@@ -1040,18 +1381,29 @@
   /* Ajuste de marcação: o registro original fica; o ajuste vale por cima, com motivo e aprovação */
   function ajustesDe(pid, dia, st) { return (S.ajustes || []).filter(function (a) { return a.pessoa_id === pid && (!dia || a.dia === dia) && (!st || a.status === st); }); }
   function marcasDia(pid, dia) {
-    var o = [null, null, null, null];
-    regsDe(pid, dia).forEach(function (r) { o[r.tipo] = { hora: hhmm(r.em), r: r }; });
-    ajustesDe(pid, dia, 'aprovado').sort(function (a, b) { return String(a.decidido_em) < String(b.decidido_em) ? -1 : 1; }).forEach(function (a) { var antes = o[a.tipo]; o[a.tipo] = { hora: a.acao === 'desconsiderar' ? '' : a.hora, a: a, antes: antes && (antes.r ? antes : antes.antes) }; });
+    var o = [], tz = fusoDe(P(pid)); for (var i = 0; i <= SAIDA; i++) o.push(null);
+    regsDe(pid, dia).forEach(function (r) { if (r.tipo >= 0 && r.tipo <= SAIDA) o[r.tipo] = { hora: hhmm(r.em, tz), r: r }; });
+    ajustesDe(pid, dia, 'aprovado').sort(function (a, b) { return String(a.decidido_em) < String(b.decidido_em) ? -1 : 1; }).forEach(function (a) { if (!(a.tipo >= 0 && a.tipo <= SAIDA)) return; var antes = o[a.tipo]; o[a.tipo] = { hora: a.acao === 'desconsiderar' ? '' : a.hora, a: a, antes: antes && (antes.r ? antes : antes.antes) }; });
     return o;
   }
-  // Próxima marcação: a que ainda não foi registrada nem incluída por ajuste (o banco não aceita a mesma marcação duas vezes no dia).
-  function proxTipo(pid) { if (!S.real) return (S.ponto[pid] || ['', '', '', '']).indexOf(''); var d = diaAberto(pid), mk = marcasDia(pid, d), raw = regsDe(pid, d); for (var i = 0; i < 4; i++) { if (!raw.some(function (r) { return r.tipo === i; }) && !(mk[i] && mk[i].a)) return i; } return -1; }
+  // Próxima marcação pela sequência da pessoa. "alt": a outra opção do momento (encerrar o dia sem o intervalo, ou sair para mais um intervalo).
+  // Uma marcação já registrada ou incluída por ajuste não se repete no dia (o banco não aceita a mesma marcação duas vezes).
+  function proxInfo(pid) {
+    var oc = {}, n = nIvs(pid), k = -1, i;
+    if (S.real) oc = ocupados(pid, diaAberto(pid)); else mk(pid).forEach(function (h, t) { if (h) oc[t] = 1; });
+    if (oc[SAIDA]) return { prox: -1, alt: null, n: n };
+    for (i = 0; i < SAIDA; i++) if (oc[i]) k = i;
+    if (k < 0) return { prox: 0, alt: null, n: n };
+    var prox = k % 2 ? k + 1 : (k + 1 <= 2 * n ? k + 1 : SAIDA), alt = null;
+    if (prox !== SAIDA && prox % 2) alt = SAIDA; else if (prox === SAIDA && k < 8) alt = k + 1;
+    return { prox: prox, alt: alt, n: n };
+  }
+  function proxTipo(pid) { return proxInfo(pid).prox; }
   var ACAO_AJ = { incluir: 'inclusão', corrigir: 'correção de horário', desconsiderar: 'desconsiderar' };
   function ajusteForm(pid, direto) {
-    var h = hojeISO();
+    var h = hojeEm(fusoDe(P(pid))), n = nIvs(pid), ts = sequenciaDe(pid); if (n < 4) ts.splice(ts.length - 1, 0, 2 * n + 1, 2 * n + 2);
     return '<form class="stack" data-form="ajuste" data-pessoa="' + esc(pid) + '" data-direto="' + (direto ? 1 : 0) + '"><div class="form-grid"><div class="field"><label for="aj-d">Dia</label><input id="aj-d" name="d" type="date" max="' + h + '" min="' + addDays(h, -45) + '" value="' + h + '" required></div>' +
-      '<div class="field"><label for="aj-t">Marcação</label><select id="aj-t" name="t">' + TIPOS_PONTO.map(function (n, i) { return '<option value="' + i + '">' + n + '</option>'; }).join('') + '</select></div></div>' +
+      '<div class="field"><label for="aj-t">Marcação</label><select id="aj-t" name="t">' + ts.map(function (t) { return '<option value="' + t + '">' + esc(nomeTipo(t, n)) + '</option>'; }).join('') + '</select></div></div>' +
       (direto ? '<div class="field"><label for="aj-a">O que fazer</label><select id="aj-a" name="a"><option value="auto">Incluir a marcação que faltou ou corrigir o horário</option><option value="desconsiderar">Desconsiderar a marcação (registro errado)</option></select></div>' : '') +
       '<div class="field"><label for="aj-h">Horário correto</label><input id="aj-h" name="h" type="time"></div>' +
       '<div class="field"><label for="aj-m">Motivo</label><textarea id="aj-m" name="m" rows="3" maxlength="300" required placeholder="Ex.: esqueci de marcar a saída; saí às 17:50"></textarea></div>' +
@@ -1061,7 +1413,7 @@
     if (!lista.length) return '';
     return '<ul class="list">' + lista.map(function (a) {
       var st = a.status === 'aprovado' ? pill('ok', 'Aprovado') : a.status === 'recusado' ? pill('bad', 'Recusado') : pill('warn', 'Aguardando a empresa');
-      return '<li><span><strong>' + esc((P(a.pessoa_id) || {}).nome || '') + '</strong> · ' + dmyy(a.dia) + ' · ' + esc(TIPOS_PONTO[a.tipo]) + (a.hora ? ' às ' + esc(a.hora) : '') + ' <span class="sub">' + esc(ACAO_AJ[a.acao]) + ': ' + esc(a.motivo) + ' · pedido por ' + esc(a.pedido_nome || '') + ' em ' + esc(quandoTxt(a.pedido_em)) + (a.decidido_nome ? ' · decidido por ' + esc(a.decidido_nome) : '') + (a.resposta ? ' · resposta: ' + esc(a.resposta) : '') + '</span></span><span class="actions">' + st +
+      return '<li><span><strong>' + esc((P(a.pessoa_id) || {}).nome || '') + '</strong> · ' + dmyy(a.dia) + ' · ' + esc(tipoNome(a.pessoa_id, a.tipo)) + (a.hora ? ' às ' + esc(a.hora) : '') + ' <span class="sub">' + esc(ACAO_AJ[a.acao]) + ': ' + esc(a.motivo) + ' · pedido por ' + esc(a.pedido_nome || '') + ' em ' + esc(quandoTxt(a.pedido_em)) + (a.decidido_nome ? ' · decidido por ' + esc(a.decidido_nome) : '') + (a.resposta ? ' · resposta: ' + esc(a.resposta) : '') + '</span></span><span class="actions">' + st +
         (decide && a.status === 'pendente' ? '<button type="button" class="btn btn-sm btn-primary" data-act="aj-ok" data-id="' + esc(a.id) + '">Aprovar</button><button type="button" class="btn btn-sm" data-act="aj-nao" data-id="' + esc(a.id) + '">Recusar</button>' : '') + '</span></li>';
     }).join('') + '</ul>';
   }
@@ -1069,7 +1421,7 @@
     var a = (S.ajustes || []).filter(function (x) { return String(x.id) === String(id); })[0]; if (!a) return;
     (NUVEM ? Nuvem.decidirAjuste(a.id, status, quemSou(), resposta) : Promise.resolve(null)).then(function (x) {
       if (x) Object.assign(a, x); else { a.status = status; a.decidido_nome = quemSou(); a.decidido_em = new Date().toISOString(); a.resposta = resposta || null; }
-      pontoHoje(); auditar('Ajuste de ponto ' + (status === 'aprovado' ? 'aprovado' : 'recusado'), ((P(a.pessoa_id) || {}).nome || '') + ' · ' + dmyy(a.dia) + ' · ' + TIPOS_PONTO[a.tipo] + (a.hora ? ' ' + a.hora : '') + ': ' + a.motivo);
+      pontoHoje(); auditar('Ajuste de ponto ' + (status === 'aprovado' ? 'aprovado' : 'recusado'), ((P(a.pessoa_id) || {}).nome || '') + ' · ' + dmyy(a.dia) + ' · ' + tipoNome(a.pessoa_id, a.tipo) + (a.hora ? ' ' + a.hora : '') + ': ' + a.motivo);
       save(); closeModal(); render(); toast(status === 'aprovado' ? 'Ajuste aprovado. A marcação original continua guardada.' : 'Pedido recusado. A pessoa vê a resposta no app.');
     }, function (e) { toast(erroTxt(e)); });
   }
@@ -1078,7 +1430,7 @@
   var NUVEM = !!(window.Nuvem && Nuvem.ativa) && !EXEMPLO;
   var SNAP = null, MEMBROS = [], VINCULOS = [], PUBLICADO = {}, tSync = null, tPend = null;
   var LISTAS = ['atestados', 'advertencias', 'vales', 'banco'];
-  function semUI(s) { var c = clone(s); delete c.ui; delete c.role; delete c.nuvemPessoa; delete c.registros; delete c.docsArq; delete c.holArq; delete c.ajustes; return c; }
+  function semUI(s) { var c = clone(s); delete c.ui; delete c.role; delete c.nuvemPessoa; delete c.registros; delete c.docsArq; delete c.holArq; delete c.ajustes; delete c.ckRegs; delete c.rostos; return c; }
   function pessoaEm(D, id) { return (D.pessoas || []).filter(function (p) { return p.id === id; })[0]; }
   function porId(l) { var m = {}; (l || []).forEach(function (x) { if (x && x.id) m[x.id] = x; }); return m; }
   function igual(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
@@ -1090,7 +1442,7 @@
     LISTAS.forEach(function (n) { var A = porId(a[n]); (b[n] || []).forEach(function (x) { if (!x || !x.id) return; var o = A[x.id]; if (!o) ops.push({ k: 'add', l: n, v: x }); else Object.keys(x).forEach(function (c) { if (!igual(x[c], o[c])) ops.push({ k: 'set', l: n, id: x.id, c: c, v: x[c] }); }); }); });
     ((b.bp || {}).temps || []).slice(((a.bp || {}).temps || []).length).forEach(function (x) { ops.push({ k: 'add', l: 'temps', v: x }); });
     var CA = porId((a.compras || {}).itens); ((b.compras || {}).itens || []).forEach(function (x) { var o = CA[x.id]; if (!o) ops.push({ k: 'add', l: 'compras', v: x }); else Object.keys(x).forEach(function (c) { if (!igual(x[c], o[c])) ops.push({ k: 'set', l: 'compras', id: x.id, c: c, v: x[c] }); }); });
-    var CK = porId(a.checklists); (b.checklists || []).forEach(function (c) { var o = CK[c.id]; if (!o) return; (c.itens || []).forEach(function (it, j) { var oi = (o.itens || [])[j] || {}; ['feito', 'fotoEm', 'por', 'arquivo'].forEach(function (f) { if (it[f] !== oi[f]) ops.push({ k: 'ck', id: c.id, j: j, c: f, v: it[f] }); }); }); });
+    // checklists também não: cada etapa marcada é gravada direto na tabela, com a hora do servidor
     var tb = (b.treinos || {})[ME] || {}, ta = (a.treinos || {})[ME] || {}; Object.keys(tb).forEach(function (cid) { if (!igual(tb[cid], ta[cid])) ops.push({ k: 'treino', id: cid, v: tb[cid] }); });
     return ops;
   }
@@ -1132,11 +1484,11 @@
   function subsetPara(D, pid, papel, perms) {
     var tem = function (p) { return papel === 'gerente' && (perms || []).indexOf(p) > -1; }, eu = pessoaEm(D, pid); if (!eu) return null;
     var dono = function (x) { return x && x.pessoa === pid; }, equipe = tem('ponto') || tem('banco') || tem('checklists');
-    var pub = function (p) { return p.id === pid ? p : { id: p.id, nome: p.nome, funcao: p.funcao, setor: p.setor, escala: p.escala, celular: p.celular }; };
+    var pub = function (p) { return p.id === pid ? p : { id: p.id, nome: p.nome, funcao: p.funcao, setor: p.setor, escala: p.escala, celular: p.celular, turno: p.turno, jornada: p.jornada, fuso: p.fuso }; };
     var so = function (obj) { var o = {}; o[pid] = (obj || {})[pid]; return o; };
     var e = D.empresa || {};
     return {
-      empresa: { nome: e.nome, razao: e.razao, cnpj: e.cnpj, cidade: e.cidade, endereco: e.endereco, codigo: e.codigo, ponto: e.ponto }, tipo: D.tipo, plano: D.plano, hoje: D.hoje, real: true, agencia: D.agencia,
+      empresa: { nome: e.nome, razao: e.razao, cnpj: e.cnpj, cidade: e.cidade, endereco: e.endereco, codigo: e.codigo, ponto: e.ponto, fuso: e.fuso }, tipo: D.tipo, plano: D.plano, hoje: D.hoje, real: true, agencia: D.agencia,
       pessoas: equipe ? (D.pessoas || []).map(pub) : [eu], ponto: tem('ponto') ? D.ponto : so(D.ponto), marcacoesMetodo: tem('ponto') ? D.marcacoesMetodo : so(D.marcacoesMetodo),
       atestados: (D.atestados || []).filter(dono), advertencias: (D.advertencias || []).filter(dono), faltas: (D.faltas || []).filter(dono), horasExtras: so(D.horasExtras),
       holerites: D.holerites, vales: (D.vales || []).filter(dono),
@@ -1307,20 +1659,23 @@
   function pessoaForm(p) {
     p = p || {}; var cgs = CARGOS.map(function (c) { return '<option value="' + c.id + '"' + (c.id === p.cargo ? ' selected' : '') + '>' + esc(c.cargo) + ' · CBO ' + esc(c.cbo) + '</option>'; }).join('');
     var f = function (id, l, n, v, extra) { return '<div class="field"><label for="' + id + '">' + l + '</label><input id="' + id + '" name="' + n + '" value="' + esc(v == null ? '' : v) + '"' + (extra || '') + '></div>'; };
-    return '<form class="stack" data-form="pessoa" data-id="' + esc(p.id || '') + '">' + f('pe-n', 'Nome completo', 'n', p.nome, ' maxlength="80" required') +
-      '<div class="form-grid">' + f('pe-c', 'CPF (para o login no app)', 'c', p.cpf && p.cpf.indexOf('[') < 0 ? p.cpf : '', ' maxlength="14" inputmode="numeric"') + f('pe-t', 'WhatsApp', 't', p.fone, ' maxlength="20" inputmode="tel"') + '</div>' +
-      '<div class="form-grid">' + f('pe-f', 'Função na empresa', 'f', p.funcao, ' maxlength="60" required') + f('pe-s', 'Setor', 's', p.setor, ' maxlength="40"') + '</div>' +
-      '<div class="field"><label for="pe-g">Cargo (base com CBO, usado no contrato)</label><select id="pe-g" name="g">' + cgs + '</select></div>' +
-      '<div class="form-grid">' + f('pe-sa', 'Salário (R$)', 'sa', p.salario, ' type="number" min="0" step="0.01"') + f('pe-a', 'Admissão', 'a', p.admissao || S.hoje, ' type="date"') + '</div>' +
-      turnoCampos(p) +
-      '<button class="btn btn-primary" type="submit">' + (p.id ? 'Salvar' : 'Cadastrar') + '</button></form>';
+    var sec = function (n, t, corpo) { return '<fieldset class="sec-num"><legend><span class="wiz-n">' + n + '</span>' + esc(t) + '</legend>' + corpo + '</fieldset>'; };
+    return '<form class="stack" data-form="pessoa" data-jornada data-id="' + esc(p.id || '') + '" data-aceite="' + esc(p.jornada && p.jornada.aceite ? JSON.stringify(p.jornada.aceite.alertas) : '') + '">' +
+      sec(1, 'Quem é', f('pe-n', 'Nome completo', 'n', p.nome, ' maxlength="80" required') +
+        '<div class="form-grid">' + f('pe-c', 'CPF (para o login no app)', 'c', p.cpf && p.cpf.indexOf('[') < 0 ? p.cpf : '', ' maxlength="14" inputmode="numeric"') + f('pe-t', 'WhatsApp', 't', p.fone, ' maxlength="20" inputmode="tel"') + '</div>') +
+      sec(2, 'Trabalho', '<div class="form-grid">' + f('pe-f', 'Função na empresa', 'f', p.funcao, ' maxlength="60" required') + f('pe-s', 'Setor', 's', p.setor, ' maxlength="40"') + '</div>' +
+        '<div class="field"><label for="pe-g">Cargo (base com CBO, usado no contrato)</label><select id="pe-g" name="g">' + cgs + '</select></div>' +
+        '<div class="form-grid">' + f('pe-sa', 'Salário (R$)', 'sa', p.salario, ' type="number" min="0" step="0.01"') + f('pe-a', 'Admissão', 'a', p.admissao || S.hoje, ' type="date"') + '</div>') +
+      sec(3, 'Horário de trabalho', turnoCampos(p)) +
+      '<button class="btn btn-primary btn-lg" type="submit">' + (p.id ? 'Salvar' : 'Cadastrar') + '</button></form>';
   }
   function turnoCampos(p) {
-    var ts = S.turnos || [], manual = !(p.turno && turnoDe(p.turno));
-    var j = p.jornada || { e: p.escala || '08:00', si: '12:00', vi: '13:00', s: '17:48', dias: [1, 2, 3, 4, 5] };
-    return '<div class="field"><label for="pe-tu">Turno</label><select id="pe-tu" name="tu" data-in="pe-turno">' + ts.map(function (t) { return '<option value="' + esc(t.id) + '"' + (t.id === p.turno ? ' selected' : '') + '>' + esc(t.nome) + ' · ' + esc(horarioTxt(t)) + '</option>'; }).join('') + '<option value=""' + (manual ? ' selected' : '') + '>Horário próprio (digitar abaixo)</option></select>' +
-      (ts.length ? '' : '<span class="sub">Cadastre os turnos da empresa uma vez em <a href="#/empresa">Dados da empresa</a> e depois só escolha aqui.</span>') + '</div>' +
-      '<fieldset class="stack manual-j" data-manual' + (manual ? '' : ' hidden') + '><legend class="lbl-s">Horário desta pessoa</legend>' + camposHorario('pe-', j) + '</fieldset>';
+    var ts = S.turnos || [], tSel = p.turno && turnoDe(p.turno) ? p.turno : (!p.id && ts.length ? ts[0].id : ''), manual = !tSel;
+    var j = p.jornada || { e: p.escala || '08:00', s: '17:48', intervalos: [{ flex: false, ini: '12:00', fim: '13:00' }], dias: [1, 2, 3, 4, 5] };
+    return '<div class="field"><label for="pe-tu">Turno</label><select id="pe-tu" name="tu" data-in="pe-turno">' + ts.map(function (t) { return '<option value="' + esc(t.id) + '"' + (t.id === tSel ? ' selected' : '') + '>' + esc(t.nome) + ' · ' + esc(horarioTxt(t)) + '</option>'; }).join('') + '<option value=""' + (manual ? ' selected' : '') + '>Horário próprio (montar abaixo)</option></select>' +
+      (ts.length ? '' : '<span class="sub">Dica: cadastre os turnos da empresa uma vez em <a href="#/empresa">Dados da empresa</a> e depois só escolha aqui.</span>') + '</div>' +
+      '<fieldset class="stack manual-j" data-manual' + (manual ? '' : ' hidden disabled') + '><legend class="lbl-s">Horário desta pessoa</legend>' + camposHorario('pe-', j) + '</fieldset>' +
+      '<div class="field"><label for="pe-fu">Fuso horário</label><select id="pe-fu" name="fu">' + fusoOpts(fusoOk(p.fuso), true) + '</select><span class="sub">Só mude se a pessoa trabalha em outro estado, com outro horário.</span></div>';
   }
   function cpfValido(c) {
     c = String(c || '').replace(/\D/g, ''); if (c.length !== 11 || /^(\d)\1+$/.test(c)) return false;
@@ -1338,54 +1693,76 @@
     s.checklists = (s.checklists || []).map(function (c) { return { id: c.id, setor: c.setor, nome: c.nome, hora: c.hora, resp: '', foto: c.foto, itens: c.itens.map(function (i) { return { t: i.t, foto: i.foto, feito: false }; }) }; });
     if (s.bp) { s.bp.temps = []; s.bp.docs.forEach(function (d) { d.ult = ''; if (d.venc) d.venc = ''; }); }
     if (s.agencia) { s.clientes = []; } delete s.envSeed;
-    s.nsr = 0; s.turnos = []; s.modelosCt = []; s.contratos = []; s.registros = []; s.docsArq = []; s.holArq = []; s.ajustes = []; s.v2 = true; s.empresa.ponto = {};
+    s.nsr = 0; s.turnos = []; s.modelosCt = []; s.contratos = []; s.registros = []; s.docsArq = []; s.holArq = []; s.ajustes = []; s.ckRegs = []; s.rostos = {}; s.pontoCiente = {}; s.v2 = true; s.empresa.ponto = {};
     s.hoje = hojeISO(); s.agoraDemo = null; s.real = true; s.plano = 'avaliacao';
     return s;
   }
 
   /* ---------- Ponto ---------- */
   var METODO = { celular: 'Celular autorizado', fixo: 'Aparelho da empresa', 'fixo-rosto': 'Aparelho fixo · rosto', 'fixo-digital': 'Aparelho fixo · digital' };
+  function linhaDiaHTML(pid, regs) {
+    var j = jornadaDe(P(pid)), ivs = ivsDe(j), m = mk(pid), pi = proxInfo(pid), ts = sequenciaDe(pid), n = nIvs(pid);
+    m.forEach(function (h, t) { if (h && ts.indexOf(t) < 0) ts.push(t); }); ts.sort(function (a, b) { return a - b; });
+    var prev = function (t) {
+      if (t === 0) return j.e ? 'previsto ' + j.e : ''; if (t === SAIDA) return j.s ? 'previsto ' + j.s + (passaMeiaNoite(j) ? ' (dia seguinte)' : '') : '';
+      var iv = ivs[Math.ceil(t / 2) - 1]; if (!iv) return '';
+      return iv.flex ? (t % 2 ? fmtDur(iv.dur) + ', na hora que você escolher' + (iv.de ? ' (a partir de ' + iv.de + ')' : '') : 'depois de ' + fmtDur(iv.dur)) : 'previsto ' + (t % 2 ? iv.ini : iv.fim);
+    };
+    return '<ol class="linha-dia">' + ts.map(function (t, i) {
+      var h = m[t], agora = t === pi.prox, r = (regs || [])[t];
+      var sub = h ? 'registrada' + (r ? ' · ' + localTxt(r) : '') : agora ? 'próximo passo' + (prev(t) ? ' · ' + prev(t) : '') : prev(t);
+      return '<li class="' + (h ? 'feito' : agora ? 'agora' : '') + '"><span class="ld-ic" aria-hidden="true">' + (h ? '✓' : i + 1) + '</span><span class="ld-t">' + esc(nomeTipo(t, n)) + '<span class="sub">' + esc(sub) + '</span></span>' + (r && r.fora_do_local ? pill('bad', 'fora do local') : '') + '<strong class="num">' + esc(h || '') + '</strong></li>';
+    }).join('') + '</ol>';
+  }
   function vPonto() {
     var real = !!S.real, eu = ehFunc() && (real || !pode('ponto')), equipe = !ehFunc() || pode('ponto');
     var quem = eu ? P(ME) : (P(S.ui.pontoPessoa) || P('e3') || S.pessoas[0]);
     var metodo = eu ? 'celular' : real ? 'fixo' : (S.ui.metodo || (quem.celular ? 'celular' : 'fixo'));
-    var bloqueado = metodo === 'celular' && !quem.celular, j = jornadaDe(quem);
+    var bloqueado = metodo === 'celular' && !quem.celular, j = jornadaDe(quem), tz = fusoDe(quem), cfg = cfgPonto();
     var opts = S.pessoas.map(function (p) { return '<option value="' + p.id + '"' + (p.id === quem.id ? ' selected' : '') + '>' + esc(p.nome) + '</option>'; }).join('');
-    var m = S.ponto[quem.id] || ['', '', '', ''], prox = proxTipo(quem.id), nomes = ['entrada', 'saída para o intervalo', 'volta do intervalo', 'saída'];
-    var rc = S.ui.recibo;
+    var pi = proxInfo(quem.id), prox = pi.prox, rc = S.ui.recibo;
+    var acao = bloqueado ? '<div class="notice"><div><strong>Celular não liberado para ' + esc(first(quem.nome)) + '</strong>' + (eu ? 'Marque no aparelho da empresa ou peça a liberação.' : 'A empresa só liberou o aparelho fixo.') + '</div></div>' :
+      '<div class="ponto-acao">' + (prox > -1 ? '<span class="lbl-s">Próximo passo</span>' : '') + '<button type="button" class="btn btn-primary btn-xl" data-act="marcar"' + (prox > -1 ? '' : ' disabled') + '>' + esc(prox > -1 ? 'Registrar ' + tipoNome(quem.id, prox).toLowerCase() : 'Jornada de hoje completa') + '</button>' +
+      (pi.alt != null ? '<button type="button" class="btn" data-act="marcar-alt" data-t="' + pi.alt + '">' + esc(pi.alt === SAIDA ? 'Encerrar o dia agora (registrar a saída)' : 'Sair para ' + (pi.alt === 1 ? 'um' : 'mais um') + ' intervalo') + '</button>' : '') +
+      (cfg.rosto ? '<span class="sub">' + ((S.rostos || {})[quem.id] ? 'Reconhecimento facial ligado: o app confere o rosto antes de registrar.' : 'Na primeira marcação, o app cadastra o rosto de ' + esc(first(quem.nome)) + '.') + '</span>' : '') + '</div>';
     var painel = '<div class="card card-pad stack"><h2 class="sec">' + (eu ? 'Bater ponto' : 'Bater ponto no aparelho da empresa') + '</h2>' +
       (eu ? '' : '<div class="field"><label for="pp">Quem vai marcar</label><select id="pp" data-in="ponto-pessoa">' + opts + '</select></div>') +
-      '<div class="clock num" id="clock" aria-live="off">--:--</div>' +
+      '<div><div class="clock num" id="clock" data-tz="' + esc(tz) + '" aria-live="off">--:--</div><p class="ui-sub clock-tz">' + esc(fusoNome(tz)) + (passaMeiaNoite(j) ? ' · seu turno termina no dia seguinte' : '') + '</p></div>' +
       (real || eu ? '' : '<div class="seg"><button type="button" data-act="metodo" data-v="celular" aria-pressed="' + (metodo === 'celular') + '">Celular</button><button type="button" data-act="metodo" data-v="fixo" aria-pressed="' + (metodo === 'fixo') + '">Aparelho fixo</button></div>') +
-      (bloqueado ? '<div class="notice"><div><strong>Celular não liberado para ' + esc(first(quem.nome)) + '</strong>' + (eu ? 'Marque no aparelho da empresa ou peça a liberação.' : 'A empresa só liberou o aparelho fixo.') + '</div></div>' :
-        '<div class="actions"><button type="button" class="btn btn-primary btn-lg" data-act="marcar"' + (prox > -1 ? '' : ' disabled') + '>' + (prox > -1 ? 'Registrar ' + nomes[prox] : 'Jornada de hoje completa') + '</button></div>') +
-      (rc ? '<div class="receipt num"><strong>Comprovante de registro de ponto</strong><br>NSR ' + esc(rc.nsr) + ' · ' + esc(rc.quando) + '<br>' + esc(S.empresa.razao || S.empresa.nome) + (S.empresa.cnpj ? ' · CNPJ ' + esc(S.empresa.cnpj) : '') + '<br>' + esc(rc.nome) + (rc.cpf ? ' · CPF ' + esc(rc.cpf) : '') + '<br>' + esc(rc.tipo) + ' · ' + esc(rc.metodo) + (rc.local ? '<br>Local: ' + esc(rc.local) : '') + (rc.foto ? '<br>Foto registrada' : '') + '<br>Programa registrado no INPI nº [a registrar]</div>' : '') +
+      acao +
+      (rc ? '<div class="receipt num"><strong>Comprovante de registro de ponto</strong><br>NSR ' + esc(rc.nsr) + ' · ' + esc(rc.quando) + '<br>' + esc(S.empresa.razao || S.empresa.nome) + (S.empresa.cnpj ? ' · CNPJ ' + esc(S.empresa.cnpj) : '') + '<br>' + esc(rc.nome) + (rc.cpf ? ' · CPF ' + esc(rc.cpf) : '') + '<br>' + esc(rc.tipo) + ' · ' + esc(rc.metodo) + (rc.local ? '<br>Local: ' + esc(rc.local) : '') + (rc.foto ? '<br>Foto registrada' : '') + (rc.rosto ? '<br>' + esc(rc.rosto) : '') + '<br>Programa registrado no INPI nº [a registrar]</div>' : '') +
       (eu && real ? '<button type="button" class="btn btn-sm" data-act="aj-novo">Esqueceu de marcar ou errou? Pedir ajuste</button>' : '') +
-      '<p class="ui-sub">Ponto por programa (REP-P), Portaria MTP 671/2021. ' + (real ? 'A hora registrada é a do servidor. ' : 'No exemplo, a foto e o local ficam só neste aparelho. ') + 'A foto e o local ficam guardados como comprovante de cada marcação; não há reconhecimento facial.</p></div>';
+      '<p class="ui-sub">Ponto por programa (REP-P), Portaria MTP 671/2021. ' + (real ? 'A hora registrada é a do servidor. ' : 'No exemplo, a foto e o local ficam só neste aparelho. ') + (cfg.rosto ? 'Foto, local e conferência do rosto ficam como comprovante de cada marcação.' : 'A foto e o local ficam guardados como comprovante de cada marcação.') + '</p></div>';
     var hojeRegs = function (pid) { return regsDe(pid, real ? diaAberto(pid) : hojeISO()); };
     var porTipo = function (pid) { var o = []; hojeRegs(pid).forEach(function (r) { o[r.tipo] = r; }); return o; };
     if (!equipe) {
-      var rs = porTipo(ME);
-      var hist = TIPOS_PONTO.map(function (n, i) { return '<li><span>' + n + (rs[i] ? '<span class="sub">' + esc(localTxt(rs[i])) + '</span>' : '') + '</span><span class="actions"><span class="num">' + esc(m[i] || '·') + '</span>' + (rs[i] && rs[i].fora_do_local ? pill('bad', 'fora do local') : '') + '</span></li>'; }).join('');
-      return titleRow('Ponto', real ? 'Seu horário: ' + esc(horarioTxt(j)) + ' · ' + esc(diasTxt(j.dias)) : 'Escala de hoje: entrada às ' + esc(quem.escala)) + '<div class="grid-2">' + painel + '<div class="stack"><h2 class="sec">Suas marcações de hoje</h2><div class="card"><ul class="list">' + hist + '</ul></div>' +
+      return titleRow('Ponto', real ? 'Seu horário: ' + esc(horarioTxt(j)) + ' · ' + esc(escalaTxt(j)) : 'Escala de hoje: entrada às ' + esc(quem.escala)) + '<div class="grid-2">' + painel + '<div class="stack"><h2 class="sec">Sua jornada de hoje</h2><div class="card">' + linhaDiaHTML(ME, porTipo(ME)) + '</div>' +
         (real && ajustesDe(ME).length ? '<h2 class="sec">Seus pedidos de ajuste</h2><div class="card">' + ajustesHTML(ajustesDe(ME).slice().reverse().slice(0, 10), false) + '</div>' : '') +
         (real ? '<h2 class="sec">Seus últimos dias</h2><div class="card">' + espelhoHTML(ME) + '</div>' : '') + bancoHTML() + '</div></div>';
     }
+    var emp = S.role === 'empresa';
     var rows = S.pessoas.map(function (p) {
-      var mk = S.ponto[p.id] || ['', '', '', ''], st = situacaoPonto(p), rr = porTipo(p.id), ult = rr.filter(Boolean).pop();
-      return '<tr><td><button type="button" class="link-btn" data-act="ponto-espelho" data-id="' + p.id + '"><strong>' + esc(p.nome) + '</strong></button><span class="sub">' + esc(real ? turnoCurto(p) : p.setor) + '</span></td><td class="num">' + esc(real ? jornadaDe(p).e : p.escala) + '</td>' + mk.map(function (x) { return '<td class="num hide-sm">' + esc(x || '·') + '</td>'; }).join('') +
-        '<td class="hide-sm">' + esc(METODO[S.marcacoesMetodo[p.id]] || '·') + (ult ? '<span class="sub">' + localPill(ult) + '</span>' : '') + '</td><td>' + pill(st[0], st[1]) + '</td></tr>';
+      var m2 = mk(p.id), st = situacaoPonto(p), rr = porTipo(p.id), ult = rr.filter(Boolean).pop(), ivt = [];
+      for (var k = 1; k <= 4; k++) if (m2[2 * k - 1]) ivt.push(m2[2 * k - 1] + '–' + (m2[2 * k] || '…'));
+      var semRosto = emp && rr.some(function (r) { return r && r.rosto === 'nao_confere'; });
+      return '<tr><td><button type="button" class="link-btn" data-act="ponto-espelho" data-id="' + p.id + '"><strong>' + esc(p.nome) + '</strong></button><span class="sub">' + esc(real ? turnoCurto(p) : p.setor) + '</span></td><td class="num">' + esc(real ? jornadaDe(p).e : p.escala) + '</td>' +
+        '<td class="num hide-sm">' + esc(m2[0] || '·') + '</td><td class="num hide-sm">' + esc(ivt.join(', ') || '·') + '</td><td class="num hide-sm">' + esc(m2[SAIDA] || '·') + '</td>' +
+        '<td class="hide-sm">' + esc(METODO[S.marcacoesMetodo[p.id]] || '·') + (ult ? '<span class="sub">' + localPill(ult) + '</span>' : '') + '</td><td>' + pill(st[0], st[1]) + (semRosto ? ' ' + pill('bad', 'rosto não conferiu') : '') + '</td></tr>';
     }).join('');
-    var aut = S.pessoas.map(function (p) { return '<li><label class="check"><input type="checkbox" data-in="aut" data-id="' + p.id + '"' + (p.celular ? ' checked' : '') + (S.role === 'empresa' ? '' : ' disabled') + '> ' + esc(p.nome) + '</label><span class="sub">' + (p.celular ? 'celular ou aparelho da empresa' : 'só aparelho da empresa') + '</span></li>'; }).join('');
-    var cfg = cfgPonto(), cfgCard = real && S.role === 'empresa' ? '<div class="card card-pad stack"><h2 class="sec">Regras do ponto</h2><p>' + (cfg.lat != null ? 'Local da empresa definido · raio de ' + cfg.raio + ' m' + (cfg.bloquear ? ' · marcação fora do local é recusada' : ' · fora do local fica sinalizado') : 'Local da empresa ainda não definido') + '</p><p class="ui-sub">' + (cfg.foto ? 'Foto obrigatória' : 'Foto opcional') + ' · ' + (cfg.local ? 'localização obrigatória no celular' : 'localização opcional') + '</p><a class="btn btn-sm" href="#/empresa">Alterar em Dados da empresa</a></div>' : '';
-    var pend = real ? (S.ajustes || []).filter(function (a) { return a.status === 'pendente'; }) : [], ajCard = pend.length ? '<div class="card"><div class="card-head"><h2>Pedidos de ajuste</h2>' + pill('warn', pend.length + ' aguardando') + '</div>' + ajustesHTML(pend, S.role === 'empresa') + '</div>' : '';
+    var aut = S.pessoas.map(function (p) { return '<li><label class="check"><input type="checkbox" data-in="aut" data-id="' + p.id + '"' + (p.celular ? ' checked' : '') + (emp ? '' : ' disabled') + '> ' + esc(p.nome) + '</label><span class="sub">' + (p.celular ? 'celular ou aparelho da empresa' : 'só aparelho da empresa') + '</span></li>'; }).join('');
+    var cfgCard = real && emp ? '<div class="card card-pad stack"><h2 class="sec">Regras do ponto</h2><p>' + (cfg.lat != null ? 'Local da empresa definido · raio de ' + cfg.raio + ' m' + (cfg.bloquear ? ' · marcação fora do local é recusada' : ' · fora do local fica sinalizado') : 'Local da empresa ainda não definido') + '</p><p class="ui-sub">' + (cfg.foto ? 'Foto obrigatória' : 'Foto opcional') + ' · ' + (cfg.local ? 'localização obrigatória no celular' : 'localização opcional') + ' · ' + (cfg.rosto ? 'reconhecimento facial ligado' : 'sem reconhecimento facial') + ' · ' + esc(fusoNome(fusoEmp())) + '</p><a class="btn btn-sm" href="#/empresa">Alterar em Dados da empresa</a></div>' : '';
+    var pend = real ? (S.ajustes || []).filter(function (a) { return a.status === 'pendente'; }) : [], ajCard = pend.length ? '<div class="card"><div class="card-head"><h2>Pedidos de ajuste</h2>' + pill('warn', pend.length + ' aguardando') + '</div>' + ajustesHTML(pend, emp) + '</div>' : '';
     var acoes = real ? '<button type="button" class="btn" data-act="ponto-csv">Exportar marcações (planilha)</button>' : '<button type="button" class="btn" data-act="export-afd">Exportar arquivo para a fiscalização (AFD)</button>';
-    return titleRow('Ponto e jornada', (real ? hoje1() : 'Quinta-feira, 05/11') + ' · situação às ' + demoAgora() + ' · tolerância de 10 minutos por dia (CLT, art. 58, § 1º)', acoes) +
-      '<div class="grid-main"><div class="stack"><div class="card"><div class="table-box"><table class="t stack-sm"><thead><tr><th>Pessoa</th><th class="num">Entra</th><th class="num hide-sm">Entrada</th><th class="num hide-sm">Intervalo</th><th class="num hide-sm">Volta</th><th class="num hide-sm">Saída</th><th class="hide-sm">Como e onde</th><th>Situação</th></tr></thead><tbody>' + rows + '</tbody></table></div></div><p class="ui-sub">Toque no nome para ver o espelho de ponto com as fotos e os locais' + (S.role === 'empresa' && real ? ' e para ajustar uma marcação' : '') + '.</p>' + ajCard + '</div>' +
-      '<div class="stack">' + painel + cfgCard + (S.role === 'empresa' ? '<div><h2 class="sec">Quem pode marcar pelo celular</h2><div class="card"><ul class="list">' + aut + '</ul></div></div>' : '') + '</div></div>' + bancoHTML();
+    return titleRow('Ponto e jornada', (real ? hoje1() : 'Quinta-feira, 05/11') + ' · situação às ' + demoAgora() + (real ? ' (' + esc(fusoNome(fusoEmp())) + ')' : '') + ' · tolerância de 10 minutos por dia (CLT, art. 58, § 1º)', acoes) +
+      '<div class="grid-main"><div class="stack"><div class="card"><div class="table-box"><table class="t stack-sm"><thead><tr><th>Pessoa</th><th class="num">Entra</th><th class="num hide-sm">Entrada</th><th class="num hide-sm">Intervalos</th><th class="num hide-sm">Saída</th><th class="hide-sm">Como e onde</th><th>Situação</th></tr></thead><tbody>' + rows + '</tbody></table></div></div><p class="ui-sub">Toque no nome para ver o espelho de ponto com as fotos e os locais' + (emp && real ? ', conferir com a CLT e ajustar uma marcação' : '') + '.</p>' + ajCard + '</div>' +
+      '<div class="stack">' + painel + cfgCard + (emp ? '<div><h2 class="sec">Quem pode marcar pelo celular</h2><div class="card"><ul class="list">' + aut + '</ul></div></div>' : '') + '</div></div>' + bancoHTML();
   }
   var clockTimer;
-  function tickClock() { clearInterval(clockTimer); var f = function () { var c = $('#clock'); if (!c) { clearInterval(clockTimer); return; } c.textContent = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }); }; f(); clockTimer = setInterval(f, 1000); }
+  function tickClock() {
+    clearInterval(clockTimer);
+    var f = function () { var c = $('#clock'); if (!c) { clearInterval(clockTimer); return; } var o = { hour: '2-digit', minute: '2-digit', second: '2-digit' }; if (c.dataset.tz) o.timeZone = c.dataset.tz; try { c.textContent = new Date().toLocaleTimeString('pt-BR', o); } catch (e) { delete o.timeZone; c.textContent = new Date().toLocaleTimeString('pt-BR', o); } };
+    f(); clockTimer = setInterval(f, 1000);
+  }
 
   /* ---------- Atestados e advertências ---------- */
   function vOcorrencias() {
@@ -1449,20 +1826,173 @@
 
   /* ---------- Checklists ---------- */
   var FOTO = { todos: 'Foto em todos os itens', parcial: 'Só nos itens marcados', nenhum: 'Sem foto' };
+  /* ---------- Checklists com horário ---------- */
+  // Modelo: { id, nome, setor, resp, dias, inicio, limite, criado, etapas: [{ id, t, foto, limite }] }.
+  // Cada etapa marcada vira um registro do dia (hora do servidor no modo conectado), com foto tirada na hora e justificativa depois do limite.
+  function hm(m) { m = ((m % 1440) + 1440) % 1440; return ('0' + Math.floor(m / 60)).slice(-2) + ':' + ('0' + m % 60).slice(-2); }
+  function normalizaChecklists() {
+    var mudou = false;
+    (S.checklists || []).forEach(function (c) {
+      if (Array.isArray(c.etapas)) return; mudou = true;
+      c.etapas = (c.itens || []).map(function (it, k) { return { id: 'e' + (k + 1), t: String(it.t || '').slice(0, 120), foto: !!it.foto }; });
+      c.inicio = hhOk(c.hora) || '07:00'; c.limite = hm(min(c.inicio) + 60); c.dias = [0, 1, 2, 3, 4, 5, 6];
+      if (!S.real) { S.ckRegs = S.ckRegs || []; (c.itens || []).forEach(function (it, k) { if (it.feito) S.ckRegs.push({ id: 'k' + c.id + k, checklist_id: c.id, etapa_id: 'e' + (k + 1), dia: S.hoje, pessoa_id: c.resp || null, por_nome: nomeDe(c.resp), em: S.hoje + 'T' + (hhOk(it.fotoEm) || c.inicio) + ':00-03:00', atrasado: false, justificativa: null, foto: null }); }); }
+      delete c.itens; delete c.hora; delete c.foto;
+    });
+    return mudou;
+  }
+  function ckDia() { return S.real ? hojeEm(fusoEmp()) : S.hoje; }
+  function ckAgora() { return S.real ? agoraEm(fusoEmp()) : demoAgora(); }
+  function ckPorId(id) { return (S.checklists || []).filter(function (c) { return c.id === id; })[0]; }
+  function ckVisiveis() { var todos = !ehFunc() || pode('checklists'), eu = P(ME) || {}; return (S.checklists || []).filter(function (c) { return todos || c.resp === ME || c.setor === eu.setor; }); }
+  function ckRoda(c, dia) { return (c.dias || [0, 1, 2, 3, 4, 5, 6]).indexOf(diaSemana(dia)) > -1; }
+  function ckRegsDe(cid, dia) { return (S.ckRegs || []).filter(function (r) { return r.checklist_id === cid && r.dia === dia; }); }
+  function ckReg(cid, eid, dia) { return (S.ckRegs || []).filter(function (r) { return r.checklist_id === cid && r.etapa_id === eid && r.dia === dia; })[0]; }
+  function ckLimite(c, et) { return hhOk(et && et.limite) || hhOk(c.limite) || ''; }
+  function ckAtrasado(c, et, h) { var ini = hhOk(c.inicio), lim = ckLimite(c, et); if (!lim) return false; var a = min(h), l = min(lim); if (ini && l < min(ini)) return a > l && a < min(ini); return a > l; }
+  function ckAberto(c, h) { var ini = hhOk(c.inicio), lim = hhOk(c.limite); if (!ini) return true; if (lim && min(lim) < min(ini)) return true; return min(h) >= min(ini); }
+  function ckResumo(c, dia) {
+    var ids = (c.etapas || []).map(function (e) { return e.id; }), fs = ckRegsDe(c.id, dia).filter(function (r) { return ids.indexOf(r.etapa_id) > -1; });
+    return { feitas: fs.length, total: ids.length, atrasos: fs.filter(function (r) { return r.atrasado; }).length, fim: fs.length === ids.length && ids.length ? fs.map(function (r) { return r.em; }).sort().pop() : null };
+  }
+  // Situação de um dia: ok (no horário), warn (com justificativa), bad (incompleto ou não feito), hoje, futuro, folga, vazio.
+  function ckEstadoDia(c, dia) {
+    var hoje = ckDia(), r = ckResumo(c, dia);
+    if (!ckRoda(c, dia)) return r.feitas ? (r.atrasos ? 'warn' : 'ok') : 'folga';
+    if (dia > hoje) return 'futuro';
+    if (r.total && r.feitas === r.total) return r.atrasos ? 'warn' : 'ok';
+    if (dia === hoje) return ckAtrasado(c, {}, ckAgora()) ? 'bad' : 'hoje';
+    if (r.feitas) return 'bad';
+    return c.criado && dia >= c.criado ? 'bad' : 'vazio';
+  }
+  function ckSituacao(c) {
+    var dia = ckDia(), h = ckAgora(), r = ckResumo(c, dia);
+    if (!ckRoda(c, dia)) return ['mute', 'Não tem hoje'];
+    if (r.total && r.feitas === r.total) return [r.atrasos ? 'warn' : 'ok', 'Concluído' + (r.atrasos ? ', ' + r.atrasos + ' com justificativa' : '')];
+    if (!ckAberto(c, h)) return ['mute', 'Abre às ' + c.inicio];
+    if (ckAtrasado(c, {}, h)) return ['bad', 'Atrasado · ' + r.feitas + ' de ' + r.total];
+    return ['warn', (r.feitas ? r.feitas + ' de ' + r.total + ' · ' : '') + 'até ' + c.limite];
+  }
+  function ckHora(r) { return hhmm(r.em, fusoEmp()); }
+  var MES_N = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+  var CAL_TXT = { ok: 'feito no horário', warn: 'feito, com justificativa', bad: 'incompleto ou não feito', hoje: 'hoje, em andamento', futuro: '', folga: 'não acontece neste dia', vazio: 'sem registro' };
+  function ckCalendario(lista, cid) {
+    var hoje = ckDia(), base = S.ui.ckMes && /^\d{4}-\d{2}$/.test(S.ui.ckMes) ? S.ui.ckMes : hoje.slice(0, 7), ano = +base.slice(0, 4), mes = +base.slice(5, 7);
+    var ini = base + '-01', nd = new Date(ano, mes, 0).getDate(), pri = diaSemana(ini), cel = '', pior = { bad: 5, warn: 4, hoje: 3, ok: 2, vazio: 1, folga: 0, futuro: -1 };
+    for (var b = 0; b < pri; b++) cel += '<span class="cal-d cal-pad" aria-hidden="true"></span>';
+    for (var d = 1; d <= nd; d++) {
+      var dia = base + '-' + ('0' + d).slice(-2), est = 'futuro', feitas = 0, total = 0;
+      lista.forEach(function (c) { var e = ckEstadoDia(c, dia), r = ckResumo(c, dia); if (ckRoda(c, dia) || r.feitas) { feitas += r.feitas; total += r.total; } if (pior[e] > pior[est]) est = e; });
+      var rot = d + ' de ' + MES_N[mes - 1] + (CAL_TXT[est] ? ': ' + CAL_TXT[est] : '') + (total ? ', ' + feitas + ' de ' + total + ' etapas' : '');
+      var clic = (feitas || est === 'bad' || est === 'hoje') && dia <= hoje;
+      cel += (clic ? '<button type="button" data-act="ck-dia" data-id="' + esc(cid || '') + '" data-dia="' + dia + '"' : '<span') + ' class="cal-d cal-' + est + (dia === hoje ? ' cal-agora' : '') + '" aria-label="' + esc(rot) + '" title="' + esc(rot) + '"><span class="cal-n">' + d + '</span>' + (total && ['ok', 'warn', 'bad', 'hoje'].indexOf(est) > -1 ? '<span class="cal-x">' + feitas + '/' + total + '</span>' : '') + (clic ? '</button>' : '</span>');
+    }
+    var mesAnt = new Date(ano, mes - 2, 1), mesProx = new Date(ano, mes, 1), lim = addDays(hoje, -92).slice(0, 7), fmt = function (x) { return x.getFullYear() + '-' + ('0' + (x.getMonth() + 1)).slice(-2); };
+    var pa = fmt(mesAnt), pp = fmt(mesProx);
+    return '<div class="card cal-card"><div class="card-head"><h2>Calendário</h2><div class="cal-nav"><button type="button" class="btn btn-sm" data-act="ck-mes" data-v="' + pa + '"' + (pa < lim ? ' disabled' : '') + ' aria-label="Mês anterior">‹</button><strong>' + esc(MES_N[mes - 1] + ' de ' + ano) + '</strong><button type="button" class="btn btn-sm" data-act="ck-mes" data-v="' + pp + '"' + (pp > hoje.slice(0, 7) ? ' disabled' : '') + ' aria-label="Próximo mês">›</button></div></div>' +
+      '<div class="card-pad"><div class="cal-sem" aria-hidden="true">' + ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map(function (x) { return '<span>' + x + '</span>'; }).join('') + '</div><div class="cal-grid">' + cel + '</div>' +
+      '<ul class="cal-leg"><li><span class="cal-dot cal-ok"></span>No horário</li><li><span class="cal-dot cal-warn"></span>Com justificativa</li><li><span class="cal-dot cal-bad"></span>Incompleto ou não feito</li><li><span class="cal-dot cal-hoje"></span>Hoje</li></ul><p class="ui-sub">Toque no dia para ver etapas, horários, justificativas e fotos.</p></div></div>';
+  }
+  function ckDiaHTML(lista, dia) {
+    return lista.map(function (c) {
+      if (!ckRoda(c, dia) && !ckRegsDe(c.id, dia).length) return '';
+      var r = ckResumo(c, dia), est = ckEstadoDia(c, dia);
+      return '<div class="stack"><h3 class="lbl-s">' + esc(c.nome) + ' · ' + esc(c.setor) + ' · ' + r.feitas + ' de ' + r.total + ' ' + pill(est === 'ok' ? 'ok' : est === 'warn' ? 'warn' : est === 'bad' ? 'bad' : 'mute', CAL_TXT[est] || '') + '</h3><div class="card"><ul class="list">' + (c.etapas || []).map(function (e) {
+        var rg = ckReg(c.id, e.id, dia);
+        return '<li><span>' + esc(e.t) + '<span class="sub">' + (rg ? 'Feita às ' + esc(ckHora(rg)) + ' por ' + esc(rg.por_nome || '') + (rg.atrasado ? ' · fora do horário (limite ' + esc(ckLimite(c, e)) + ')' : '') + (rg.justificativa ? ' · Justificativa: ' + esc(rg.justificativa) : '') : 'Não feita' + (ckLimite(c, e) ? ' · limite ' + esc(ckLimite(c, e)) : '')) + '</span></span><span class="actions">' +
+          (rg && rg.foto ? '<button type="button" class="btn btn-sm" data-act="arq-ver" data-path="' + esc(rg.foto) + '" data-t="' + esc(e.t) + '">Foto</button>' : '') + (rg ? pill(rg.atrasado ? 'warn' : 'ok', rg.atrasado ? 'Com justificativa' : 'No horário') : pill('bad', 'Não feita')) + '</span></li>';
+      }).join('') + '</ul></div></div>';
+    }).join('') || '<p class="ui-sub">Nada registrado neste dia.</p>';
+  }
   function vChecklists() {
-    var func = ehFunc() && !pode('checklists'), c = S.checklists.filter(function (x) { return x.id === (S.ui.ck || 'c1'); })[0];
-    var tabs = S.checklists.map(function (x) { return '<button type="button" role="tab" data-act="ck" data-id="' + x.id + '" aria-selected="' + (x.id === c.id) + '">' + esc(x.setor) + '</button>'; }).join('');
-    var feitos = c.itens.filter(function (i) { return i.feito; }).length, fotosReq = c.itens.filter(function (i) { return i.foto; }).length, fotos = c.itens.filter(function (i) { return i.foto && i.fotoEm; }).length;
-    var itens = c.itens.map(function (it, i) {
-      var foto = it.foto ? (it.fotoEm ? (it.thumb && !S.real ? '<img src="' + esc(it.thumb) + '" alt="Foto do item">' : it.arquivo ? '<button type="button" class="link-btn" data-act="arq-ver" data-path="' + esc(it.arquivo) + '" data-t="Foto do item">ver foto</button> ' : '') + pill('ok', 'foto ' + it.fotoEm) : '<span class="btn btn-sm file-btn">Enviar foto<input type="file" accept="image/*" capture="environment" data-in="ck-foto" data-i="' + i + '" aria-label="Enviar foto: ' + esc(it.t) + '"></span>') : pill('mute', 'sem foto');
-      var cfg = !func && c.foto === 'parcial' ? '<label class="check ui-sub"><input type="checkbox" data-in="ck-req" data-i="' + i + '"' + (it.foto ? ' checked' : '') + '> exige foto</label>' : '';
-      return '<div class="ck-item"><input type="checkbox" aria-label="Feito: ' + esc(it.t) + '" data-in="ck-feito" data-i="' + i + '"' + (it.feito ? ' checked' : '') + '><div>' + esc(it.t) + (cfg ? '<div>' + cfg + '</div>' : '') + '</div><div class="photo">' + foto + '</div></div>';
+    var lista = ckVisiveis(), edita = S.role === 'empresa';
+    var acoes = edita ? '<button type="button" class="btn btn-primary" data-act="ck-editar">Novo checklist</button>' : '';
+    if (!lista.length) return titleRow('Checklists', 'Rotinas do dia com horário, foto e justificativa', acoes) + vazioHTML(edita ? 'Nenhum checklist ainda' : 'Nenhum checklist para você', edita ? 'Crie o checklist de abertura, de preparo de materiais ou de fechamento. Cada etapa pode exigir foto tirada na hora.' : 'Quando a empresa criar um checklist do seu setor, ele aparece aqui.', edita ? '<button type="button" class="btn btn-primary btn-lg" data-act="ck-editar">Criar o primeiro checklist</button>' : '');
+    var c = lista.filter(function (x) { return x.id === S.ui.ck; })[0] || lista[0], dia = ckDia(), agoraH = ckAgora(), roda = ckRoda(c, dia), aberto = ckAberto(c, agoraH), r = ckResumo(c, dia), st = ckSituacao(c);
+    var tabs = lista.map(function (x) { var s = ckSituacao(x), rx = ckResumo(x, dia); return '<button type="button" role="tab" data-act="ck" data-id="' + esc(x.id) + '" aria-selected="' + (x.id === c.id) + '">' + esc(x.nome) + ' <span class="pill ' + s[0] + '">' + rx.feitas + '/' + rx.total + '</span></button>'; }).join('');
+    var proxima = (c.etapas || []).filter(function (e) { return !ckReg(c.id, e.id, dia); })[0];
+    var etapas = (c.etapas || []).map(function (e, i) {
+      var rg = ckReg(c.id, e.id, dia), lim = ckLimite(c, e), late = !rg && roda && aberto && ckAtrasado(c, e, agoraH), agora = e === proxima && roda && aberto;
+      var info = rg ? '<span class="sub">Feita às ' + esc(ckHora(rg)) + ' por ' + esc(rg.por_nome || '') + (rg.atrasado ? ' · fora do horário' : '') + '</span>' + (rg.justificativa ? '<span class="sub">Justificativa: ' + esc(rg.justificativa) + '</span>' : '')
+        : '<span class="sub">' + esc((lim ? 'até ' + lim : 'sem horário limite') + (e.foto ? ' · foto tirada na hora' : '')) + '</span>' + (late ? '<span class="sub ck-late">Passou do horário: o app vai pedir a justificativa</span>' : '');
+      var bt = rg ? (rg.foto ? '<button type="button" class="btn btn-sm" data-act="arq-ver" data-path="' + esc(rg.foto) + '" data-t="' + esc(e.t) + '">Foto</button>' : '') + pill(rg.atrasado ? 'warn' : 'ok', rg.atrasado ? 'Com justificativa' : 'Feita') + (edita ? '<button type="button" class="link-btn" data-act="ck-desfazer" data-id="' + esc(rg.id) + '">desfazer</button>' : '')
+        : !roda ? pill('mute', 'não tem hoje') : !aberto ? pill('mute', 'abre às ' + c.inicio) : '<button type="button" class="btn' + (agora ? ' btn-primary btn-lg' : '') + '" data-act="ck-marcar" data-id="' + esc(c.id) + '" data-e="' + esc(e.id) + '">' + (e.foto ? 'Tirar foto e marcar' : 'Marcar como feita') + '</button>';
+      return '<li class="ck-etapa' + (rg ? ' feita' : agora ? ' agora' : '') + (late ? ' atrasada' : '') + '"><span class="ld-ic" aria-hidden="true">' + (rg ? '✓' : i + 1) + '</span><span class="ck-t"><strong>' + esc(e.t) + '</strong>' + info + '</span><span class="actions">' + bt + '</span></li>';
     }).join('');
-    var regra = func ? '' : '<div class="field"><span class="lbl-s">Fotos de cumprimento</span><div class="seg">' + Object.keys(FOTO).map(function (k) { return '<button type="button" data-act="ck-regra" data-v="' + k + '" aria-pressed="' + (c.foto === k) + '">' + FOTO[k] + '</button>'; }).join('') + '</div></div>';
-    return titleRow('Checklists', 'Rotinas por setor e por pessoa, com foto do que foi feito') + '<div class="tabs" role="tablist">' + tabs + '</div>' +
-      '<div class="grid-main"><div class="card"><div class="card-head"><h2>' + esc(c.nome) + ' · ' + esc(c.hora) + '</h2><span class="ui-sub">' + esc(nomeDe(c.resp)) + '</span></div>' + itens +
-      (func ? '' : '<form class="ck-item" data-form="ck-novo"><span></span><div class="field"><label class="sr-only" for="novo-item">Novo item</label><input id="novo-item" name="t" maxlength="90" placeholder="Novo item do checklist" required></div><button class="btn btn-sm" type="submit">Adicionar</button></form>') + '</div>' +
-      '<div class="stack"><div class="card card-pad stack"><h2 class="sec">Andamento</h2><div><div class="num"><strong>' + feitos + ' de ' + c.itens.length + '</strong> itens feitos</div><progress max="' + c.itens.length + '" value="' + feitos + '">' + feitos + '</progress></div><div><div class="num"><strong>' + fotos + ' de ' + fotosReq + '</strong> fotos enviadas</div><progress max="' + (fotosReq || 1) + '" value="' + fotos + '">' + fotos + '</progress></div>' + regra + '</div></div></div>';
+    var head = '<div class="card-head ck-head"><div><h2>' + esc(c.nome) + '</h2><span class="ui-sub">' + esc([c.setor, c.inicio ? 'abre às ' + c.inicio : '', c.limite ? 'limite ' + c.limite : '', c.resp ? 'responsável: ' + nomeDe(c.resp) : 'qualquer pessoa do setor', escalaTxt({ dias: c.dias })].filter(Boolean).join(' · ')) + '</span></div>' + pill(st[0], st[1]) + '</div>';
+    var lado = '<div class="card card-pad stack"><h2 class="sec">Hoje</h2><div class="num"><strong>' + r.feitas + ' de ' + r.total + '</strong> etapas feitas' + (r.atrasos ? ' · ' + r.atrasos + ' com justificativa' : '') + '</div><progress max="' + (r.total || 1) + '" value="' + r.feitas + '">' + r.feitas + '</progress>' + (r.fim ? '<p class="ui-sub">Concluído às ' + esc(hhmm(r.fim, fusoEmp())) + '.</p>' : '') +
+      '<p class="ui-sub">A hora de cada etapa é registrada no momento da marcação' + (S.real ? ', pela hora do servidor' : '') + '. Depois do limite, só marca com justificativa. A foto é tirada na hora, pela câmera do app: não dá para escolher da galeria.</p>' +
+      (edita ? '<div class="actions"><button type="button" class="btn" data-act="ck-editar" data-id="' + esc(c.id) + '">Editar etapas e horários</button><button type="button" class="btn" data-act="ck-duplicar" data-id="' + esc(c.id) + '">Duplicar</button></div>' : '') + '</div>' +
+      '<div class="seg cal-seg" role="group" aria-label="Calendário de"><button type="button" data-act="ck-cal" data-v="um" aria-pressed="' + (S.ui.ckCal !== 'todos') + '">Este checklist</button><button type="button" data-act="ck-cal" data-v="todos" aria-pressed="' + (S.ui.ckCal === 'todos') + '">Todos</button></div>' +
+      (S.ui.ckCal === 'todos' ? ckCalendario(lista, '') : ckCalendario([c], c.id));
+    return titleRow('Checklists', 'Rotinas do dia com horário, foto e justificativa', acoes) + '<div class="tabs" role="tablist">' + tabs + '</div><div class="grid-main"><div class="card">' + head + '<ol class="ck-lista">' + etapas + '</ol></div><div class="stack">' + lado + '</div></div>';
+  }
+  function marcarEtapa(c, e) {
+    var h = ckAgora(), late = ckAtrasado(c, e, h), lim = ckLimite(c, e);
+    if (!ckAberto(c, h)) { toast('Este checklist abre às ' + c.inicio + '.'); return; }
+    if (!e.foto && !late) { gravarEtapa(c, e, null, '').then(null, function (er) { toast(erroTxt(er)); }); return; }
+    modal(e.t, (e.foto ? '<div class="cam traseira"><video id="cam-v" autoplay playsinline muted></video></div><p class="cam-st" id="cam-st" role="status">Abrindo a câmera…</p><p class="ui-sub">A foto é tirada agora, pela câmera. Não dá para escolher da galeria.</p>' : '') +
+      (late ? '<div class="field"><label for="ck-j">Justificativa (obrigatória: passou do limite das ' + esc(lim) + ')</label><textarea id="ck-j" rows="3" maxlength="300" placeholder="Ex.: o fornecedor atrasou a entrega"></textarea></div>' : ''),
+      '<button type="button" class="btn btn-primary btn-lg" id="ck-ok"' + (e.foto ? ' disabled' : '') + '>' + (e.foto ? 'Tirar foto e marcar' : 'Marcar como feita') + '</button>');
+    var bt = $('#ck-ok'), v = $('#cam-v'), txt = function (t) { var el = $('#cam-st'); if (el) el.textContent = t; };
+    if (e.foto) abrirCamera(v, 'environment', function () { txt('Enquadre o que foi feito e toque no botão.'); bt.disabled = false; }, function (m) { txt(m); });
+    bt.addEventListener('click', function () {
+      var j = $('#ck-j'), jt = j ? j.value.trim() : '';
+      if (late && jt.length < 5) { toast('Escreva a justificativa (pelo menos 5 letras).'); if (j) j.focus(); return; }
+      bt.disabled = true; bt.textContent = 'Registrando…';
+      (e.foto ? capturaFrame(v, 1280) : Promise.resolve(null)).then(function (blob) { if (e.foto && !blob) throw new Error('Não foi possível tirar a foto. Feche e abra de novo.'); return gravarEtapa(c, e, blob, jt); })
+        .then(function () { pararCamera(); closeModal(); }, function (er) { bt.disabled = false; bt.textContent = 'Tentar de novo'; toast(erroTxt(er)); });
+    });
+  }
+  function gravarEtapa(c, e, blob, jt) {
+    var dia = ckDia(), quem = ehFunc() ? ME : null;
+    if (ckReg(c.id, e.id, dia)) return Promise.reject(new Error('Esta etapa já foi marcada hoje.'));
+    var up = blob ? Arq().enviar(caminho(quem || 'empresa', 'checklists', 'jpg'), blob) : Promise.resolve(null);
+    return up.then(function (path) {
+      var row = { checklist_id: c.id, etapa_id: e.id, pessoa_id: quem, por_nome: quemSou(), foto: path, justificativa: jt || null };
+      if (NUVEM) return Nuvem.marcarEtapa(row);
+      row.id = 'k' + Date.now() + rnd(); row.dia = dia; row.em = S.real ? new Date().toISOString() : dia + 'T' + ckAgora() + ':00-03:00'; row.atrasado = ckAtrasado(c, e, ckAgora()); if (!row.atrasado) row.justificativa = null;
+      return row;
+    }).then(function (row) {
+      S.ckRegs = S.ckRegs || []; S.ckRegs.push(row);
+      var r = ckResumo(c, dia); save(); render();
+      toast(r.total && r.feitas === r.total ? c.nome + ' concluído. Bom trabalho!' : 'Etapa marcada às ' + ckHora(row) + (row.atrasado ? ', com justificativa' : '') + '. Faltam ' + (r.total - r.feitas) + '.');
+    });
+  }
+  var CK_MODELOS = [
+    ['Abertura da loja', '06:30', '07:00', ['Desligar o alarme e abrir as portas', 'Acender as luzes e ligar os equipamentos', 'Conferir a temperatura das geladeiras e do freezer|1', 'Conferir o troco do caixa', 'Limpar balcão e vitrine|1', 'Abrir para o público']],
+    ['Preparo de materiais', '07:00', '09:00', ['Separar os insumos do dia', 'Conferir a validade e as etiquetas|1', 'Higienizar bancadas e utensílios|1', 'Preparar as bases e porcionar', 'Organizar a área de trabalho|1']],
+    ['Fechamento da loja', '21:30', '22:30', ['Fechar o caixa e guardar o dinheiro', 'Limpar salão e balcão|1', 'Desligar os equipamentos', 'Conferir geladeiras e freezer fechados|1', 'Recolher o lixo', 'Ligar o alarme e trancar as portas|1']]
+  ];
+  var ET_N = 0;
+  function etLinha(e) {
+    e = e || {}; var id = 'et' + (++ET_N);
+    return '<div class="et-row" data-et><input type="hidden" name="et_id" value="' + esc(e.id || '') + '"><span class="et-n" aria-hidden="true"></span>' +
+      '<div class="field et-txt"><label for="' + id + 't">O que fazer</label><input id="' + id + 't" name="et_t" maxlength="120" value="' + esc(e.t || '') + '" placeholder="Ex.: Conferir a temperatura do freezer" required></div>' +
+      '<div class="field"><label for="' + id + 'f">Foto</label><select id="' + id + 'f" name="et_f"><option value="0">Sem foto</option><option value="1"' + (e.foto ? ' selected' : '') + '>Exige foto tirada na hora</option></select></div>' +
+      '<div class="field"><label for="' + id + 'l">Limite próprio (opcional)</label><input id="' + id + 'l" name="et_l" type="time" value="' + esc(e.limite || '') + '"></div>' +
+      '<div class="et-acoes"><button type="button" class="btn btn-sm" data-act="et-mover" data-d="-1" aria-label="Subir esta etapa">↑</button><button type="button" class="btn btn-sm" data-act="et-mover" data-d="1" aria-label="Descer esta etapa">↓</button><button type="button" class="btn btn-sm" data-act="et-del">Remover</button></div></div>';
+  }
+  function ckForm(c) {
+    var novo = !c; c = c || { nome: '', setor: '', resp: '', dias: [1, 2, 3, 4, 5, 6], inicio: '', limite: '', etapas: [] };
+    var setores = {}; S.pessoas.forEach(function (p) { if (p.setor) setores[p.setor] = 1; }); (S.checklists || []).forEach(function (x) { if (x.setor) setores[x.setor] = 1; });
+    var modelos = novo ? '<div class="field"><span class="lbl-s">Comece por um modelo (dá para editar tudo depois) ou do zero</span><div class="preset-grid">' + CK_MODELOS.map(function (m, i) { return '<button type="button" class="preset" data-act="ck-modelo" data-i="' + i + '"><strong>' + esc(m[0]) + '</strong><span>' + esc(m[1] + ' às ' + m[2] + ' · ' + m[3].length + ' etapas') + '</span></button>'; }).join('') + '</div></div>' : '';
+    return '<form class="stack wiz" novalidate data-form="ck" data-id="' + esc(c.id || '') + '">' + wizBarra(['Nome e horário', 'Etapas', 'Conferir']) +
+      wizPasso(1, 'Nome, setor e horário', modelos + '<div class="field"><label for="ck-n">Nome do checklist</label><input id="ck-n" name="n" maxlength="60" required value="' + esc(c.nome) + '" placeholder="Ex.: Abertura da loja"></div>' +
+        '<div class="form-grid"><div class="field"><label for="ck-s">Setor</label><input id="ck-s" name="s" maxlength="40" list="ck-setores" value="' + esc(c.setor) + '" placeholder="Ex.: Atendimento"><datalist id="ck-setores">' + Object.keys(setores).map(function (s) { return '<option value="' + esc(s) + '">'; }).join('') + '</datalist></div>' +
+        '<div class="field"><label for="ck-r">Quem faz</label><select id="ck-r" name="r"><option value="">Qualquer pessoa do setor</option>' + S.pessoas.map(function (p) { return '<option value="' + esc(p.id) + '"' + (p.id === c.resp ? ' selected' : '') + '>' + esc(p.nome) + '</option>'; }).join('') + '</select></div></div>' +
+        '<div class="field"><span class="lbl-s">Dias em que acontece</span>' + diasChips('ckd', c.dias) + '</div>' +
+        '<div class="form-grid"><div class="field"><label for="ck-i">Abre às</label><input id="ck-i" name="ini" type="time" required value="' + esc(c.inicio) + '"></div><div class="field"><label for="ck-l">Horário limite</label><input id="ck-l" name="lim" type="time" required value="' + esc(c.limite) + '"></div></div>' +
+        '<p class="ui-sub">Antes do horário de abertura, o checklist fica fechado. Depois do limite, a pessoa só marca com justificativa.</p>') +
+      wizPasso(2, 'Etapas, na ordem em que são feitas', '<p class="ui-sub">Escreva cada etapa. Escolha "Exige foto tirada na hora" quando precisar de prova: a foto sai da câmera do app, sem galeria. Use as setas para mudar a ordem.</p><div class="stack et-lista" data-ets>' + ((c.etapas || []).length ? c.etapas.map(etLinha).join('') : etLinha()) + '</div><div><button type="button" class="btn" data-act="et-add">+ Adicionar etapa</button></div>') +
+      wizPasso(3, 'Conferir e salvar', '<div data-ckresumo></div>' + (novo ? '' : '<p><button type="button" class="link-btn" data-act="ck-del" data-id="' + esc(c.id) + '">Remover este checklist</button></p>')) + wizNav('Salvar checklist') + '</form>';
+  }
+  function atualizaCkResumo(f) {
+    var box = $('[data-ckresumo]', f); if (!box) return;
+    var d = new FormData(f), tx = d.getAll('et_t'), fs = d.getAll('et_f'), ls = d.getAll('et_l'), ds = d.getAll('ckd').map(Number), resp = P(String(d.get('r') || ''));
+    var ets = tx.map(function (t, i) { return { t: String(t).trim(), foto: fs[i] === '1', limite: hhOk(ls[i]) }; }).filter(function (e) { return e.t; });
+    box.innerHTML = '<div class="conf-j"><p><strong>' + esc(String(d.get('n') || '')) + '</strong> · ' + esc(String(d.get('s') || 'Geral')) + ' · ' + esc(resp ? resp.nome : 'qualquer pessoa do setor') + '</p><p class="ui-sub">' + esc(diasTxt(ds.length ? ds : [0, 1, 2, 3, 4, 5, 6])) + ' · abre às ' + esc(hhOk(d.get('ini'))) + ' · limite ' + esc(hhOk(d.get('lim'))) + '</p>' +
+      '<ol class="linha-dia">' + ets.map(function (e, i) { return '<li><span class="ld-ic" aria-hidden="true">' + (i + 1) + '</span><span class="ld-t">' + esc(e.t) + '<span class="sub">' + esc((e.foto ? 'foto tirada na hora' : 'sem foto') + (e.limite ? ' · limite ' + e.limite : '')) + '</span></span></li>'; }).join('') + '</ol></div>';
   }
 
   /* ---------- Estoque e etiquetas ---------- */
@@ -1572,10 +2102,12 @@
     var o = doc.createElement('div'); o.className = 'overlay';
     o.innerHTML = '<div class="modal' + (cls ? ' ' + cls : '') + '" role="dialog" aria-modal="true" aria-labelledby="m-t"><div class="card-head"><h2 id="m-t">' + esc(title) + '</h2><button type="button" class="btn btn-sm" data-act="fechar">Fechar</button></div><div class="modal-body">' + body + '</div>' + (foot ? '<div class="modal-foot">' + foot + '</div>' : '') + '</div>';
     o.addEventListener('click', function (e) { if (e.target === o) closeModal(); else onClick(e); });
-    o.addEventListener('submit', onSubmit); o.addEventListener('change', onInput);
+    o.addEventListener('submit', onSubmit); o.addEventListener('change', onInput); o.addEventListener('input', onVivo); o.addEventListener('change', onVivo);
     doc.body.appendChild(o);
+    $$('form[data-jornada]', o).forEach(atualizaConf); $$('form.wiz', o).forEach(function (w) { wizIr(w, 1); });
     var f = $('input, select, textarea, .modal-foot .btn-primary', o) || $('.btn', o); if (f) f.focus();
   }
+  function onVivo(e) { var t = e.target, f = t && t.closest && t.closest('form'); if (f && f.hasAttribute('data-jornada') && !t.closest('[data-conf]')) atualizaConf(f); }
   function closeModal() { pararCamera(); var o = $('.overlay'); if (o) { o.remove(); if (lastFocus && lastFocus.focus) lastFocus.focus(); } }
   function imprimirNavegador(html) {
     var a = $('#print-area'); a.innerHTML = html; doc.body.classList.add('printing');
@@ -1694,13 +2226,58 @@
     'ct-pdf': function () { var pp = $('#paper'), x = contratoAtualHTML(); if (!pp) return; printHTML(pp.outerHTML, 'Contrato ' + (x.ct.modelo === 'experiencia' ? 'de experiencia ' : '') + x.cargo.cargo + ' ' + (x.pessoa.tipo === 'novo' ? 'modelo' : x.pessoa.nome)); },
     metodo: function (b) { S.ui.metodo = b.dataset.v; S.ui.faceOk = false; save(); render(); },
     face: function () { var f = $('#face'); if (f) f.textContent = 'Conferindo…'; setTimeout(function () { S.ui.faceOk = true; render(); }, 700); },
-    marcar: function () {
-      var eu = ehFunc() && (S.real || !pode('ponto')), p = eu ? P(ME) : (P(S.ui.pontoPessoa) || P('e3') || S.pessoas[0]); if (!p) return;
-      var i = proxTipo(p.id); if (i < 0) return;
-      var met = eu ? 'celular' : S.real ? 'fixo' : (S.ui.metodo || (p.celular ? 'celular' : 'fixo'));
-      if (met === 'celular' && !p.celular) { toast('A empresa não liberou a marcação pelo celular para ' + first(p.nome) + '.'); return; }
-      capturarPonto(p, i, met);
+    marcar: function () { var q = quemMarca(); if (!q) return; var i = proxTipo(q.p.id); if (i < 0) return; capturarPonto(q.p, i, q.met); },
+    'marcar-alt': function (b) { var q = quemMarca(); if (!q) return; var t = +b.dataset.t; if (t !== proxInfo(q.p.id).alt) return; capturarPonto(q.p, t, q.met); },
+    'iv-add': function (b) { var f = b.closest('form'), box = f && $('[data-ivs]', f); if (!box) return; if ($$('[data-iv]', box).length >= 4) { toast('No máximo 4 intervalos por jornada.'); return; } box.insertAdjacentHTML('beforeend', ivLinha({ flex: b.dataset.v === 'flex', dur: 60 })); atualizaConf(f); var nv = box.lastElementChild.querySelector('input:not([type=hidden]), select'); if (nv) nv.focus(); },
+    'iv-del': function (b) { var f = b.closest('form'), row = b.closest('[data-iv]'); if (row) row.remove(); if (f) atualizaConf(f); },
+    'wiz-prox': function (b) { var f = b.closest('form'), n = +f.dataset.p || 1; if (wizValida(f, n)) wizIr(f, n + 1); },
+    'wiz-volta': function (b) { var f = b.closest('form'); wizIr(f, (+f.dataset.p || 1) - 1); },
+    'turno-preset': function (b) {
+      var pr = PRESETS_T[+b.dataset.i], f = b.closest('form'); if (!pr || !f) return; var j = pr[2], nm = $('[name=n]', f);
+      if (nm && !nm.value) nm.value = pr[0]; $('[name=je]', f).value = j.e; $('[name=js]', f).value = j.s;
+      $$('[name=jd]', f).forEach(function (c) { c.checked = j.dias.indexOf(+c.value) > -1; }); $('[name=j1236]', f).checked = !!j.x1236;
+      $('[data-ivs]', f).innerHTML = j.intervalos.map(ivLinha).join(''); wizIr(f, 4); toast('Modelo "' + pr[0] + '" aplicado. Confira e ajuste se precisar.');
     },
+    'ponto-ciente': function (b) {
+      var pid = b.dataset.id, dia = b.dataset.dia, p = P(pid); if (!p || S.role !== 'empresa') return;
+      var al = inconsDia(pid, dia, marcasDia(pid, dia)); S.pontoCiente = S.pontoCiente || {}; S.pontoCiente[pid + '|' + dia] = { em: agora(), por: quemSou(), alertas: al };
+      auditar('Inconsistência de ponto mantida', p.nome + ' · ' + dmyy(dia) + ': ' + al.join('; ')); save(); A['ponto-espelho']({ dataset: { id: pid } }); toast('Registrado: a empresa está ciente e mantém o dia como está.');
+    },
+    'rosto-del': function (b) { var p = P(b.dataset.id); if (!p) return; modal('Apagar o rosto de ' + first(p.nome) + '?', '<p>O cadastro do rosto de ' + esc(p.nome) + ' será apagado. Na próxima marcação, o app cadastra o rosto de novo.</p><p class="ui-sub">As marcações já feitas continuam guardadas, com a foto.</p>', '<button type="button" class="btn" data-act="fechar">Cancelar</button><button type="button" class="btn btn-primary" data-act="rosto-del-ok" data-id="' + esc(p.id) + '">Apagar e recadastrar</button>'); },
+    'rosto-del-ok': function (b) { var pid = b.dataset.id, p = P(pid); (NUVEM ? Nuvem.apagarRosto(pid) : Promise.resolve()).then(function () { if (S.rostos) delete S.rostos[pid]; auditar('Cadastro de rosto apagado', (p || {}).nome || pid); save(); closeModal(); render(); toast('Rosto apagado. O cadastro é refeito na próxima marcação.'); }, function (e) { toast(erroTxt(e)); }); },
+    'passos-esconder': function () { S.ui.semPassos = true; save(); render(); },
+    'passos-mostrar': function () { S.ui.semPassos = false; save(); render(); },
+    'ct-wiz': function () {
+      if (!S.pessoas.length) { toast('Cadastre a equipe primeiro, em Equipe e acessos.'); return; }
+      var ms = S.modelosCt || []; if (!ms.length) { S.ui.ctTab = 'modelos'; save(); render(); toast('Primeiro, crie um modelo de contrato.'); return; }
+      var tipoM = { gerado: 'Feito no gerador', texto: 'Texto próprio, preenchido com os dados da pessoa', arquivo: 'Arquivo pronto' };
+      modal('Fazer contrato', '<form class="stack wiz" novalidate data-form="ct-aplicar" data-ctwiz>' + wizBarra(['Para quem', 'Qual modelo', 'Conferir']) +
+        wizPasso(1, 'Para quem é o contrato?', '<div class="sel-grid" data-precisa="Marque pelo menos uma pessoa.">' + S.pessoas.map(function (p) { var n = contratosDe(p.id).length; return '<label class="sel-card"><input type="checkbox" name="p" value="' + esc(p.id) + '"><span><strong>' + esc(p.nome) + '</strong><span class="sub">' + esc((p.funcao || 'sem função') + (n ? ' · ' + n + (n === 1 ? ' contrato' : ' contratos') : ' · sem contrato')) + '</span></span></label>'; }).join('') + '</div>') +
+        wizPasso(2, 'Qual modelo usar?', '<div class="sel-grid" data-precisa="Escolha o modelo do contrato.">' + ms.map(function (m) { return '<label class="sel-card"><input type="radio" name="m" value="' + esc(m.id) + '"' + (ms.length === 1 ? ' checked' : '') + '><span><strong>' + esc(m.nome) + '</strong><span class="sub">' + esc(tipoM[m.tipo] || '') + '</span></span></label>'; }).join('') + '</div><p class="ui-sub">Precisa de outro? <button type="button" class="link-btn" data-act="ct-ir" data-v="gerar">Montar pelo gerador por função</button> ou <button type="button" class="link-btn" data-act="ct-ir" data-v="modelos">cadastrar o contrato que você já usa</button>.</p>') +
+        wizPasso(3, 'Conferir e gerar', '<div data-ctresumo></div>') + wizNav('Gerar contratos') + '</form>', '', 'modal-largo');
+    },
+    'ct-ir': function (b) { closeModal(); S.ui.ctTab = b.dataset.v; save(); if (location.hash !== '#/contratos') location.hash = '#/contratos'; else render(); },
+    'ck-editar': function (b) { var c = b.dataset.id ? ckPorId(b.dataset.id) : null; modal(c ? 'Editar checklist · ' + c.nome : 'Novo checklist', ckForm(c), '', 'modal-largo'); },
+    'ck-modelo': function (b) {
+      var m = CK_MODELOS[+b.dataset.i], f = b.closest('form'); if (!m || !f) return;
+      $('[name=n]', f).value = m[0]; $('[name=ini]', f).value = m[1]; $('[name=lim]', f).value = m[2];
+      $('[data-ets]', f).innerHTML = m[3].map(function (x) { var p = x.split('|'); return etLinha({ t: p[0], foto: p[1] === '1' }); }).join(''); wizIr(f, 2); toast('Modelo "' + m[0] + '" aplicado. Edite as etapas como quiser.');
+    },
+    'et-add': function (b) { var f = b.closest('form'), box = f && $('[data-ets]', f); if (!box) return; if ($$('[data-et]', box).length >= 40) { toast('No máximo 40 etapas.'); return; } box.insertAdjacentHTML('beforeend', etLinha()); var nv = box.lastElementChild.querySelector('[name=et_t]'); if (nv) nv.focus(); },
+    'et-del': function (b) { var row = b.closest('[data-et]'), box = row && row.parentNode; if (!row) return; row.remove(); if (box && !$('[data-et]', box)) box.insertAdjacentHTML('beforeend', etLinha()); },
+    'et-mover': function (b) { var row = b.closest('[data-et]'); if (!row) return; var alvo = +b.dataset.d < 0 ? row.previousElementSibling : row.nextElementSibling; if (!alvo) return; if (+b.dataset.d < 0) row.parentNode.insertBefore(row, alvo); else row.parentNode.insertBefore(alvo, row); b.focus(); },
+    'ck-marcar': function (b) { var c = ckPorId(b.dataset.id), e = c && (c.etapas || []).filter(function (x) { return x.id === b.dataset.e; })[0]; if (e) marcarEtapa(c, e); },
+    'ck-mes': function (b) { S.ui.ckMes = b.dataset.v; save(); render(); },
+    'ck-cal': function (b) { S.ui.ckCal = b.dataset.v; save(); render(); },
+    'ck-dia': function (b) { var dia = b.dataset.dia, c = b.dataset.id ? ckPorId(b.dataset.id) : null, lista = c ? [c] : ckVisiveis(); modal('Checklist · ' + dmyy(dia) + ' (' + DIAS[diaSemana(dia)] + ')', ckDiaHTML(lista, dia), '', 'modal-largo'); },
+    'ck-desfazer': function (b) { var r = (S.ckRegs || []).filter(function (x) { return String(x.id) === String(b.dataset.id); })[0]; if (!r) return; modal('Desfazer esta marcação?', '<p>A etapa volta a ficar pendente hoje. A ação fica no registro de alterações.</p>', '<button type="button" class="btn" data-act="fechar">Cancelar</button><button type="button" class="btn btn-primary" data-act="ck-desfazer-ok" data-id="' + esc(r.id) + '">Desfazer</button>'); },
+    'ck-desfazer-ok': function (b) {
+      var r = (S.ckRegs || []).filter(function (x) { return String(x.id) === String(b.dataset.id); })[0]; if (!r || S.role !== 'empresa') return; var c = ckPorId(r.checklist_id) || {}, e = (c.etapas || []).filter(function (x) { return x.id === r.etapa_id; })[0] || {};
+      (NUVEM ? Nuvem.desfazerEtapa(r.id) : Promise.resolve()).then(function () { S.ckRegs = S.ckRegs.filter(function (x) { return x !== r; }); auditar('Etapa de checklist desfeita', (c.nome || '') + ': ' + (e.t || '') + ' (' + ckHora(r) + ', ' + (r.por_nome || '') + ')'); save(); closeModal(); render(); toast('Marcação desfeita.'); }, function (er) { toast(erroTxt(er)); });
+    },
+    'ck-duplicar': function (b) { var c = ckPorId(b.dataset.id); if (!c) return; var n = clone(c), t = Date.now().toString(36); n.id = 'ck' + t; n.nome = (c.nome + ' (cópia)').slice(0, 60); n.criado = ckDia(); n.etapas = n.etapas.map(function (e, i) { e.id = 'e' + t + i; return e; }); S.checklists.push(n); S.ui.ck = n.id; auditar('Checklist criado', n.nome + ' (cópia de ' + c.nome + ')'); save(); render(); A['ck-editar']({ dataset: { id: n.id } }); },
+    'ck-del': function (b) { var c = ckPorId(b.dataset.id); if (!c) return; modal('Remover "' + c.nome + '"?', '<p>O checklist sai da tela da equipe. O que já foi marcado continua guardado.</p>', '<button type="button" class="btn" data-act="fechar">Cancelar</button><button type="button" class="btn btn-primary" data-act="ck-del-ok" data-id="' + esc(c.id) + '">Remover</button>'); },
+    'ck-del-ok': function (b) { var c = ckPorId(b.dataset.id); if (!c) return; S.checklists = S.checklists.filter(function (x) { return x !== c; }); S.ui.ck = null; auditar('Checklist removido', c.nome); save(); closeModal(); render(); toast('Checklist removido.'); },
     'export-afd': function () {
       var linhas = ['Seu Comando · AFD de exemplo (formato simplificado, não oficial)', 'Empresa: ' + S.empresa.razao + ' ' + S.empresa.cnpj];
       S.pessoas.forEach(function (p) { (S.ponto[p.id] || []).forEach(function (h) { if (h) linhas.push(['000000000', '05112026', h.replace(':', ''), p.cpf].join(';')); }); });
@@ -1794,8 +2371,8 @@
     'aj-nao': function (b) { modal('Recusar pedido de ajuste', '<form class="stack" data-form="aj-nao" data-id="' + esc(b.dataset.id) + '"><div class="field"><label for="an-m">Resposta (a pessoa vê no app)</label><input id="an-m" name="m" maxlength="300" required placeholder="Ex.: a câmera mostra a saída às 17:10"></div><button class="btn btn-primary" type="submit">Recusar</button></form>'); },
     'ponto-csv': function () {
       var linhas = [['Data', 'Pessoa', 'CPF', 'Marcação', 'Hora', 'NSR', 'Como', 'Latitude', 'Longitude', 'Distância da empresa (m)', 'Fora do local', 'Ajuste aprovado (motivo)'].join(';')];
-      (S.registros || []).slice().sort(function (a, b) { return a.em < b.em ? -1 : 1; }).forEach(function (r) { var p = P(r.pessoa_id) || {}; linhas.push([dmyy(r.dia), p.nome || r.pessoa_id, p.cpf || '', TIPOS_PONTO[r.tipo], hhmm(r.em), r.nsr, r.metodo === 'fixo' ? 'Aparelho da empresa' : 'Celular', r.lat == null ? '' : r.lat, r.lng == null ? '' : r.lng, r.distancia == null ? '' : r.distancia, r.fora_do_local ? 'sim' : '', ''].map(csvCel).join(';')); });
-      (S.ajustes || []).filter(function (a) { return a.status === 'aprovado'; }).forEach(function (a) { var p = P(a.pessoa_id) || {}; linhas.push([dmyy(a.dia), p.nome || a.pessoa_id, p.cpf || '', TIPOS_PONTO[a.tipo] + ' · ' + ACAO_AJ[a.acao], a.hora || '', '', 'Ajuste aprovado por ' + (a.decidido_nome || ''), '', '', '', '', a.motivo].map(csvCel).join(';')); });
+      (S.registros || []).slice().sort(function (a, b) { return a.em < b.em ? -1 : 1; }).forEach(function (r) { var p = P(r.pessoa_id) || {}; linhas.push([dmyy(r.dia), p.nome || r.pessoa_id, p.cpf || '', tipoNome(r.pessoa_id, r.tipo) + (r.rosto ? ' (' + ROSTO_TXT[r.rosto] + ')' : ''), hhmm(r.em, fusoDe(P(r.pessoa_id))), r.nsr, r.metodo === 'fixo' ? 'Aparelho da empresa' : 'Celular', r.lat == null ? '' : r.lat, r.lng == null ? '' : r.lng, r.distancia == null ? '' : r.distancia, r.fora_do_local ? 'sim' : '', ''].map(csvCel).join(';')); });
+      (S.ajustes || []).filter(function (a) { return a.status === 'aprovado'; }).forEach(function (a) { var p = P(a.pessoa_id) || {}; linhas.push([dmyy(a.dia), p.nome || a.pessoa_id, p.cpf || '', tipoNome(a.pessoa_id, a.tipo) + ' · ' + ACAO_AJ[a.acao], a.hora || '', '', 'Ajuste aprovado por ' + (a.decidido_nome || ''), '', '', '', '', a.motivo].map(csvCel).join(';')); });
       baixarTexto('Marcacoes de ponto ' + hojeISO() + '.csv', linhas.join('\r\n'));
     },
     'usar-local': function (b) {
@@ -1885,10 +2462,21 @@
       modal('Novo vale', '<form class="stack" data-form="vale"><div class="form-grid"><div class="field"><label for="vp">Funcionário</label><select id="vp" name="p">' + S.pessoas.map(function (p) { return '<option value="' + p.id + '">' + esc(p.nome) + '</option>'; }).join('') + '</select></div><div class="field"><label for="vt">Tipo</label><select id="vt" name="t"><option value="produto">Produto da loja</option><option value="adiantamento">Adiantamento</option></select></div></div><div class="field"><label for="vd">Itens ou motivo</label><input id="vd" name="d" maxlength="80" required placeholder="Ex.: 2 bolos de fubá"></div><div class="field"><label for="vv">Valor (R$)</label><input id="vv" name="v" type="number" min="0.01" max="5000" step="0.01" required></div><p class="ui-sub">O funcionário recebe no app para assinar. Sem assinatura, o vale não entra na folha.</p><button class="btn btn-primary" type="submit">Enviar para assinatura</button></form>');
     }
   };
+  function quemMarca() {
+    var eu = ehFunc() && (S.real || !pode('ponto')), p = eu ? P(ME) : (P(S.ui.pontoPessoa) || P('e3') || S.pessoas[0]); if (!p) return null;
+    var met = eu ? 'celular' : S.real ? 'fixo' : (S.ui.metodo || (p.celular ? 'celular' : 'fixo'));
+    if (met === 'celular' && !p.celular) { toast('A empresa não liberou a marcação pelo celular para ' + first(p.nome) + '.'); return null; }
+    return { p: p, met: met };
+  }
   function onClick(e) { var b = e.target.closest('[data-act]'); if (!b || b.disabled) return; var f = A[b.dataset.act]; if (f) f(b, e); }
   function onSubmit(e) {
     var f = e.target.closest('[data-form]'); if (!f) return; e.preventDefault();
     var d = new FormData(f), k = f.dataset.form;
+    if (f.classList.contains('wiz')) {
+      var wtot = $$('[data-passo]', f).length, wat = +f.dataset.p || 1;
+      if (wat < wtot) { if (wizValida(f, wat)) wizIr(f, wat + 1); return; }
+      for (var wi = 1; wi <= wtot; wi++) if (!wizValida(f, wi, true)) { wizIr(f, wi); wizValida(f, wi); return; }
+    }
     if (k === 'parecer') {
       var cp = vagaAtual().cands[+f.dataset.i]; if (!cp) return;
       cp.nota = Math.max(1, Math.min(5, +d.get('n') || 3)); cp.parecer = String(d.get('p') || '').trim().replace(/\s+/g, ' ').slice(0, 400); cp.etapa = 'entrevistado';
@@ -1914,8 +2502,8 @@
     if (k === 'nuvem-empresa') { var nn = String(d.get('n') || '').trim().slice(0, 80); if (nn.length < 2) return; criarEmpresaNuvem(nn, String(d.get('t') || 'padaria')).catch(function (e) { toast(e.message); }); return; }
     if (k === 'ajuste') {
       var ajp = f.dataset.pessoa, ajd = String(d.get('d') || ''), ajt = +d.get('t'), aja = String(d.get('a') || 'auto'), ajh = hhOk(d.get('h')), ajm = String(d.get('m') || '').trim().slice(0, 300), direto = f.dataset.direto === '1' && S.role === 'empresa';
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(ajd) || ajd > hojeISO()) { toast('Escolha um dia até hoje.'); return; }
-      if (!(ajt >= 0 && ajt <= 3)) return; if (ajm.length < 5) { toast('Explique o motivo do ajuste.'); return; }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(ajd) || ajd > hojeEm(fusoDe(P(ajp)))) { toast('Escolha um dia até hoje.'); return; }
+      if (!(ajt >= 0 && ajt <= SAIDA)) return; if (ajm.length < 5) { toast('Explique o motivo do ajuste.'); return; }
       var reg = regsDe(ajp, ajd).filter(function (r) { return r.tipo === ajt; })[0], acao = aja === 'desconsiderar' ? 'desconsiderar' : reg ? 'corrigir' : 'incluir';
       if (acao !== 'desconsiderar' && !ajh) { toast('Informe o horário correto.'); return; }
       if (acao === 'desconsiderar' && !marcasDia(ajp, ajd)[ajt]) { toast('Não há marcação para desconsiderar nesse dia.'); return; }
@@ -1925,7 +2513,7 @@
       var agoraIso = new Date().toISOString();
       (NUVEM ? Nuvem.pedirAjuste(ajr) : Promise.resolve(Object.assign({}, ajr, { id: 'aj' + Date.now(), pedido_em: agoraIso, decidido_em: direto ? agoraIso : null }))).then(function (x) {
         S.ajustes = S.ajustes || []; S.ajustes.push(x); pontoHoje();
-        if (direto) auditar('Ajuste de ponto', ((P(ajp) || {}).nome || '') + ' · ' + dmyy(ajd) + ' · ' + TIPOS_PONTO[ajt] + (ajh && acao !== 'desconsiderar' ? ' ' + ajh : '') + ' (' + ACAO_AJ[acao] + '): ' + ajm);
+        if (direto) auditar('Ajuste de ponto', ((P(ajp) || {}).nome || '') + ' · ' + dmyy(ajd) + ' · ' + tipoNome(ajp, ajt) + (ajh && acao !== 'desconsiderar' ? ' ' + ajh : '') + ' (' + ACAO_AJ[acao] + '): ' + ajm);
         save(); closeModal(); render(); toast(direto ? 'Ajuste registrado. A marcação original continua guardada.' : 'Pedido enviado. A empresa vai analisar.');
       }, function (e) { toast(erroTxt(e)); });
       return;
@@ -1933,16 +2521,19 @@
     if (k === 'aj-nao') { var ajr2 = String(d.get('m') || '').trim().slice(0, 300); if (ajr2.length < 3) return; decidirAjuste(f.dataset.id, 'recusado', ajr2); return; }
     if (k === 'turno') {
       var tn = String(d.get('n') || '').trim().slice(0, 40); if (!tn) return;
-      var jt = jornadaDoForm(d), tt = f.dataset.id ? turnoDe(f.dataset.id) : null, novoT = !tt; S.turnos = S.turnos || [];
+      var jt = jornadaDoForm(d); if (!jt.s) { toast('Informe o horário de saída.'); return; } if (!aceiteJornada(jt, d, 'Turno ' + tn)) return;
+      var tt = f.dataset.id ? turnoDe(f.dataset.id) : null, novoT = !tt; S.turnos = S.turnos || [];
       if (novoT) { tt = { id: 't' + Date.now().toString(36) }; S.turnos.push(tt); }
-      tt.nome = tn; tt.e = jt.e; tt.si = jt.si; tt.vi = jt.vi; tt.s = jt.s; tt.dias = jt.dias;
+      delete tt.si; delete tt.vi; delete tt.x1236; delete tt.aceite; tt.nome = tn; Object.keys(jt).forEach(function (x) { tt[x] = jt[x]; });
       S.pessoas.forEach(function (p) { if (p.turno === tt.id) p.escala = tt.e; });
-      var alt = alertasJornada(tt); auditar(novoT ? 'Turno criado' : 'Turno alterado', tn + ': ' + horarioTxt(tt) + ', ' + diasTxt(tt.dias)); save(); closeModal(); render(); toast(alt.length ? 'Turno salvo. Atenção: ' + alt[0] + '.' : 'Turno salvo.'); return;
+      var cj = conferirJornada(tt); auditar(novoT ? 'Turno criado' : 'Turno alterado', tn + ': ' + horarioTxt(tt) + ', ' + escalaTxt(tt)); save(); closeModal(); render(); toast(cj.graves.length ? 'Turno salvo, mantido pela empresa fora da CLT.' : cj.avisos.length ? 'Turno salvo. Atenção: ' + cj.avisos[0] + '.' : 'Turno salvo: dentro da CLT.'); return;
     }
     if (k === 'ponto-cfg') {
       S.empresa.ponto = S.empresa.ponto || {}; var pc = S.empresa.ponto;
       pc.raio = Math.max(30, Math.min(5000, +d.get('raio') || 200)); pc.foto = d.get('foto') === 'on'; pc.local = d.get('local') === 'on'; pc.bloquear = d.get('bloquear') === 'on';
-      auditar('Regras do ponto alteradas', 'raio de ' + pc.raio + ' m' + (pc.foto ? ', foto obrigatória' : ', foto opcional') + (pc.local ? ', localização obrigatória' : ', localização opcional') + (pc.bloquear ? ', recusa fora do local' : '')); save(); render(); toast('Regras do ponto salvas.'); return;
+      pc.rosto = d.get('rosto') === 'on'; if (pc.rosto) pc.foto = true; pc.rosto_rigor = ({ tolerante: 1, normal: 1, rigoroso: 1 })[d.get('rg')] ? String(d.get('rg')) : 'normal'; pc.rosto_bloquear = d.get('rb') !== '0';
+      S.empresa.fuso = fusoOk(String(d.get('fu') || '')) || 'America/Sao_Paulo';
+      auditar('Regras do ponto alteradas', 'raio de ' + pc.raio + ' m' + (pc.foto ? ', foto obrigatória' : ', foto opcional') + (pc.local ? ', localização obrigatória' : ', localização opcional') + (pc.bloquear ? ', recusa fora do local' : '') + (pc.rosto ? ', reconhecimento facial (' + pc.rosto_rigor + (pc.rosto_bloquear ? ', bloqueia' : ', sinaliza') + ')' : ', sem reconhecimento facial') + ', ' + fusoNome(S.empresa.fuso)); save(); render(); toast('Regras do ponto salvas.'); return;
     }
     if (k === 'doc-nao') { var mt = String(d.get('m') || '').trim().slice(0, 200); if (mt.length < 3) return; decidirDoc(f.dataset.id, 'recusado', mt); return; }
     if (k === 'ct-modelo-salvar') {
@@ -1956,7 +2547,9 @@
       auditar('Modelo de contrato cadastrado', mn2); save(); render(); toast('Modelo salvo.' + (/\{\{\s*nome\s*\}\}/.test(tx) ? '' : ' Dica: escreva {{nome}} onde entra o nome de cada pessoa.')); return;
     }
     if (k === 'ct-aplicar') {
-      var mm = modeloCt(f.dataset.id), sel = d.getAll('p').filter(function (x) { return P(x); }); if (!mm) return; if (!sel.length) { toast('Marque ao menos uma pessoa.'); return; }
+      var mm = modeloCt(f.dataset.id || String(d.get('m') || '')); if (!mm) { toast('Escolha o modelo do contrato.'); return; }
+      var marc = d.getAll('p').filter(function (x) { return P(x); }), sel = marc.filter(function (x) { return !(S.contratos || []).some(function (c) { return c.modelo === mm.id && c.pessoa === x; }); });
+      if (!sel.length) { toast(marc.length ? 'Essas pessoas já têm este contrato.' : 'Marque ao menos uma pessoa.'); return; }
       S.contratos = S.contratos || []; sel.forEach(function (pid, i) { S.contratos.push({ id: 'c' + Date.now().toString(36) + i, pessoa: pid, modelo: mm.id, em: agora() }); });
       S.ui.ctTab = 'equipe'; auditar('Contratos gerados', mm.nome + ' para ' + sel.length + ' pessoa(s)'); save(); closeModal(); render(); toast(sel.length + ' contrato(s) gerado(s). Baixe, colha a assinatura e envie o assinado.'); return;
     }
@@ -1964,10 +2557,13 @@
       var nm = String(d.get('n') || '').trim().replace(/\s+/g, ' ').slice(0, 80), cpf = String(d.get('c') || '').replace(/\D/g, '');
       if (nm.split(' ').length < 2) { toast('Informe o nome completo.'); return; }
       if (cpf && !cpfValido(cpf)) { toast('CPF inválido.'); return; }
+      var tuSel = String(d.get('tu') || ''), jNova = tuSel && turnoDe(tuSel) ? null : jornadaDoForm(d);
+      if (jNova && !jNova.s) { toast('Informe o horário de saída ou escolha um turno.'); return; }
+      if (jNova && !aceiteJornada(jNova, d, nm)) return;
       var pid = f.dataset.id, pe = pid ? P(pid) : null, novo = !pe;
-      if (novo) { pe = { id: 'p' + Date.now().toString(36), celular: !!S.real }; S.pessoas.push(pe); S.ponto[pe.id] = ['', '', '', '']; }
+      if (novo) { pe = { id: 'p' + Date.now().toString(36), celular: !!S.real }; S.pessoas.push(pe); S.ponto[pe.id] = []; }
       pe.nome = nm; pe.cpf = cpf ? fmtCPF(cpf) : ''; pe.fone = String(d.get('t') || '').trim().slice(0, 20); pe.funcao = String(d.get('f') || '').trim().slice(0, 60); pe.setor = String(d.get('s') || '').trim().slice(0, 40) || 'Geral';
-      pe.cargo = cargoPor(String(d.get('g'))).id; pe.salario = Math.max(0, +d.get('sa') || 0); var tuSel = String(d.get('tu') || ''); if (tuSel && turnoDe(tuSel)) { pe.turno = tuSel; delete pe.jornada; pe.escala = turnoDe(tuSel).e; } else { pe.turno = ''; pe.jornada = jornadaDoForm(d); pe.escala = pe.jornada.e; } pe.admissao = String(d.get('a') || S.hoje).slice(0, 10);
+      pe.cargo = cargoPor(String(d.get('g'))).id; pe.salario = Math.max(0, +d.get('sa') || 0); if (!jNova) { pe.turno = tuSel; delete pe.jornada; pe.escala = turnoDe(tuSel).e; } else { pe.turno = ''; pe.jornada = jNova; pe.escala = jNova.e; } var fu = fusoOk(String(d.get('fu') || '')); if (fu) pe.fuso = fu; else delete pe.fuso; pe.admissao = String(d.get('a') || S.hoje).slice(0, 10);
       auditar(novo ? 'Pessoa cadastrada' : 'Cadastro alterado', nm); save(); closeModal(); render(); toast(novo ? nm.split(' ')[0] + ' cadastrado(a). Em "Acesso", gere o código do app.' : 'Cadastro salvo.'); return;
     }
     if (k === 'acesso') {
@@ -2051,6 +2647,18 @@
       S.compras.itens.push({ id: 'k' + Date.now(), prod: null, nome: String(d.get('n')).trim().slice(0, 60), qtd: q, un: String(d.get('u')).trim().slice(0, 10) || 'un', fornecedor: String(d.get('f')).slice(0, 60), custo: emp ? Math.max(0, +d.get('c') || 0) : 0, origem: emp ? 'manual' : 'pedido', por: emp ? null : ME, comprado: false });
       toast(emp ? 'Item adicionado à lista.' : 'Pedido enviado. A empresa vê na lista de compras.');
     }
+    if (k === 'ck') {
+      var cn = String(d.get('n') || '').trim().slice(0, 60), cini = hhOk(d.get('ini')), clim = hhOk(d.get('lim')); if (!cn || !cini || !clim) { toast('Preencha o nome, o horário de abertura e o limite.'); return; }
+      var eids = d.getAll('et_id'), etx = d.getAll('et_t'), efo = d.getAll('et_f'), eli = d.getAll('et_l'), ets = [], tb = Date.now().toString(36);
+      etx.forEach(function (t, i) { t = String(t).trim().slice(0, 120); if (!t) return; var et = { id: String(eids[i] || '').slice(0, 40) || 'e' + tb + i, t: t, foto: efo[i] === '1' }, l = hhOk(eli[i]); if (l) et.limite = l; ets.push(et); });
+      if (!ets.length) { toast('Inclua pelo menos uma etapa.'); return; }
+      var ckx = f.dataset.id ? ckPorId(f.dataset.id) : null, novoC = !ckx; S.checklists = S.checklists || [];
+      if (novoC) { ckx = { id: 'ck' + tb, criado: ckDia() }; S.checklists.push(ckx); } else ckx.alterado = ckDia();
+      ckx.nome = cn; ckx.setor = String(d.get('s') || '').trim().slice(0, 40) || 'Geral'; ckx.resp = P(String(d.get('r') || '')) ? String(d.get('r')) : '';
+      ckx.dias = d.getAll('ckd').map(Number).filter(function (x) { return x >= 0 && x <= 6; }); if (!ckx.dias.length) ckx.dias = [0, 1, 2, 3, 4, 5, 6];
+      ckx.inicio = cini; ckx.limite = clim; ckx.etapas = ets; S.ui.ck = ckx.id;
+      auditar(novoC ? 'Checklist criado' : 'Checklist alterado', cn + ': ' + ets.length + ' etapa(s), ' + cini + ' às ' + clim); save(); closeModal(); render(); toast(novoC ? 'Checklist criado. A equipe já vê no app.' : 'Checklist salvo.'); return;
+    }
     if (k === 'ck-novo') { var c = S.checklists.filter(function (x) { return x.id === (S.ui.ck || 'c1'); })[0]; c.itens.push({ t: String(d.get('t')).trim().slice(0, 90), foto: c.foto === 'todos', feito: false }); }
     if (k === 'adv') { S.advertencias.unshift({ id: 'w' + Date.now(), pessoa: d.get('p'), data: S.hoje, motivo: String(d.get('m')).trim().slice(0, 400), ciencia: 'pendente' }); toast('Advertência enviada para ciência no app.'); }
     if (k === 'recusa') { var w = S.advertencias.filter(function (x) { return x.id === f.dataset.id; })[0]; w.ciencia = 'recusa'; w.testemunhas = String(d.get('t')).trim().slice(0, 120); }
@@ -2109,7 +2717,7 @@
       else it.feito = t.checked;
       save(); render();
     }
-    if (k === 'pe-turno') { var fs = t.form && t.form.querySelector('[data-manual]'); if (fs) fs.hidden = !!t.value; return; }
+    if (k === 'pe-turno') { var fs = t.form && t.form.querySelector('[data-manual]'); if (fs) { fs.hidden = !!t.value; fs.disabled = !!t.value; } return; }
     if (k === 'hol-comp') { if (/^\d{4}-\d{2}$/.test(t.value)) { S.ui.comp = t.value; save(); render(); } return; }
     if (k === 'doc-enviar' && t.files && t.files.length) {
       var tp = t.dataset.tipo, pp = t.dataset.pessoa, fl = Array.prototype.slice.call(t.files, 0, 6); toast('Enviando…');

@@ -31,12 +31,12 @@ Publicação: GitHub Pages a partir da branch `main`, na raiz. A cada versão, a
 | Triagem e entrevista (CLT, freelancer etc.) | Vagas e seleção | A triagem são só perguntas e descarta quem não se encaixa. Quem passa é chamado para entrevista (dia, hora e convite no WhatsApp) e o empregador aprova ou não. Funil da vaga na tela. Perguntas discriminatórias ficam bloqueadas (Lei 9.029/95) |
 | WhatsApp | Vagas | Convite de entrevista para quem passou na triagem e link de documentos para quem foi aprovado na entrevista; ao enviar o link, a admissão é aberta |
 | Contratos sugeridos, editáveis e em PDF | Contratos | Base de 221 cargos em 16 setores, com CBO conferida na tabela oficial, atribuições e pontos trabalhistas. O empregador escolhe o enquadramento (cargo, prazo, jornada, turno, adicionais, salário, CCT e art. 481), o sistema verifica riscos e só libera o PDF depois do checklist. No plano de avaliação o PDF sai com marca d'água |
-| Jornada, atestados e advertências | Ponto e jornada; Atestados e advertências | Situação do ponto do dia; atestado com foto para ciência e original físico pendente com prazo; advertência com ciência no app ou recusa com testemunhas |
+| Jornada, atestados e advertências | Ponto e jornada; Atestados e advertências | Turnos montados passo a passo e conferidos com a CLT (intrajornada, interjornada, limite diário, adicional noturno); fora da CLT, só a empresa vê o aviso e mantém declarando ciência; situação do ponto do dia; atestado com foto para ciência e original físico pendente com prazo; advertência com ciência no app ou recusa com testemunhas |
 | Segunda via do holerite | Holerites (visão Funcionário) | Lista das competências com a segunda via para imprimir |
 | Holerite aprovado pela empresa | Holerites | O contador lança, a empresa aprova e só então o funcionário vê |
 | Faltas não abonadas | Holerites e Início | Alerta antes da aprovação, cruzando faltas com atestados sem o original |
-| Bater ponto pelo celular ou em aparelho fixo | Ponto e jornada | Autorização por pessoa, validação facial ou digital simulada e comprovante com NSR |
-| Checklists com foto total ou parcial | Checklists | Por setor e responsável, com regra de foto em todos os itens, só nos marcados ou sem foto |
+| Bater ponto pelo celular ou em aparelho fixo | Ponto e jornada | Autorização por pessoa, foto, localização e reconhecimento facial configurável (cadastro do rosto na primeira marcação, rigor e bloqueio escolhidos pela empresa), fuso horário da empresa ou da pessoa, até 4 intervalos fixos ou flexíveis por jornada, turno que passa da meia-noite e comprovante com NSR |
+| Checklists com horário | Checklists | Etapas totalmente editáveis (abertura, preparo, fechamento), horário de abertura e limite, hora de cada marcação, justificativa depois do limite, foto tirada na hora pela câmera (sem galeria) e calendário do mês com cores |
 | Etiquetas e estoque | Estoque e etiquetas | Mínimo, validade e etiquetas com código de barras Code 39 real, prontas para imprimir |
 | Lista de compras | Lista de compras (e botão no Estoque) | Sugere o que está abaixo do mínimo com a quantidade até o estoque ideal, recebe pedidos da equipe, agrupa por fornecedor, envia o pedido pelo WhatsApp, imprime e, no recebimento, soma ao estoque |
 | Vales descontados em folha | Vales | Assinatura do funcionário obrigatória, alerta em 60% e trava em 70% do salário |
@@ -53,6 +53,7 @@ Publicação: GitHub Pages a partir da branch `main`, na raiz. A cada versão, a
 - **Login e senha:** empresário e contador com e-mail; funcionário e gerente com CPF e senha (primeiro acesso por código de 72 horas). Senhas no Supabase Auth, com hash bcrypt.
 - **Banco de dados:** Supabase (PostgreSQL, região São Paulo) com regras por empresa e por papel (RLS). Tabelas, regras e funções em `supabase/schema.sql`, testadas num Postgres em memória.
 - **Papéis:** empresário, contador, gerente (com permissões escolhidas pelo dono, como banco de horas) e funcionário. Mudanças de acesso e lançamentos de banco de horas ficam registrados.
+- **Passo a passo:** o Início tem os primeiros passos de cada papel e o painel de setores com ícones fixos; turno, checklist e contrato são montados em assistentes de etapas.
 - **App:** instalável no celular e no computador (PWA), abre sem internet e avisa "Nova versão disponível" quando sai atualização.
 - **Como ligar:** siga `SETUP-SUPABASE.md`. Sem configuração, o app roda só com o exemplo local.
 
