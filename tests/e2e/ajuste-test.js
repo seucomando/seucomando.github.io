@@ -1,0 +1,27 @@
+const { chromium } = require('playwright');
+(async () => {
+  const b = await chromium.launch({ args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'] });
+  const ctx = await b.newContext({ viewport: { width: 1280, height: 900 }, permissions: ['camera', 'geolocation'], geolocation: { latitude: -28.6775, longitude: -49.3697, accuracy: 15 } });
+  await ctx.addInitScript(() => { try { localStorage.setItem('seucomando-guia:todas', 'nao'); } catch (e) {} }); const p = await ctx.newPage(); const errs = []; const L = x => console.log('> ' + x); p.on('pageerror', e => errs.push(e.message));
+  const base = 'http://localhost:8765/', W = (ms = 400) => p.waitForTimeout(ms), toast = async () => ((await p.$('.toast')) ? (await p.textContent('.toast')).trim() : '');
+  const marcar = async () => { await p.click('[data-act="marcar"]'); await p.waitForSelector('#cam-ok:not([disabled])', { timeout: 15000 }); await p.click('#cam-ok'); await p.waitForSelector('.overlay', { state: 'detached', timeout: 15000 }); await W(300); };
+  await p.goto(base + 'app.html?exemplo=1'); await W(700); await p.click('.hub-pe [data-act="em-branco"]'); await W(300); await p.click('form[data-form="em-branco"] button[type=submit]'); await W(700);
+  await p.click('[data-act="pessoa-editar"]:not([data-id])'); await W(300); await p.fill('#pe-n', 'Maria Souza Lima'); await p.fill('#pe-f', 'Atendente'); await p.click('form[data-form="pessoa"] button[type=submit]'); await W(300);
+  await p.selectOption('#role', 'funcionario'); await W(300); await p.goto(base + 'app.html?exemplo=1#/ponto'); await W(400);
+  await marcar(); L('entrada: ' + await toast());
+  await p.click('[data-act="aj-novo"]'); await W(300); await p.selectOption('#aj-t', '9'); await p.fill('#aj-h', '17:50'); await p.fill('#aj-m', 'Esqueci de marcar a saída');
+  await p.click('form[data-form="ajuste"] button[type=submit]'); await W(400); L('pedido: ' + await toast());
+  L('meus pedidos: ' + (await p.textContent('#view')).replace(/\s+/g, ' ').match(/Seus pedidos de ajuste.{0,160}/)[0]);
+  await p.click('[data-act="aj-novo"]'); await W(300); await p.selectOption('#aj-t', '9'); await p.fill('#aj-h', '17:55'); await p.fill('#aj-m', 'Pedido repetido'); await p.click('form[data-form="ajuste"] button[type=submit]'); await W(300); L('pedido repetido: ' + await toast()); await p.click('[data-act="fechar"]');
+  await p.selectOption('#role', 'empresa'); await W(300); await p.goto(base + 'app.html?exemplo=1#/inicio'); await W(400); L('início: ' + ((await p.textContent('#view')).match(/Pedidos de ajuste de ponto[^A]*/) || ['sem pendência'])[0]);
+  await p.goto(base + 'app.html?exemplo=1#/ponto'); await W(400);
+  L('card na tela do ponto: ' + (await p.textContent('#view')).replace(/\s+/g, ' ').match(/Pedidos de ajuste.{0,120}/)[0]);
+  await p.click('[data-act="aba"][data-v="ajustes"]'); await W(250);
+  await p.click('[data-act="aj-ok"]'); await W(400); L('aprovado: ' + await toast());
+  L('saída na tabela: ' + (await p.textContent('#view tbody tr')).replace(/\s+/g, ' ').slice(0, 100));
+  await p.click('[data-act="ponto-espelho"]'); await W(400); L('espelho: ' + (await p.textContent('.modal tbody')).replace(/\s+/g, ' ').slice(0, 260));
+  await p.click('.modal [data-act="aj-novo"]'); await W(300); await p.selectOption('#aj-t', '0'); await p.selectOption('#aj-a', 'desconsiderar'); await p.fill('#aj-m', 'Marcou com o crachá do colega por engano'); await p.click('form[data-form="ajuste"] button[type=submit]'); await W(400); L('direto: ' + await toast());
+  await p.click('[data-act="ponto-espelho"]'); await W(400); L('espelho depois: ' + (await p.textContent('.modal tbody')).replace(/\s+/g, ' ').slice(0, 220));
+  L('registro original intacto: ' + await p.evaluate(() => { const s = JSON.parse(localStorage.getItem(Object.keys(localStorage).find(k => /prototipo-v8:/.test(k)))); return s.registros.length + ' registro(s), ' + s.ajustes.length + ' ajuste(s), auditoria: ' + s.auditoria.slice(0, 2).map(a => a.acao).join(' | '); }));
+  L('ERROS: ' + (errs.length ? errs.join(' | ') : 'nenhum')); await b.close();
+})();

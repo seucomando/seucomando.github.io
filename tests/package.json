@@ -1,0 +1,10 @@
+{
+  "name": "seu-comando-testes",
+  "private": true,
+  "description": "Testes do Seu Comando: regras do banco e telas do app",
+  "scripts": { "test": "bash rodar.sh" },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.16",
+    "playwright": "1.63.0"
+  }
+}

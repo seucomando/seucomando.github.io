@@ -53,7 +53,10 @@ Publicação: GitHub Pages a partir da branch `main`, na raiz. A cada versão, a
 - **Login e senha:** empresário e contador com e-mail; funcionário e gerente com CPF e senha (primeiro acesso por código de 72 horas). Senhas no Supabase Auth, com hash bcrypt.
 - **Banco de dados:** Supabase (PostgreSQL, região São Paulo) com regras por empresa e por papel (RLS). Tabelas, regras e funções em `supabase/schema.sql`, testadas num Postgres em memória.
 - **Papéis:** empresário, contador, gerente (com permissões escolhidas pelo dono, como banco de horas) e funcionário. Mudanças de acesso e lançamentos de banco de horas ficam registrados.
-- **Menu por categoria:** o menu lateral mostra só a categoria atual (Pessoas, Rotina, Folha, Loja, Alimentos) e o botão "Trocar" leva para outra.
+- **Navegação em telas de jogo:** o Início mostra as áreas (Contratar, Equipe, Dia a dia, Folha, Compras e estoque, Alimentos) como cartões com o número de pendências; cada área abre as telas dela, e as telas maiores (Ponto, Turnos e regras, Boas práticas) abrem um submenu. No alto de cada tela fica o botão de voltar e o caminho (Início › área › tela). O botão "Menu" abre o mapa com todas as telas.
+- **Menu da empresa:** o nome da empresa, no alto, abre Dados da empresa, Turnos e regras do ponto, Acessos e permissões, Registro de alterações, Módulos do app (ligar e desligar áreas) e Sair.
+- **Privacidade:** `privacidade.html` explica o que o app guarda (inclusive rosto, foto e local do ponto), por quanto tempo e como pedir para ver, corrigir ou apagar.
+- **Testes:** `tests/` roda as regras do banco e as telas a cada envio para o GitHub (aba Actions); veja `tests/README.md`.
 - **Empresa nova vem zerada:** sem checklist, equipamento ou dado de exemplo; os modelos prontos aparecem só na hora de criar.
 - **Passo a passo:** abre ao entrar (dá para desligar) e fica no botão "Passo a passo" no alto; o Início tem os primeiros passos de cada papel e o painel de setores com ícones fixos; turno, checklist e contrato são montados em assistentes de etapas.
 - **App:** instalável no celular e no computador (PWA), abre sem internet e avisa "Nova versão disponível" quando sai atualização.

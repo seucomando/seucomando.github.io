@@ -1,0 +1,71 @@
+// Navegação em telas de jogo: Início → área → tela → submenu; menu da empresa; mapa do app.
+const { chromium } = require('playwright');
+const path = require('path');
+(async () => {
+  const b = await chromium.launch();
+  const out = path.join(__dirname, 'nav'); require('fs').mkdirSync(out, { recursive: true });
+  const errs = [];
+  const nova = async (vp) => {
+    const ctx = await b.newContext({ viewport: vp });
+    await ctx.addInitScript(() => { try { localStorage.setItem('seucomando-guia:todas', 'nao'); } catch (e) {} });
+    const p = await ctx.newPage();
+    p.on('pageerror', e => errs.push('pageerror: ' + e.message)); p.on('console', m => { if (m.type() === 'error') errs.push('console: ' + m.text().slice(0, 200)); });
+    return p;
+  };
+  const base = 'http://localhost:8765/';
+  const L = x => console.log('> ' + x);
+  const p = await nova({ width: 1280, height: 860 });
+  const W = (ms = 350) => p.waitForTimeout(ms);
+  const txt = async (s) => ((await p.textContent(s, { timeout: 3000 }).catch(() => '[sem ' + s + ']')) || '').replace(/\s+/g, ' ').trim();
+  const shot = (n, full) => p.screenshot({ path: path.join(out, n + '.png'), fullPage: !!full });
+
+  await p.goto(base + 'app.html?exemplo=1#/inicio'); await W(700);
+  L('hub: áreas = ' + (await p.$$eval('.cats .setor-nome', xs => xs.map(x => x.textContent).join(' | '))));
+  L('hub: pendências = ' + await txt('.pend-card .card-head'));
+  L('mapa visível antes de abrir? ' + await p.isVisible('#side'));
+  await shot('1-hub', true);
+  await p.click('.cats a:has-text("Dia a dia")'); await W();
+  L('área: url=' + p.url().split('#')[1] + ' · trilha=' + await txt('.trilha') + ' · telas=' + (await p.$$eval('.setores .setor-nome', xs => xs.map(x => x.textContent).join(' | '))));
+  await shot('2-area-dia');
+  await p.click('.setores a:has-text("Ponto")'); await W();
+  L('ponto: trilha=' + await txt('.trilha') + ' · submenu=' + await txt('.submenu'));
+  L('ponto: tem "Regras do ponto"? ' + !!(await p.$('text=Quem pode marcar pelo celular')) + ' · banco no ponto? ' + !!(await p.$('#banco')));
+  await shot('3-ponto');
+  await p.click('.submenu button:has-text("Bater ponto aqui")'); await W();
+  L('submenu marcar: botão=' + await txt('[data-act="marcar"]'));
+  await p.click('.ajuda-btn >> nth=0'); await W(); L('ajuda: ' + await txt('.modal h2')); await p.keyboard.press('Escape'); await W();
+  await p.click('.trilha-volta'); await W(); L('voltar → ' + p.url().split('#')[1]);
+  await p.click('#menu-btn'); await W(); L('mapa aberto: ' + await p.isVisible('#side') + ' · grupos=' + (await p.$$eval('#nav [data-group]:not([hidden]) .nav-label', xs => xs.map(x => x.textContent).join(' | '))));
+  await shot('4-mapa');
+  await p.click('#nav a[href="#/banco"]'); await W(); L('banco: ' + await txt('h1') + ' · mapa fechou? ' + !(await p.isVisible('#side')));
+  await p.click('#co-btn'); await W(); L('menu empresa: ' + (await p.$$eval('.co-op strong', xs => xs.map(x => x.textContent).join(' | '))));
+  await shot('5-menu-empresa');
+  await p.click('.co-op:has-text("Acessos")'); await W(); L('acessos: ' + await txt('h1') + ' · trilha=' + await txt('.trilha'));
+  await p.click('#co-btn'); await W(); await p.click('.co-op:has-text("Registro")'); await W(); L('registro: ' + await txt('h1'));
+  await p.click('#co-btn'); await W(); await p.click('.co-op:has-text("Módulos")'); await W(); L('módulos: ' + await txt('.modal h2'));
+  await p.uncheck('input[name=m][value=compras]'); await p.click('form[data-form=modulos] button[type=submit]'); await W();
+  await p.goto(base + 'app.html?exemplo=1#/inicio'); await W(500);
+  L('sem compras: áreas = ' + (await p.$$eval('.cats .setor-nome', xs => xs.map(x => x.textContent).join(' | '))));
+  await p.goto(base + 'app.html?exemplo=1#/estoque'); await W(500); L('rota desligada vai para: ' + p.url().split('#')[1]);
+  await p.click('#co-btn'); await W(); await p.click('.co-op:has-text("Módulos")'); await W(); await p.check('input[name=m][value=compras]'); await p.click('form[data-form=modulos] button[type=submit]'); await W();
+  await p.goto(base + 'app.html?exemplo=1#/ocorrencias'); await W(500); L('link antigo de ocorrências: ' + await txt('h1'));
+  await p.goto(base + 'app.html?exemplo=1#/c/compras'); await W(500); L('área compras: ' + await txt('h1') + ' · ' + (await p.$$eval('.setores .setor-nome', xs => xs.map(x => x.textContent).join(' | '))));
+  await p.goto(base + 'app.html?exemplo=1#/equipe'); await W(500); L('equipe: ' + await txt('h1') + ' · tem registro? ' + !!(await p.$('text=Registro de alterações >> visible=true')));
+  // funcionário
+  await p.selectOption('#role', 'funcionario'); await W(500); await p.goto(base + 'app.html?exemplo=1#/inicio'); await W(500);
+  L('funcionário hub: ' + (await p.$$eval('.cats .setor-nome', xs => xs.map(x => x.textContent).join(' | '))) + ' · próximo=' + await txt('.proximo-tit'));
+  await shot('6-func-hub', true);
+  await p.selectOption('#role', 'contador'); await W(500); await p.goto(base + 'app.html?exemplo=1#/inicio'); await W(500);
+  L('contador hub: ' + (await p.$$eval('.cats .setor-nome', xs => xs.map(x => x.textContent).join(' | '))));
+  await p.selectOption('#role', 'empresa'); await W(400);
+  // celular
+  const m = await nova({ width: 390, height: 844 });
+  await m.goto(base + 'app.html?exemplo=1#/inicio'); await m.waitForTimeout(700);
+  await m.screenshot({ path: path.join(out, '7-cel-hub.png'), fullPage: true });
+  await m.goto(base + 'app.html?exemplo=1#/ponto'); await m.waitForTimeout(500);
+  await m.screenshot({ path: path.join(out, '8-cel-ponto.png') });
+  const larg = await m.evaluate(() => document.documentElement.scrollWidth); L('celular: largura da página=' + larg);
+  await m.click('#menu-btn'); await m.waitForTimeout(400); await m.screenshot({ path: path.join(out, '9-cel-mapa.png') });
+  console.log('ERROS: ' + (errs.length ? errs.join('\n') : 'nenhum'));
+  await b.close();
+})();

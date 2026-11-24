@@ -28,60 +28,67 @@
 <script src="assets/js/cargos.js" defer></script>
 <script src="assets/js/clausulas.js" defer></script>
 <script src="assets/js/perguntas.js" defer></script>
-<script src="assets/js/vendor/html2pdf.bundle.min.js" defer></script>
 <script src="assets/js/app.js" defer></script>
 </head>
 <body>
+<a class="pular" href="#view">Pular para o conteúdo</a>
 <div class="shell">
-  <aside class="side" id="side" aria-label="Menu principal">
-    <a class="brand" href="index.html"><img src="assets/img/logo.svg" alt="" width="30" height="30">Seu Comando</a>
-    <nav class="nav" id="nav">
+  <aside class="side" id="side" aria-label="Mapa do app">
+    <div class="side-top"><a class="brand" href="#/inicio"><img src="assets/img/logo.svg" alt="" width="30" height="30">Seu Comando</a><button type="button" class="btn btn-sm" id="side-fechar">Fechar</button></div>
+    <nav class="nav" id="nav" aria-label="Todas as áreas">
       <div class="nav-group">
-        <a href="#/inicio" data-roles="empresa contador funcionario gerente"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Início</a>
+        <a href="#/inicio" data-roles="empresa contador funcionario gerente"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span>Início</span></a>
       </div>
-      <div class="cat-troca" id="cat-troca" hidden>
-        <button type="button" class="cat-btn" id="cat-btn" aria-expanded="false" aria-controls="cat-lista"><span class="cat-ic" id="cat-ic" aria-hidden="true"></span><span class="cat-txt"><span class="cat-lbl">Categoria</span><strong id="cat-nome"></strong></span><span class="cat-seta">Trocar</span></button>
-        <div class="cat-lista" id="cat-lista" role="menu" hidden></div>
-      </div>
-      <div class="nav-group" data-group>
-        <span class="nav-label">Pessoas</span>
-        <a href="#/vagas" data-roles="empresa" data-nors><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="8" r="4"/><path d="M3 21c0-4 3-6 7-6s7 2 7 6M17 11l2 2 4-4"/></svg>Vagas e seleção</a>
+      <div class="nav-group" data-group data-cat="contratar">
+        <span class="nav-label">Contratar</span>
+        <a href="#/vagas" data-roles="empresa" data-nors><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="8" r="4"/><path d="M3 21c0-4 3-6 7-6s7 2 7 6M17 11l2 2 4-4"/></svg><span>Vagas e seleção</span></a>
         <a href="#/selecao" data-roles="empresa" data-rs><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.2-4.2"/><path d="M9 11h4M11 9v4"/></svg><span>Processos seletivos</span></a>
         <a href="#/clientes" data-roles="empresa" data-rs><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V8l8-4 8 4v12"/><path d="M9 20v-5h6v5"/><path d="M8 10h.01M12 10h.01M16 10h.01"/></svg><span>Empresas clientes</span></a>
-        <a href="#/admissoes" data-roles="empresa contador"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg>Admissões<span class="count" data-count="adm"></span></a>
-        <a href="#/contratos" data-roles="empresa contador"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h14v16H5z"/><path d="M8 8h8M8 12h8M8 16h4"/></svg>Contratos</a>
+        <a href="#/admissoes" data-roles="empresa contador"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg><span>Admissões</span><span class="count" data-count="adm"></span></a>
+        <a href="#/contratos" data-roles="empresa contador"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h14v16H5z"/><path d="M8 8h8M8 12h8M8 16h4"/></svg><span>Contratos</span></a>
+      </div>
+      <div class="nav-group" data-group data-cat="equipe">
+        <span class="nav-label">Equipe</span>
+        <a href="#/equipe" data-roles="empresa"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.2c2.4.2 4 1.8 4.5 4.8"/></svg><span>Cadastro da equipe</span></a>
         <a href="#/documentos" data-roles="empresa contador funcionario gerente"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6v18h12V7z"/><path d="M14 3v4h4M9 13h6M9 17h4"/></svg><span>Documentos</span><span class="count" data-count="doc"></span></a>
-        <a href="#/equipe" data-roles="empresa"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.2c2.4.2 4 1.8 4.5 4.8"/></svg><span>Equipe e acessos</span></a>
+        <a href="#/advertencias" data-roles="empresa contador funcionario gerente"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17v.5"/></svg><span>Advertências</span></a>
       </div>
-      <div class="nav-group" data-group>
-        <span class="nav-label">Rotina</span>
-        <a href="#/ponto" data-roles="empresa contador funcionario gerente"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Ponto e jornada</a>
-        <a href="#/empresa" data-roles="empresa"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4M12 13v3l2 1"/></svg><span>Turnos e regras do ponto</span></a>
-        <a href="#/ocorrencias" data-roles="empresa contador funcionario gerente"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17v.5"/></svg>Atestados e advertências<span class="count" data-count="orig"></span></a>
-        <a href="#/checklists" data-roles="empresa funcionario gerente"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6l2 2 3-3M4 13l2 2 3-3M4 20l2 2 3-3M12 7h8M12 14h8M12 21h8"/></svg>Checklists</a>
+      <div class="nav-group" data-group data-cat="dia">
+        <span class="nav-label">Dia a dia</span>
+        <a href="#/ponto" data-roles="empresa contador funcionario gerente"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Ponto</span></a>
+        <a href="#/checklists" data-roles="empresa funcionario gerente"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6l2 2 3-3M4 13l2 2 3-3M4 20l2 2 3-3M12 7h8M12 14h8M12 21h8"/></svg><span>Checklists</span></a>
+        <a href="#/atestados" data-roles="empresa contador funcionario gerente"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M12.5 11v6M9.5 14h6"/></svg><span>Atestados</span><span class="count" data-count="orig"></span></a>
       </div>
-      <div class="nav-group" data-group>
+      <div class="nav-group" data-group data-cat="folha">
         <span class="nav-label">Folha</span>
-        <a href="#/holerites" data-roles="empresa contador funcionario gerente"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></svg>Holerites<span class="count" data-count="hol"></span></a>
-        <a href="#/vales" data-roles="empresa contador funcionario gerente"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16v10H4z"/><path d="M8 7v10M14 11h3"/></svg>Vales</a>
+        <a href="#/holerites" data-roles="empresa contador funcionario gerente"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></svg><span>Holerites</span><span class="count" data-count="hol"></span></a>
+        <a href="#/vales" data-roles="empresa contador funcionario gerente"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16v10H4z"/><path d="M8 7v10M14 11h3"/></svg><span>Vales</span></a>
+        <a href="#/banco" data-roles="empresa funcionario gerente"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 1.5M9 2h6"/></svg><span>Banco de horas</span></a>
       </div>
-      <div class="nav-group" data-group>
-        <span class="nav-label">Loja</span>
-        <a href="#/estoque" data-roles="empresa gerente" data-perm="estoque"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>Estoque e etiquetas</a>
-        <a href="#/compras" data-roles="empresa funcionario gerente"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2l2.4 11h11L21 8H7"/><circle cx="10" cy="19.5" r="1.5"/><circle cx="17" cy="19.5" r="1.5"/></svg>Lista de compras<span class="count" data-count="cmp"></span></a>
+      <div class="nav-group" data-group data-cat="compras">
+        <span class="nav-label">Compras e estoque</span>
+        <a href="#/estoque" data-roles="empresa gerente" data-perm="estoque"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg><span>Estoque e etiquetas</span></a>
+        <a href="#/compras" data-roles="empresa funcionario gerente"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2l2.4 11h11L21 8H7"/><circle cx="10" cy="19.5" r="1.5"/><circle cx="17" cy="19.5" r="1.5"/></svg><span>Lista de compras</span><span class="count" data-count="cmp"></span></a>
       </div>
-      <div class="nav-group" data-group>
+      <div class="nav-group" data-group data-cat="alimentos">
         <span class="nav-label">Alimentos</span>
         <a href="#/boas" data-roles="empresa funcionario gerente" data-food><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 14.8V4a2 2 0 1 0-4 0v10.8a4 4 0 1 0 4 0z"/><path d="M12 9v7"/></svg><span>Boas práticas</span></a>
         <a href="#/cursos" data-roles="empresa funcionario gerente" data-food><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-5 9 5-9 5-9-5z"/><path d="M7 11.5V16c0 1.4 2.2 3 5 3s5-1.6 5-3v-4.5"/><path d="M21 9v5"/></svg><span>Mini cursos</span></a>
       </div>
+      <div class="nav-group" data-group data-cat="config">
+        <span class="nav-label">Empresa</span>
+        <a href="#/empresa" data-roles="empresa"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4M12 13v3l2 1"/></svg><span>Turnos e regras do ponto</span></a>
+        <a href="#/acessos" data-roles="empresa"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M16 7l3 3M14 9l2 2"/></svg><span>Acessos e permissões</span></a>
+        <a href="#/registro" data-roles="empresa"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01"/></svg><span>Registro de alterações</span></a>
+      </div>
     </nav>
     <button type="button" class="btn btn-sm instalar-app" data-instalar hidden>Instalar o app</button>
-    <div class="side-foot">Protótipo com dados de exemplo. Nada sai do seu navegador. <button type="button" class="link-btn" id="reset">Restaurar exemplo</button> · <button type="button" class="link-btn" id="em-branco">Começar em branco</button></div>
+    <div class="side-foot"><span id="side-nota">Exemplo com dados fictícios. Nada sai do seu navegador.</span> <button type="button" class="link-btn" id="reset">Restaurar exemplo</button> · <button type="button" class="link-btn" id="em-branco">Começar em branco</button></div>
   </aside>
 
   <header class="top">
-    <button type="button" class="btn menu-btn" id="menu-btn" aria-controls="side" aria-expanded="false">Menu</button>
+    <button type="button" class="btn menu-btn" id="menu-btn" aria-controls="side" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/></svg><span>Menu</span></button>
+    <a class="top-brand" href="#/inicio" aria-label="Início do Seu Comando"><img src="assets/img/logo.svg" alt="" width="28" height="28"></a>
     <div class="search">
       <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
       <label class="sr-only" for="q">Buscar pessoa</label>
@@ -89,7 +96,7 @@
       <datalist id="q-list"></datalist>
     </div>
     <div class="top-right">
-      <button type="button" class="btn btn-sm guia-btn" id="guia-btn" hidden>Passo a passo</button>
+      <button type="button" class="btn btn-sm guia-btn" id="guia-btn" aria-label="Passo a passo" hidden><span class="gb-ic" aria-hidden="true">?</span><span class="gb-t">Passo a passo</span></button>
       <label class="role"><span>Ver como</span>
         <select id="role">
           <option value="empresa">Empresário</option>
@@ -98,7 +105,7 @@
           <option value="funcionario">Funcionário</option>
         </select>
       </label>
-      <button type="button" class="switcher" id="co-btn" aria-label="Dados da empresa"><span class="mark" id="co-mark">P</span><div><strong id="co-name">Padaria Sol</strong><span id="co-sub">Criciúma/SC · 12 pessoas</span></div><svg class="co-edit" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L18.5 9.5a2.1 2.1 0 0 0-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg></button>
+      <div class="co-wrap"><button type="button" class="switcher" id="co-btn" aria-label="Menu da empresa" aria-haspopup="true" aria-expanded="false" aria-controls="co-menu"><span class="mark" id="co-mark">P</span><div><strong id="co-name">Padaria Sol</strong><span id="co-sub">Criciúma/SC · 12 pessoas</span></div><svg class="co-edit" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button><div class="co-menu" id="co-menu" hidden></div></div>
     </div>
   </header>
 

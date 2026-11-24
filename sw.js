@@ -1,8 +1,8 @@
 /* Seu Comando · service worker: deixa o app instalável, abre sem internet e avisa quando há versão nova.
    A cada publicação, aumente VERSAO: o app mostra "Nova versão disponível" e atualiza com um toque. */
-var VERSAO = '2026.11.23-5';
+var VERSAO = '2026.11.23-6';
 var CACHE = 'seucomando-' + VERSAO;
-var ARQUIVOS = ['./', 'index.html', 'app.html', 'entrar.html', 'triagem.html', 'recrutamento.html', 'manifest.webmanifest',
+var ARQUIVOS = ['./', 'index.html', 'app.html', 'entrar.html', 'privacidade.html', 'triagem.html', 'recrutamento.html', 'manifest.webmanifest',
   'assets/css/site.css', 'assets/css/app.css', 'assets/img/logo.svg', 'assets/img/favicon.svg', 'assets/img/logo-transparente.svg', 'assets/img/icone-192.png', 'assets/img/icone-512.png',
   'assets/js/config.js', 'assets/js/vendor/supabase.js', 'assets/js/nuvem.js', 'assets/js/pwa.js', 'assets/js/rosto.js', 'assets/js/entrar.js', 'assets/js/site.js', 'assets/js/app.js', 'assets/js/data.js', 'assets/js/cargos.js',
   'assets/js/clausulas.js', 'assets/js/perguntas.js', 'assets/js/perfis.js', 'assets/js/perfis2.js', 'assets/js/cursos.js', 'assets/js/code39.js', 'assets/js/triagem.js', 'assets/js/vendor/html2pdf.bundle.min.js'];
